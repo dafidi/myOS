@@ -1,5 +1,5 @@
 
-mov ah, 0x0e	;indicates scrolling teletype mode for screen-related interrupt.
+mov ah, 0x0e	;indicates scrolling teletype mode for screen-related BIOS interrupt.
 
 mov al, 'D'
 
