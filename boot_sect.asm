@@ -1,25 +1,21 @@
-; A simple boot sector program demonstrating conditionals.
+; A simple boot sector program that prints a string using our function.
+[org 0x7c00]
 
-mov bx, 30
+mov bx, HELLO_MSG
+call print_string
 
-cmp bx, 4
-jg compare_with_40
-mov al, 'A'
-jmp end
+mov bx, GOODBYE_MSG
+call print_string
 
-compare_with_40:
-	cmp bx, 40
-	jge else
-	mov al, 'B'
-	jmp end
+jmp $
 
-else:
-	mov al, 'C'
+%include "print_string.asm"
 
-end:
-	mov ah, 0x0e
-	int 0x10
-	jmp $
+HELLO_MSG:
+	db 'Hello, World!', 0
+
+GOODBYE_MSG:
+	db 'Goodbye!', 0
 
 times 510 - ($ - $$) db 0
 
