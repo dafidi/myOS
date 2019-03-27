@@ -1,10 +1,25 @@
-;A simple boot sector program to print hexadecimal value of a given 4-byte value.
-[org 0x7c00]
+; A simple boot sector program to demoinstrate segment offsetting.
 
-mov dx, 0x1fb6
+mov ah, 0x0e
+
+mov dx, ds
 call print_hex
+call print_endl
+
+mov bx, 0x7c0
+mov ds, bx
+mov al, [the_secret]
+int 0x10
+call print_endl
+
+mov dx, ds
+call print_hex
+call print_endl
 
 jmp $
+
+the_secret:
+	db "X"
 
 %include "print_string.asm"
 

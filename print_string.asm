@@ -5,6 +5,8 @@
 print_string:
 	pusha			;ensure to save all registers
 	mov ah, 0x0e		;set BIOS to scrolling teletype mode
+	mov al, '['
+	int 0x10
 print_loop:
 	mov al, [bx]
 	cmp al, 0
@@ -13,6 +15,8 @@ print_loop:
 	add bx, 1
 	jmp print_loop
 print_loop_end: 
+	mov al, ']'
+	int 0x10
 	popa
 	ret
 
