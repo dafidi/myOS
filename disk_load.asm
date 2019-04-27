@@ -6,7 +6,7 @@
 ; bx => indicate address in memory (offsetted from es) where BIOS will load the data to.
 
 ; INTERNAL
-; ah => indicate BIOS read sector function.
+; ah => indicate BIOS read sector function (interrupt).
 ; al => indicate number of sectors to be read
 ; ch => select cylinder (or track; i think mean the same thing)
 ; dh => select the side of the desired platter => {
