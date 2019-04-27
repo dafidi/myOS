@@ -1,36 +1,38 @@
-; A boot sector program that enters 32-bit mode.
+; A simple boot sector program to demonstrate using BIOS to load data from disk.
 [org 0x7c00]
 
-mov bp, 0x9000
-mov sp, bp
+mov [BOOT_DRIVE], dl
 
-mov bx, MSG_REAL_MODE
-call print_string
+; I think this is only done as a matter of good practice.
+; for our small programs, we are probably fine with wherever bp and sp
+; are placed. (commented these two lines out and still get correct results.)
+;mov bp, 0x8000
+;mov sp, bp
 
-call print_endl
+mov bx, [where_i_want_to_load_the_data]
+mov dh, 2
+mov dl, [BOOT_DRIVE]
+call disk_load
 
-call switch_to_pm
+mov bx, [where_i_want_to_load_the_data]
+mov dx, [bx]
+call print_hex
+
+mov dx, [bx + 512]
+call print_hex
 
 jmp $
 
-%include "gdt.asm"
 %include "print_string.asm"
-%include "switch_to_pm.asm"
-%include "print_string_pm.asm"
+%include "disk_load.asm"
 
+BOOT_DRIVE: db 0
+where_i_want_to_load_the_data: dw 0xa000
 
-[bits 32]
-BEGIN_PM:
-
-mov ebx, MSG_PROT_MODE
-call print_string_pm
-
-jmp $
-
-MSG_REAL_MODE: db "Started in 16-bit real mode", 0
-MSG_PROT_MODE: db "Successfully landed in 32-bit Protected Mode", 0
-
-; Pad like before :)
 times 510 - ($ - $$) db 0
+
 dw 0xaa55
+
+times 256 dw 0xbeef
+times 256 dw 0xdeed
 
