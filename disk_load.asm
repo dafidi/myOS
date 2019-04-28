@@ -18,7 +18,7 @@
 ;		             n%2 indicates "top" (0) or "bottom" face (1).
 ; cl => indicates index of first sector from which to start reading.
 
-; Also interrupt is 0x13.
+; Also disk read interrupt is 0x13.
 
 disk_load:
 	push dx
@@ -31,16 +31,21 @@ disk_load:
 
 	int 0x13
 	jc call_disk_error
+
 	pop dx
 
 	cmp dh, al
-	jne call_disk_error
+	jne call_disk_error_mismatch
 
 finish_disk_load:
 	ret
 
 call_disk_error:
 	call display_disk_error
+	ret
+
+call_disk_error_mismatch:
+	call display_disk_error_mismatch
 	ret
 
 display_disk_error:
@@ -50,6 +55,16 @@ display_disk_error:
 	pop bx
 	ret
 
+display_disk_error_mismatch:
+	push bx
+	mov bx, DISK_ERROR_MSG_MISMATCH
+	call print_string
+	pop bx
+	ret
+
+DISK_ERROR_MSG_MISMATCH:
+	db "Error reading from disk MISMATCH!", 0
+
 DISK_ERROR_MSG:
-	db "Error reading from disk", 0
+	db "Error reading from disk NO MISMATCH!", 0
 

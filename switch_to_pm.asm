@@ -9,8 +9,7 @@ switch_to_pm:
 	mov cr0, eax
 
 	; for some reason, this print statement does not work - perhaps the
-	; "far-jump".
-	; is needed.
+	; "far-jump" is needed.
 	;mov ebx, debug_msg
 	;call print_string_pm
 
@@ -21,8 +20,9 @@ debug_msg: db "DEBUG", 0
 
 [bits 32]
 init_pm:
-	mov ebx, debug_msg
-	call print_string_pm
+	;mov ebx, debug_msg
+	;call print_string_pm
+
 	mov ax, DATA_SEG
 	mov ds, ax
 	mov ss, ax
