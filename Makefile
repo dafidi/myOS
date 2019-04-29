@@ -1,4 +1,12 @@
 
+# Generate list of sources automatically.
+C_SOURCES = $(wildcard kernel/*.c drivers/*.c)
+HEADERS = $(wildcard kernel/*.h drivers/*.h)
+
+# Generate object file names to build based on *.c filenames.
+OBJ = ${C_SOURCES: .c=.o}
+
+# Default build target.
 all: os-image
 
 # I concatenate null.bin  (which is a binary with nothing but 0x0) because I 
@@ -12,28 +20,38 @@ all: os-image
 #	flag(s)). After I added null the first time, the flag was probably then
 #	changed such that when I tried it again, the flag(s) was/were set so that
 #	reading for that part of memory threw no errors :).
-os-image: boot_sect.bin  kernel.bin null.bin
+os-image: boot/boot_sect.bin  kernel.bin null.bin
 	cat $^ > os-image
 
-boot_sect.bin: boot_sect.asm
-	nasm $< -f bin -o $@
-
-kernel.bin: kernel_entry.o kernel.o
+kernel.bin: kernel/kernel_entry.o kernel/kernel.o
 	ld -o kernel.bin -m elf_i386 -Ttext 0x1000 $^ --oformat binary
 
-kernel_entry.o: kernel_entry.asm
+%.o: %.c ${HEADERS}
+	gcc -m32 -fno-pie -c $< -o $@
+
+%.o: %.asm
 	nasm $< -f elf -o $@
 
-null.bin: null.asm
+%.bin: %.asm
 	nasm $< -f bin -o $@
+
+#boot_sect.bin: boot_sect.asm
+#	nasm $< -f bin -o $@
+
+#kernel_entry.o: kernel_entry.asm
+#	nasm $< -f elf -o $@
 
 # The -m32 flag lets the compiler know to compile the kernel for a 32-bit 
 # machine. This has a side effect of throwing the error:
 # 	"undefined reference to `_GLOBAL_OFFSET_TABLE_'"
 # I fix this by adding the -fno-pie flag.
-kernel.o: kernel.c
-	gcc -m32 -fno-pie -c $< -o $@
+#kernel.o: kernel.c
+#	gcc -m32 -fno-pie -c $< -o $@
+
+#null.bin: null.asm
+#	nasm $< -f bin -o $@
 
 clean:
 	rm -rf *.bin *.dis *.o os-image *.map
+	rm -rf kernel/*.o boot/*.bin drivers/*.o
 
