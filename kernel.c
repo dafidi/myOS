@@ -3,7 +3,7 @@
 void main() {
 	char* video_memory = (char*) 0xb8000;
 
-	video_memory[1] = 'Q'; 
-	video_memory[5] = 'X';
+	video_memory[0] = 'Q'; 
+	video_memory[2] = 'X';
 }
 

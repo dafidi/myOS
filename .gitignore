@@ -1,2 +1,6 @@
 *.bin
+*.o
+*.dis
+*.map
 
+os-image
