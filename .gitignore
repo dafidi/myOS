@@ -2,5 +2,7 @@
 *.o
 *.dis
 *.map
+*.swp
+*.swo
 
 os-image

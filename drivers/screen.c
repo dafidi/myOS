@@ -17,7 +17,7 @@ void print_char(char character, int col, int row, char attribute_byte) {
 
 	if (character == '\n') {
 		int rows = offset / (2*MAX_COLS);
-	 	offset = get_screen_offset(79, rows);
+	 	offset = get_screen_offset(rows+1, 79);
 	} else {
 		vidmem[offset] = character;
 		vidmem[offset+1] = attribute_byte;
