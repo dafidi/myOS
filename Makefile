@@ -1,10 +1,16 @@
 
+# Remember:
+#	$< = first argument for target
+#	$^ = all arguments for target
+#	$@ = name of target
+
 # Generate list of sources automatically.
 C_SOURCES = $(wildcard kernel/*.c drivers/*.c)
 HEADERS = $(wildcard kernel/*.h drivers/*.h)
 
 # Generate object file names to build based on *.c filenames.
-OBJ = ${C_SOURCES: .c=.o}
+#OBJ = ${C_SOURCES: .c=.o}
+OBJ = $(patsubst %.c, %.o, ${C_SOURCES})
 
 # Default build target.
 all: os-image
@@ -23,10 +29,10 @@ all: os-image
 os-image: boot/boot_sect.bin  kernel.bin null.bin
 	cat $^ > os-image
 
-kernel.bin: kernel/kernel_entry.o kernel/kernel.o
+kernel.bin: kernel/kernel_entry.o ${OBJ}
 	ld -o kernel.bin -m elf_i386 -Ttext 0x1000 $^ --oformat binary
 
-%.o: %.c ${HEADERS}
+%.o: %.c
 	gcc -m32 -fno-pie -c $< -o $@
 
 %.o: %.asm

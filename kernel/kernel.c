@@ -1,9 +1,8 @@
 // A simple kernel which simply two characters at the top left of the screen.
+#include "../drivers/screen.h"
 
 void main() {
-	char* video_memory = (char*) 0xb8000;
-
-	video_memory[0] = 'Q'; 
-	video_memory[2] = 'X';
+	char* hello_to_my_os_message = "Hello to David's O/S.";
+	print(hello_to_my_os_message);
 }
 
