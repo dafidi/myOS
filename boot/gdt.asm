@@ -31,7 +31,7 @@ gdt_data:
 gdt_end:		; This label helps us calculate the size of the GDT.
 
 gdt_descriptor:
-	dw gdt_end - gdt_start
+	dw gdt_end - gdt_start - 1
 
 	dd gdt_start
 

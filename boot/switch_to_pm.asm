@@ -16,14 +16,9 @@ switch_to_pm:
 	jmp CODE_SEG:init_pm	; cause the CPU to flush real-mode 16 bit 
 				; instructions in pipeline.
 
-debug_msg: db "DEBUG", 0
-
 [bits 32]
 init_pm:
-	;mov ebx, debug_msg
-	;call print_string_pm
-
-	mov ax, DATA_SEG
+	mov ax, DATA_SEG ;DATA_SEG is defined in gdt.asm
 	mov ds, ax
 	mov ss, ax
 	mov es, ax
@@ -33,5 +28,12 @@ init_pm:
 	mov ebp, 0x90000
 	mov esp, ebp
 
+	mov ebx, MSG_PROT_MODE
+	call print_string_pm
+
+	;ret
 	call BEGIN_PM
+
+MSG_PROT_MODE: db "Successfully landed in 32-bit Protected Mode", 0
+
 

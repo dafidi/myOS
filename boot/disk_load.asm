@@ -47,7 +47,9 @@ call_disk_error:
 call_disk_error_mismatch:
 	call display_disk_error_mismatch
 	ret
-
+;;;;;;;;;;;;;;;;
+;;Helper stuff;;
+;;;;;;;;;;;;;;;;
 display_disk_error:
 	push bx
 	mov bx, DISK_ERROR_MSG
@@ -68,3 +70,5 @@ DISK_ERROR_MSG_MISMATCH:
 DISK_ERROR_MSG:
 	db "Error reading from disk NO MISMATCH!", 0
 
+DISK_LOAD_DONE_MSG:
+	db "Done loading from disk. (No problems)", 0
