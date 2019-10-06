@@ -32,7 +32,6 @@ gdt_end:		; This label helps us calculate the size of the GDT.
 
 gdt_descriptor:
 	dw gdt_end - gdt_start - 1
-
 	dd gdt_start
 
 ; Variables to mark offset (in bytes) to from the start if the GDT to the code and data segments.
