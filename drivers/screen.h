@@ -20,3 +20,5 @@ void print_at(char*, int, int);
 void print(char*);
 
 void clear_screen();
+
+int  handle_scrolling(int  cursor_offset);

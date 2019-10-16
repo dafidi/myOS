@@ -8,11 +8,6 @@ switch_to_pm:
 	or al, 1
 	mov cr0, eax
 
-	; for some reason, this print statement does not work - perhaps the
-	; "far-jump" is needed.
-	;mov ebx, debug_msg
-	;call print_string_pm
-
 	jmp CODE_SEG:init_pm	; cause the CPU to flush real-mode 16 bit 
 				; instructions in pipeline.
 

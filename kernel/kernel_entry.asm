@@ -1,16 +1,32 @@
 [bits 32]
+
 [extern main]
 call main
-jmp $
+
+mov bx, k_msg1
+call print_string_pm
+
+loop_: 
+  mov eax, 1
+jmp loop_
+
+mov bx, k_msg2
+call print_string_pm
 
 global initialize_idt
 [extern idt_info_ptr]
 
 initialize_idt:
   lidt [idt_info_ptr]
+  ret
+
+global enable_interrupts
+enable_interrupts:
   sti
   ret
+
 [extern fault_handler]
+[extern irq_handler]
 
 global isr0
 global isr1
@@ -45,36 +61,22 @@ global isr29
 global isr30
 global isr31
 
-isr_decl:
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
-  global isr0
+global irq0
+global irq1
+global irq2
+global irq3
+global irq4
+global irq5
+global irq6
+global irq7
+global irq8
+global irq9
+global irq10
+global irq11
+global irq12
+global irq13
+global irq14
+global irq15
 
 isr0:
   cli
@@ -123,7 +125,6 @@ isr7:
   push byte 0
   push byte 7
   jmp isr_common
-
 
 isr8:
   cli
@@ -263,8 +264,6 @@ isr31:
   push byte 31
   jmp isr_common
 
-[extern print_string_pm]
-
 isr_common:
   pusha
   push ds
@@ -287,8 +286,137 @@ isr_common:
   pop ds
   popa
   add esp, 8
+
+  push ebx
+  mov bx, k_msg3
+  call print_string_pm
+  pop ebx
+
   iret
 
-isr_msg: db "isr called", 0
+irq0:
+  cli
+  push byte 0
+  push byte 32
+  jmp irq_common
+
+irq1:
+  cli
+  push byte 0
+  push byte 33
+  jmp irq_common
+
+irq2:
+  cli
+  push byte 0
+  push byte 34
+  jmp irq_common
+
+irq3:
+  cli
+  push byte 0
+  push byte 35
+  jmp irq_common
+
+irq4:
+  cli
+  push byte 0
+  push byte 36
+  jmp irq_common
+
+irq5:
+  cli
+  push byte 0
+  push byte 37
+  jmp irq_common
+
+irq6:
+  cli
+  push byte 0
+  push byte 38
+  jmp irq_common
+
+irq7:
+  cli
+  push byte 0
+  push byte 39
+  jmp irq_common
+
+irq8:
+  cli
+  push byte 0
+  push byte 40
+  jmp irq_common
+
+irq9:
+  cli
+  push byte 0
+  push byte 41
+  jmp irq_common
+
+irq10:
+  cli
+  push byte 0
+  push byte 42
+  jmp irq_common
+
+irq11:
+  cli
+  push byte 0
+  push byte 43
+  jmp irq_common
+
+irq12:
+  cli
+  push byte 0
+  push byte 44
+  jmp irq_common
+
+irq13:
+  cli
+  push byte 0
+  push byte 45
+  jmp irq_common
+
+irq14:
+  cli
+  push byte 0
+  push byte 46
+  jmp irq_common
+
+irq15:
+  cli
+  push byte 0
+  push byte 47
+  jmp irq_common
+
+
+irq_common:
+  pusha
+  push ds
+  push es
+  push fs
+  push gs
+  mov ax, 0x10
+  mov ds, ax
+  mov es, ax
+  mov fs, ax
+  mov gs, ax
+  mov eax, esp
+  push eax
+  mov eax, irq_handler
+  call eax
+  pop eax
+  pop gs
+  pop fs
+  pop es
+  pop ds
+  popa
+  add esp, 8
+  iret
+
+k_msg1: db "main is done", 0
+k_msg2: db "definitely in another universe.", 0
+k_msg3: db "exception handled.", 0
 
 %include "boot/print_string_pm.asm"

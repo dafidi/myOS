@@ -11,12 +11,12 @@ gdt_code:
 	; 1st flags: (present)1 (privilege)00 (descriptor type)1 -> 1001b
 	; type flags: (code)1 (conforming)0 (readable)1 (accessed)0 -> 1010b
 	; 2nd flags: (granularity)1 (32-bit default)1 (64-bit seg)0 (AVL)0 -> 1100b
-	dw 0xffff	; Limit (bits 0-15)
-	dw 0x0		; Base (bits 0-15)
-	db 0x0		; Base (bits 16-23)
+	dw 0xffff	; Limit bits 0-15
+	dw 0x0		; Base bits 0-15
+	db 0x0		; Base bits 16-23
 	db 10011010b	; 1st flags, type flags
-	db 11001111b	; 2bd flags, LImiy (bits 16-19)
-	db 0x0		; Base (bits 24-31)
+	db 11001111b	; 2nd flags, Limit bits 16-19
+	db 0x0		; Base bits 24-31
 
 gdt_data:
 	; Same as code section except for the type flags

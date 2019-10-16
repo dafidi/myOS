@@ -14,7 +14,7 @@
 ;		    1 => second side of first platter
 ;		    2 => first side of second platter ... and so on.
 ;	}
-; 	 Basically, given n, floor(n/2) indicates platter index, 
+; Basically, given n, floor(n/2) indicates platter index, 
 ;		             n%2 indicates "top" (0) or "bottom" face (1).
 ; cl => indicates index of first sector from which to start reading.
 
