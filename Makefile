@@ -20,14 +20,14 @@ all: os-image
 # is contained in the binary. Weirdly enough, it seemed to solve the problem 
 # the first time, but then I tried running the image again without concatenating
 # null.bin - this did not result in errors.
-os-image: boot/boot_sect.bin  kernel.bin null.bin
+os-image: boot/boot_sect.bin kernel.bin null.bin
 	cat $^ > os-image
 
 kernel.bin: kernel/kernel_entry.o ${OBJ}
 	ld -o kernel.bin -m elf_i386 -Ttext 0x1000 $^ --oformat binary
 
 %.o: %.c
-	gcc -m32 -fno-pie -fno-stack-protector -c $< -o $@
+	gcc -Wall -O0 -m32 -fno-pie -fno-stack-protector -c $< -o $@
 
 %.o: %.asm
 	nasm $< -f elf -o $@

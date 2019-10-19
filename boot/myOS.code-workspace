@@ -1,0 +1,12 @@
+{
+    "settings": {
+        "files.associations": {
+            "system.h": "c"
+        }
+    },
+    "folders": [
+        {
+            "path": "/home/david/dev_mode/os/myOS/kernel"
+        }
+    ]
+}

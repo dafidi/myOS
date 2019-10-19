@@ -1,9 +1,7 @@
-#include "isrs.h"
 #include "system.h"
+#include "isrs.h"
 
 #include "../drivers/screen.h"
-
-#define STR_MESSAGE_LENGTH 256
 
 void install_isrs() {
   set_idt_entry(0, (unsigned) isr0, 0x08, 0x8E);
@@ -39,9 +37,6 @@ void install_isrs() {
   set_idt_entry(30, (unsigned) isr30, 0x08, 0x8E);
   set_idt_entry(31, (unsigned) isr31, 0x08, 0x8E);
 }
-
-void int_to_string(char* s, int v, int n); /* Not used. */
-void strcopy(char* dest, const char* src); /* Not used. */
 
 void fault_handler(struct registers* regs) {
   char* exception_messages[] = {
@@ -80,31 +75,5 @@ void fault_handler(struct registers* regs) {
   print("Handling Fault.\n");
   print(exception_messages[regs->int_no]);
   print("\n");
-  return;
-}
-
-/* Not used. */
-void int_to_string(char* s, int val, int n) {
-  const int size = n;
-  char t;
-  for (int i = 0; i < size && val; i++) {
-    t = val % 10;
-    s[size - i - 1] = t + 48;
-    val /= 10;
-  }
-  return;
-}
-
-/* Not used. */
-void strcopy(char* dest, const char* src) {
-  short curr_index = 0;
-  char curr_char = src[curr_index];
-  
-  while (curr_char && curr_index < STR_MESSAGE_LENGTH) {
-    dest[curr_index] = curr_char;
-    curr_index += 1;
-    curr_char = src[curr_index];
-  }
-  dest[STR_MESSAGE_LENGTH - 1] = '\0';
   return;
 }

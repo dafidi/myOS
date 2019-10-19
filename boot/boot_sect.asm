@@ -1,5 +1,5 @@
 ; A boot sector program that enters 32-bit mode and loads the kernel
-; int address 0x1000.
+; into address 0x1000.
 [org 0x7c00]
 
 KERNEL_OFFSET equ 0x1000

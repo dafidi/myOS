@@ -30,5 +30,3 @@ init_pm:
 	call BEGIN_PM
 
 MSG_PROT_MODE: db "Successfully landed in 32-bit Protected Mode", 0
-
-

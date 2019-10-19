@@ -1,20 +1,12 @@
 [bits 32]
 
-[extern main]
+extern main
+global initialize_idt
+extern idt_info_ptr
+
 call main
 
-mov bx, k_msg1
-call print_string_pm
-
-loop_: 
-  mov eax, 1
-jmp loop_
-
-mov bx, k_msg2
-call print_string_pm
-
-global initialize_idt
-[extern idt_info_ptr]
+jmp $
 
 initialize_idt:
   lidt [idt_info_ptr]
@@ -25,8 +17,8 @@ enable_interrupts:
   sti
   ret
 
-[extern fault_handler]
-[extern irq_handler]
+extern fault_handler
+extern irq_handler
 
 global isr0
 global isr1
@@ -286,12 +278,6 @@ isr_common:
   pop ds
   popa
   add esp, 8
-
-  push ebx
-  mov bx, k_msg3
-  call print_string_pm
-  pop ebx
-
   iret
 
 irq0:
@@ -415,8 +401,8 @@ irq_common:
   add esp, 8
   iret
 
-k_msg1: db "main is done", 0
-k_msg2: db "definitely in another universe.", 0
-k_msg3: db "exception handled.", 0
+; k_msg1: db "main is done", 0
+; k_msg2: db "definitely in another universe.", 0
+; k_msg3: db "exception handled.", 0
 
-%include "boot/print_string_pm.asm"
+; %include "boot/print_string_pm.asm"
