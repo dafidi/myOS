@@ -10,9 +10,6 @@
 #define NUM_TEMPLATE "000000000000"
 
 extern void enable_interrupts(void);
-extern int main_start;
-extern int loop2;
-extern int loop_;
 extern void initialize_idt(void);
 
 void init(void) {
@@ -22,18 +19,16 @@ void init(void) {
 	enable_interrupts();
 }
 
-int i = 0;
-char* kernel_load_message = "msg\n";
+char* kernel_load_message = "Kernel Loaded\n";
 
 int main(void) {
-	init();
 	char* kernel_init_message = "Kernel initialized.\n";
 	char* long_kernel_story = 
 	"============================================\n"
 	"This is the story of a little kernel\n"
 	"============================================\n";
-	i = 78 * 90;
 	print(kernel_load_message);
+	init();
 	print(kernel_init_message);
 	print(long_kernel_story);
 

@@ -4,14 +4,18 @@
 
 KERNEL_OFFSET equ 0x1000
 
+xor ax, ax
+mov ds, ax
+mov es, ax
 mov [BOOT_DRIVE], dl
 
 mov bp, 0x9000
+mov ss, bp
 mov sp, bp
 
-mov bx, MSG_REAL_MODE
-call print_string
-call print_endl
+; mov bx, MSG_REAL_MODE
+; call print_string
+; call print_endl
 
 call load_kernel
 
@@ -28,7 +32,7 @@ jmp $
 [bits 16]
 load_kernel:
 	mov bx, KERNEL_OFFSET
-	mov dh, 15
+	mov dh, 35
 	mov dl, [BOOT_DRIVE]
 
 	call disk_load

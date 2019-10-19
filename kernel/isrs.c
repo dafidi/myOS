@@ -38,7 +38,6 @@ void install_isrs() {
   set_idt_entry(31, (unsigned) isr31, 0x08, 0x8E);
 }
 
-void fault_handler(struct registers* regs) {
   char* exception_messages[] = {
     /*0 */ "Division By Zero Exception",
     /*1 */ "Debug Exception",
@@ -72,6 +71,8 @@ void fault_handler(struct registers* regs) {
     /*29*/  "Reserved",
     /*30*/  "Reserved"
   };
+
+void fault_handler(struct registers* regs) {
   print("Handling Fault.\n");
   print(exception_messages[regs->int_no]);
   print("\n");

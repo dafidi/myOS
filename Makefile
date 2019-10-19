@@ -27,7 +27,7 @@ kernel.bin: kernel/kernel_entry.o ${OBJ}
 	ld -o kernel.bin -m elf_i386 -Ttext 0x1000 $^ --oformat binary
 
 %.o: %.c
-	gcc -Wall -O0 -m32 -fno-pie -fno-stack-protector -c $< -o $@
+	gcc -Wall -O0 -m32 -fno-pie -fno-stack-protector -ffreestanding -c $< -o $@
 
 %.o: %.asm
 	nasm $< -f elf -o $@

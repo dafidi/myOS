@@ -84,7 +84,7 @@ void irq_handler(struct registers* r) {
 
   void (*handler) (struct registers r);
 
-  handler = irq_routines[r->int_no];
+  handler = irq_routines[r->int_no - 32];
 
   if (handler)
     handler(*r);
