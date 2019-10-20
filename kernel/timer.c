@@ -18,7 +18,7 @@ void timer_handler(struct registers* r) {
   timer_ticks++;
 
   if(timer_ticks % DEFAULT_TIMER_FREQUENCY_HZ == 0) {
-    print("TICK\n");
+    // print("TICK\n");
   }
 }
 

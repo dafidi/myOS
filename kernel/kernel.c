@@ -1,6 +1,8 @@
 // A simple kernel.
 #include "system.h"
 
+// TODO: Fix Makefile to avoid these kinds of includes (i.e "../")
+#include "../drivers/keyboard.h"
 #include "../drivers/screen.h"
 
 #include "idt.h"
@@ -19,6 +21,7 @@ void init(void) {
 	install_irqs();
 	timer_phase(DEFAULT_TIMER_FREQUENCY_HZ);
 	timer_install();
+	install_keyboard();
 	enable_interrupts();
 }
 

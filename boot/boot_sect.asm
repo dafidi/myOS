@@ -32,7 +32,7 @@ jmp $
 [bits 16]
 load_kernel:
 	mov bx, KERNEL_OFFSET
-	mov dh, 35
+	mov dh, 35 ; Read this many sectors.
 	mov dl, [BOOT_DRIVE]
 
 	call disk_load
