@@ -8,6 +8,9 @@
 C_SOURCES = $(wildcard kernel/*.c drivers/*.c)
 HEADERS = $(wildcard kernel/*.h drivers/*.h)
 
+C_FLAGS = -Wall -O0 -m32 -fno-pie -fno-stack-protector -ffreestanding
+C_FLAGS += -I./
+
 # Generate object file names to build based on *.c filenames.
 #OBJ = ${C_SOURCES: .c=.o}
 OBJ = $(patsubst %.c, %.o, ${C_SOURCES})
@@ -27,7 +30,7 @@ kernel.bin: kernel/kernel_entry.o ${OBJ}
 	ld -o kernel.bin -m elf_i386 -Ttext 0x1000 $^ --oformat binary
 
 %.o: %.c
-	gcc -Wall -O0 -m32 -fno-pie -fno-stack-protector -ffreestanding -c $< -o $@
+	gcc ${C_FLAGS} -c $< -o $@
 
 %.o: %.asm
 	nasm $< -f elf -o $@

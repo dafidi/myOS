@@ -1,4 +1,4 @@
-#include "../kernel/low_level.h"
+#include "kernel/low_level.h"
 #include "screen.h"
 
 void print_char(char character, int row, int col, char attribute_byte) {

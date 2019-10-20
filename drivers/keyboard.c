@@ -1,7 +1,7 @@
 #include "keyboard.h"
 
 #include "screen.h"
-#include "../kernel/irq.h"
+#include "kernel/irq.h"
 
 static const unsigned char US_KEYBOARD_MAP[128] = {
   0,  27, '1', '2', '3', '4', '5', '6', '7', '8',	/* 9 */

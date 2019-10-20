@@ -2,8 +2,8 @@
 #include "system.h"
 
 // TODO: Fix Makefile to avoid these kinds of includes (i.e "../")
-#include "../drivers/keyboard.h"
-#include "../drivers/screen.h"
+#include "drivers/keyboard.h"
+#include "drivers/screen.h"
 
 #include "idt.h"
 #include "isrs.h"

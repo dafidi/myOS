@@ -1,8 +1,8 @@
 #ifndef __KEYBOARD_H__
 #define __KEYBOARD_H__
 
-#include "../kernel/system.h"
-#include "../kernel/low_level.h"
+#include "kernel/system.h"
+#include "kernel/low_level.h"
 
 #define KEYBOARD_DATA_REGISTER_PORT 0x60
 

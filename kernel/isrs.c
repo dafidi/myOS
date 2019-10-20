@@ -1,7 +1,7 @@
 #include "system.h"
 #include "isrs.h"
 
-#include "../drivers/screen.h"
+#include "drivers/screen.h"
 
 void install_isrs() {
   set_idt_entry(0, (unsigned) isr0, 0x08, 0x8E);
