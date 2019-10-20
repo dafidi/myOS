@@ -19,5 +19,6 @@ extern void irq14();
 extern void irq15();
 
 void install_irqs(void);
+void install_irq(int,  void (*handler) (struct registers* r));
 
 #endif /* __IRQ_H__ */

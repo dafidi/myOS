@@ -6,6 +6,7 @@
 #include "idt.h"
 #include "isrs.h"
 #include "irq.h"
+#include "timer.h"
 
 #define NUM_TEMPLATE "000000000000"
 
@@ -16,6 +17,8 @@ void init(void) {
 	init_idt();
 	install_isrs();
 	install_irqs();
+	timer_phase(DEFAULT_TIMER_FREQUENCY_HZ);
+	timer_install();
 	enable_interrupts();
 }
 

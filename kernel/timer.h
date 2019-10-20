@@ -4,8 +4,8 @@
 #include "system.h"
 
 void timer_phase(int hz);
-void timer_handler();
-void timer_wait_timer_install();
-void timer_wait();
+void timer_handler(struct registers* r);
+void timer_wait(int);
+void timer_install(void);
 
 #endif //__TIME_H__

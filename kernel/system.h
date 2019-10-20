@@ -1,6 +1,7 @@
 #ifndef __SYSTEM_H__
 #define __SYSTEM_H__
 
+#define DEFAULT_TIMER_FREQUENCY_HZ 100
 #define STR_MESSAGE_LENGTH 256
 
 struct registers {

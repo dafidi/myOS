@@ -82,12 +82,12 @@ void install_irqs(void) {
 
 void irq_handler(struct registers* r) {
 
-  void (*handler) (struct registers r);
+  void (*handler) (struct registers* r);
 
   handler = irq_routines[r->int_no - 32];
 
   if (handler)
-    handler(*r);
+    handler(r);
 
   // If it's a slave interrupt, must send "complete" signal to slave too.
   if (r->int_no >= 40) {
