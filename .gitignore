@@ -1,5 +1,5 @@
 # No need to check docs in.
-docs/
+docs/vendor
 
 # Binaries and other file format that don't need to be kept.
 *.bin
