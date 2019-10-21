@@ -33,6 +33,7 @@ jmp $
 load_kernel:
 	mov bx, KERNEL_OFFSET
 	mov dh, 35 ; Read this many sectors.
+	; Note: reading in too many sectors (larger that the image) causes errors
 	mov dl, [BOOT_DRIVE]
 
 	call disk_load
