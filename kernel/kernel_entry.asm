@@ -400,9 +400,3 @@ irq_common:
   popa
   add esp, 8
   iret
-
-; k_msg1: db "main is done", 0
-; k_msg2: db "definitely in another universe.", 0
-; k_msg3: db "exception handled.", 0
-
-; %include "boot/print_string_pm.asm"

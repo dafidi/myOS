@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# Convenience script to start the VM.
+qemu-system-i386 -drive file=os-image,format=raw -m 4G
+

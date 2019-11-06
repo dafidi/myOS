@@ -1,11 +1,14 @@
 #include "system.h"
 
 void int_to_string(char* s, int val, int n) {
-  const int size = n;
   char t;
-  for (int i = 0; i < size && val; i++) {
+  int i;
+  
+  for (i = 0; i < n; i++) { s[i] = 48; } // Clear vestigial digits.
+
+  for (i = 0; i < n && val; i++) {
     t = val % 10;
-    s[size - i - 1] = t + 48;
+    s[n - i - 1] = t + 48;
     val /= 10;
   }
   return;

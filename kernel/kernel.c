@@ -1,9 +1,9 @@
 // A simple kernel.
 #include "system.h"
 
-// TODO: Fix Makefile to avoid these kinds of includes (i.e "../")
-#include "drivers/keyboard.h"
-#include "drivers/screen.h"
+#include "drivers/keyboard/keyboard.h"
+#include "drivers/screen/screen.h"
+#include "drivers/disk/disk.h"
 
 #include "idt.h"
 #include "isrs.h"
@@ -38,7 +38,8 @@ int main(void) {
 	print(kernel_init_message);
 	print(long_kernel_story);
 
-	// for (;;);
+	read_from_disk();
+
 	return 0;
 }
 

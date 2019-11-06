@@ -28,7 +28,7 @@ void print_char(char character, int row, int col, char attribute_byte) {
 		offset += 2;
 	}
 
-	// offset = handle_scrolling(offset);
+	offset = handle_scrolling(offset);
 
 	set_cursor(offset);
 }

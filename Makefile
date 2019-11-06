@@ -5,7 +5,7 @@
 #	$@ = name of target
 
 # Generate list of sources automatically.
-C_SOURCES = $(wildcard kernel/*.c drivers/*.c)
+C_SOURCES = $(wildcard kernel/*.c drivers/**/*.c)
 HEADERS = $(wildcard kernel/*.h drivers/*.h)
 
 C_FLAGS = -Wall -O0 -m32 -fno-pie -fno-stack-protector -ffreestanding
@@ -56,5 +56,5 @@ kernel.bin: kernel/kernel_entry.o ${OBJ}
 
 clean:
 	rm -rf *.bin *.dis *.o os-image *.map
-	rm -rf kernel/*.o boot/*.bin drivers/*.o
+	rm -rf kernel/*.o boot/*.bin drivers/**/*.o
 
