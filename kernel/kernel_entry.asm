@@ -17,6 +17,11 @@ enable_interrupts:
   sti
   ret
 
+global disable_interrupts
+disable_interrupts:
+  cli
+  ret
+
 extern fault_handler
 extern irq_handler
 

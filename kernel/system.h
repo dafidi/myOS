@@ -15,4 +15,7 @@ void int_to_string(char* s, int val, int n);
 
 void strcopy(char* dest, const char* src);
 
+extern void enable_interrupts(void);
+extern void disable_interrupts(void);
+
 #endif /* __SYSTEM_H__ */

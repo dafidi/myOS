@@ -4,7 +4,7 @@
 #include "drivers/screen/screen.h"
 #include "kernel/system.h"
 
-int hd_addr = 1 << 28;
+int hd_addr = 13494;
 char buf[1024] = "BEFORE";
 char bigtmp[12] = "00000000000";
 char tmp[10] = "0000000";
@@ -21,12 +21,13 @@ void reset_hd(void) {
 void read_from_disk(){
   unsigned short hd_status;
   print("Reading from Disk...\n");
+	disable_interrupts();
   while((port_byte_in(HD_PORT_STATUS) & 0xc0) != 0x40) {
     print("Disk Controller busy...\n");
   }
 
   port_byte_out(HD_PORT_ERROR, 0x0);
-  port_byte_out(HD_PORT_SECT_COUNT, 1);
+  port_byte_out(HD_PORT_SECT_COUNT, 10);
   port_byte_out(HD_PORT_SECT_NUM, (unsigned short) hd_addr);
   port_byte_out(HD_PORT_CYL_LOW, (unsigned short) (hd_addr >> 8));
   port_byte_out(HD_PORT_CYL_HIGH, (unsigned short) (hd_addr >> 16));
@@ -51,6 +52,7 @@ void read_from_disk(){
   print(buf);
   print("]\n");
 
+	enable_interrupts();
   print("Done reading from disk.\n");
 }
 
