@@ -3,7 +3,7 @@
 
 #include "irq.h"
 
-#include "drivers/screen/screen.h"
+#include <drivers/screen/screen.h>
 
 int timer_ticks = 0;
 
