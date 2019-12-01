@@ -4,6 +4,14 @@
 #define DEFAULT_TIMER_FREQUENCY_HZ 100
 #define STR_MESSAGE_LENGTH 256
 
+#define bool unsigned char
+#define true 1
+#define false 0
+
+typedef unsigned int uint32_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint8_t;
+
 struct registers {
   unsigned int gs, fs, es, ds;      /* pushed the segs last */
   unsigned int edi, esi, ebp, esp, ebx, edx, ecx, eax;  /* pushed by 'pusha' */
@@ -17,5 +25,6 @@ void strcopy(char* dest, const char* src);
 
 extern void enable_interrupts(void);
 extern void disable_interrupts(void);
+
 
 #endif /* __SYSTEM_H__ */

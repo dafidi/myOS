@@ -1,6 +1,8 @@
 #include "system.h"
 #include "low_level.h"
 
+#include "drivers/screen/screen.h"
+
 #include "irq.h"
 #include "idt.h"
 
@@ -80,15 +82,15 @@ void install_irqs(void) {
   set_idt_entry(47, (unsigned) irq15, 0x08, 0x8E);
 }
 
+static char tmp[10] = "000000000";
 void irq_handler(struct registers* r) {
-
-  void (*handler) (struct registers* r);
+ void (*handler) (struct registers* r);
 
   handler = irq_routines[r->int_no - 32];
 
   if (handler)
     handler(r);
-
+    // print("got handler\n");
   // If it's a slave interrupt, must send "complete" signal to slave too.
   if (r->int_no >= 40) {
     port_byte_out(PIC_SLAVE_CMD_PORT, 0x20);

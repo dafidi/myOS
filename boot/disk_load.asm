@@ -27,7 +27,7 @@ disk_load:
 	mov al, dh
 	mov ch, 0x00
 	mov dh, 0x00
-	mov cl, 0x02
+	mov cl, 0x02; Boot sector in sector 1, kernel in sectors 2, 3, ...
 
 	int 0x13
 	jc call_disk_error

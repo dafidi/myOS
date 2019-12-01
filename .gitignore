@@ -1,6 +1,8 @@
 # No need to check docs in.
 docs/vendor
 
+sandbox/
+
 # Binaries and other file format that don't need to be kept.
 *.bin
 *.o

@@ -18,12 +18,7 @@ OBJ = $(patsubst %.c, %.o, ${C_SOURCES})
 # Default build target.
 all: os-image
 
-# I concatenate null.bin  (which is a binary with nothing but 0x0) because I 
-# was experiencing errors when trying to load disc sectors for more data than
-# is contained in the binary. Weirdly enough, it seemed to solve the problem 
-# the first time, but then I tried running the image again without concatenating
-# null.bin - this did not result in errors.
-os-image: boot/boot_sect.bin kernel.bin null.bin
+os-image: boot/boot_sect.bin kernel.bin
 	cat $^ > os-image
 
 kernel.bin: kernel/kernel_entry.o ${OBJ}
