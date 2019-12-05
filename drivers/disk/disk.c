@@ -44,7 +44,7 @@ static unsigned char hd_ctrl_error;
 // Reads 32 bytes (16 words) from the point on the disk past the kernel.
 void read_from_disk(void) {
   print("Reading from Disk...\n");
-	disable_interrupts();
+	// disable_interrupts();
 
   while((port_byte_in(HD_PORT_STATUS_PRIMARY) & 0xc0) != 0x40) {
     print("Disk Controller busy...\n");
@@ -84,19 +84,15 @@ void read_from_disk(void) {
   int_to_string(tmp, hd_ctrl_status, 9);
   print("HD READY! STATUS:"); print(tmp); print("\n");
 
-  print("before:\n[");
-  print(buffer);
-  print("]\n");
+  print("before: ["); print(buffer); print("]\n");
   insw(HD_PORT_DATA_PRIMARY, buffer, 16);
-  print("after:\n[");
-  print(buffer);
-  print("]\n");
+  print("after: ["); print(buffer); print("]\n");
 
   SHOW_DISK_CTRL_STATUS("STATUS [after insb] STATUS:");
   SHOW_DISK_CTRL_ERROR("ERROR [after insb] ERROR:");
 
-  print("Done reading from disk.\n");
-	enable_interrupts();
+  print("Finished reading from disk.\n");
+	// enable_interrupts();
   return;
 }
 
