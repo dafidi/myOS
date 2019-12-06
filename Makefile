@@ -20,6 +20,7 @@ all: os-image
 
 os-image: boot/boot_sect.bin kernel.bin
 	cat $^ > os-image
+	nasm -f bin -o storage_disk.img storage_disk.asm
 
 kernel.bin: kernel/kernel_entry.o ${OBJ}
 	ld -o kernel.bin -m elf_i386 -Ttext 0x1000 $^ --oformat binary
@@ -50,6 +51,6 @@ kernel.bin: kernel/kernel_entry.o ${OBJ}
 #	nasm $< -f bin -o $@
 
 clean:
-	rm -rf *.bin *.dis *.o os-image *.map
+	rm -rf *.bin *.dis *.o os-image *.map *.img
 	rm -rf kernel/*.o boot/*.bin drivers/**/*.o
 

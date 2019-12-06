@@ -14,13 +14,22 @@ extern void enable_interrupts(void);
 extern void initialize_idt(void);
 
 void init(void) {
+	/* Set up fault handlers and interrupt handlers. */
 	init_idt();
 	install_isrs();
 	install_irqs();
+
+	/* Set up systems timer. */
 	timer_phase(DEFAULT_TIMER_FREQUENCY_HZ);
 	timer_install();
+
+	/* Set up disk. */
+	init_disk();
+
+	/* Setup keyboard */
 	install_keyboard();
-	// install_disk_irq_handler();
+	
+	/* Let the fun begin. */
 	enable_interrupts();
 }
 
@@ -38,7 +47,7 @@ int main(void) {
 	print(kernel_init_message);
 	print(long_kernel_story);
 
-	read_from_disk();
+	read_from_storage_disk();
 
 	while(true);
 }

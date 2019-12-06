@@ -90,7 +90,7 @@ void irq_handler(struct registers* r) {
 
   if (handler)
     handler(r);
-    // print("got handler\n");
+
   // If it's a slave interrupt, must send "complete" signal to slave too.
   if (r->int_no >= 40) {
     port_byte_out(PIC_SLAVE_CMD_PORT, 0x20);

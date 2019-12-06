@@ -36,23 +36,24 @@
 #define HD_PORT_STATUS      HD_PORT_STATUS_PRIMARY
 #define HD_PORT_COMMAND     HD_PORT_COMMAND_PRIMARY
 #else 
-#define HD_PORT_DATA            HD_PORT_DATA_SECONDARY
-#define HD_PORT_ERROR           HD_PORT_ERROR_SECONDARY
-#define HD_PORT_SECT_COUNT      HD_PORT_SECT_COUNT_SECONDARY
-#define HD_PORT_SECT_NUM        HD_PORT_SECT_NUM_SECONDARY
-#define HD_PORT_CYL_LOW         HD_PORT_CYL_LOW_SECONDARY
-#define HD_PORT_CYL_HIGH        HD_PORT_CYL_HIGH_SECONDARY
-#define HD_PORT_DRV_HEAD        HD_PORT_DRV_HEAD_SECONDARY
-#define HD_PORT_STATUS          HD_PORT_STATUS_SECONDARY
-#define HD_PORT_COMMAND         HD_PORT_COMMAND_SECONDARY
+#define HD_PORT_DATA        HD_PORT_DATA_SECONDARY
+#define HD_PORT_ERROR       HD_PORT_ERROR_SECONDARY
+#define HD_PORT_SECT_COUNT  HD_PORT_SECT_COUNT_SECONDARY
+#define HD_PORT_LBA_LOW    HD_PORT_LBA_LOW_SECONDARY
+#define HD_PORT_LBA_MID     HD_PORT_LBA_MID_SECONDARY
+#define HD_PORT_LBA_HIGH    HD_PORT_LBA_HIGH_SECONDARY
+#define HD_PORT_DRV_HEAD    HD_PORT_DRV_HEAD_SECONDARY
+#define HD_PORT_STATUS      HD_PORT_STATUS_SECONDARY
+#define HD_PORT_COMMAND     HD_PORT_COMMAND_SECONDARY
 #endif
 
 #define HD_READ         0x20
 #define HD_WRITE        0x30
 
-// void install_disk_irq_handler(void);
-// void disk_irq_handler(struct registers* r);
-void read_from_disk(void);
+void init_disk(void);
+void install_disk_irq_handler(void);
+void disk_irq_handler(struct registers* r);
+void read_from_storage_disk(void);
 
 // CHS stuff (not used).
 struct hd_sect_params {
