@@ -40,6 +40,9 @@ static char* long_kernel_story =
 	"This is the story of a little kernel\n"
 	"============================================\n";
 
+static char buffer1[1025] = "BUFFER 1 BEFORE";
+static char buffer2[1025] = "BUFFER 2 BEFORE";
+
 int main(void) {
 
 	print(kernel_load_message);
@@ -47,7 +50,8 @@ int main(void) {
 	print(kernel_init_message);
 	print(long_kernel_story);
 
-	read_from_storage_disk();
+	read_from_storage_disk(/*start_sector=*/0, /*n_bytes=*/1024, buffer1);
+	read_from_storage_disk(1, 512, buffer2);
 
 	while(true);
 }

@@ -10,7 +10,7 @@
 
 typedef unsigned int uint32_t;
 typedef unsigned short uint16_t;
-typedef unsigned int uint8_t;
+typedef unsigned char uint8_t;
 
 struct registers {
   unsigned int gs, fs, es, ds;      /* pushed the segs last */

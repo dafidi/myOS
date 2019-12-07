@@ -1,7 +1,11 @@
 # No need to check docs in.
 docs/vendor
 
+# What happensin sandbox stays in sandbox.
 sandbox/
+
+# Build by-product.
+pad.asm
 
 # Binaries and other file format that don't need to be kept.
 *.bin

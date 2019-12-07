@@ -82,7 +82,7 @@ void install_irqs(void) {
   set_idt_entry(47, (unsigned) irq15, 0x08, 0x8E);
 }
 
-static char tmp[10] = "000000000";
+// static char tmp[10] = "000000000";
 void irq_handler(struct registers* r) {
  void (*handler) (struct registers* r);
 

@@ -2,6 +2,7 @@
 #define __DISK_H__
 
 #include <kernel/system.h>
+#include <kernel/error.h>
 
 #define HD_PORT_DATA_PRIMARY        0x1f0
 #define HD_PORT_ERROR_PRIMARY       0x1f1
@@ -47,13 +48,29 @@
 #define HD_PORT_COMMAND     HD_PORT_COMMAND_SECONDARY
 #endif
 
-#define HD_READ         0x20
-#define HD_WRITE        0x30
+// IDE/ATA PIO Commands.
+#define HD_READ                  0x20
+#define HD_READ_MULTIPLE         0xC4
+#define HD_WRITE                 0x30
+
+typedef uint32_t lba_t;
+
+enum disk_channel {
+  PRIMARY,
+  SECONDARY 
+};
+
+enum drive_class {
+ MASTER,
+ SLAVE
+};
 
 void init_disk(void);
 void install_disk_irq_handler(void);
 void disk_irq_handler(struct registers* r);
-void read_from_storage_disk(void);
+
+void read_from_storage_disk(lba_t, int, void*);
+enum sys_error read_from_disk(enum disk_channel, enum drive_class, lba_t, int, void* buffer);
 
 // CHS stuff (not used).
 struct hd_sect_params {

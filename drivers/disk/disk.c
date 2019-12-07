@@ -3,32 +3,33 @@
 #include <drivers/screen/screen.h>
 #include <kernel/irq.h>
 #include <kernel/low_level.h>
-
-// Data on the boot disk starts form sector index: (35 * 512 + 512) / 512
-// Data on the storage disk starts from sector index: 0.
-// Choose wisely.
-static int block_num_to_read = 0;
+#include <kernel/error.h>
 
 // Helpful variables.
-static char buffer[1024] = "BEFORE";
+static char oldbuffer[1024] = "BEFORE";
 static char tmp[10] = "0000000";
 
 static unsigned char hd_ctrl_status;
 static unsigned char hd_ctrl_error;
 
-#define LOGGING_ENABLED
+// #define LOGGING_ENABLED
 #if defined(LOGGING_ENABLED)
-#define SHOW_DISK_CTRL_STATUS(msg) hd_ctrl_status = port_byte_in(HD_PORT_STATUS); \
+#define SHOW_DISK_CTRL_STATUS(msg) hd_ctrl_status = port_byte_in(status_port); \
                                    int_to_string(tmp, hd_ctrl_status, 9); \
                                    print(msg); print(tmp); print("\n");
 
-#define SHOW_DISK_CTRL_ERROR(msg) hd_ctrl_error = port_byte_in(HD_PORT_ERROR); \
+#define SHOW_DISK_CTRL_ERROR(msg) hd_ctrl_error = port_byte_in(error_port); \
                                    int_to_string(tmp, hd_ctrl_error, 9); \
                                    print(msg); print(tmp); print("\n");
 #else
 #define SHOW_DISK_CTRL_STATUS(msg)
 #define SHOW_DISK_CTRL_ERROR(msg)
 #endif
+
+static void assign_ports(enum disk_channel channel, uint16_t* drive_select_port,
+  uint16_t* sector_count_port, uint16_t* lba_high_port, uint16_t* lba_low_port,
+  uint16_t* lba_mid_port, uint16_t* command_port, uint16_t* status_port,
+  uint16_t* error_port, uint16_t* data_port);
 
 void init_disk(void) {
   install_disk_irq_handler();
@@ -44,23 +45,55 @@ void install_disk_irq_handler(void) {
 }
 
 // Read from ATA/IDE hard disk into buffer.
-void read_from_storage_disk(void) {
+void read_from_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
+  read_from_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer);
+}
+
+enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class, lba_t block_address, int n_bytes, void* buffer) {
+  uint16_t drive_select_port;
+  uint16_t sector_count_port;
+  uint16_t lba_high_port;
+  uint16_t lba_low_port;
+  uint16_t lba_mid_port;
+  uint16_t command_port;
+  uint16_t status_port;
+  uint16_t error_port;
+  uint16_t data_port;
+  int read_command;
+  int num_sectors;
+
+  if (n_bytes <= 0) {
+    return -1;
+  }
+
   print("Reading from Disk...\n");
 	disable_interrupts();
+  assign_ports(channel,
+               &drive_select_port,
+               &sector_count_port,
+               &lba_high_port,
+               &lba_low_port,
+               &lba_mid_port,
+               &command_port,
+               &status_port,
+               &error_port,
+               &data_port);
 
-  while((port_byte_in(HD_PORT_STATUS) & 0xc0) != 0x40) {
-    int hd_ctrl_status = port_byte_in(HD_PORT_STATUS);
+  num_sectors = (n_bytes >> 9) + (n_bytes & 0x1ff ? 1 : 0);
+
+  while((port_byte_in(status_port) & 0xc0) != 0x40) {
+    int hd_ctrl_status = port_byte_in(status_port);
     int_to_string(tmp, hd_ctrl_status, 9);
     print("hd_ctrl_status:"); print(tmp); print("\n");
     print("Disk Controller busy...\n");
   }
 
-  port_byte_out(HD_PORT_ERROR, 0x0);
-  port_byte_out(HD_PORT_SECT_COUNT, 2);
-  port_byte_out(HD_PORT_LBA_LOW, block_num_to_read);
-  port_byte_out(HD_PORT_LBA_MID, block_num_to_read >> 8);
-  port_byte_out(HD_PORT_LBA_HIGH, block_num_to_read >> 16);
-  port_byte_out(HD_PORT_DRV_HEAD, (0xF0 | ((block_num_to_read >> 24) & 0x0f)));
+  port_byte_out(error_port, 0x0);
+  port_byte_out(sector_count_port, num_sectors);
+  port_byte_out(lba_low_port, block_address);
+  port_byte_out(lba_mid_port, block_address >> 8);
+  port_byte_out(lba_high_port, block_address >> 16);
+  port_byte_out(drive_select_port, (0xE0 | (class == SLAVE ? 0x10 : 0x0) | ((block_address >> 24) & 0x0f)));
 
   SHOW_DISK_CTRL_STATUS("STATUS [before read] STATUS:");
   SHOW_DISK_CTRL_ERROR("ERROR [before read] ERROR:");
@@ -68,11 +101,13 @@ void read_from_storage_disk(void) {
   while ((hd_ctrl_status & 0xc0) != 0x40) { // Loop while controller is busy nor not ready.
     int_to_string(tmp, hd_ctrl_status, 9);
     print("HD BUSY! STATUS:"); print(tmp); print("\n");
-    hd_ctrl_status = port_byte_in(HD_PORT_STATUS);
+    hd_ctrl_status = port_byte_in(status_port);
   }
 
   // Send read command to controller.
-  port_byte_out(HD_PORT_COMMAND, HD_READ);
+  read_command = num_sectors > 1 ? HD_READ_MULTIPLE : HD_READ;
+
+  port_byte_out(command_port, read_command);
 
   SHOW_DISK_CTRL_STATUS("STATUS [after read (1)] STATUS:");
   SHOW_DISK_CTRL_ERROR("ERROR [after read (1)] ERROR:");
@@ -83,14 +118,14 @@ void read_from_storage_disk(void) {
   while ((hd_ctrl_status & 0xc0) != 0x40) { // Loop while controller is busy nor not ready.
     int_to_string(tmp, hd_ctrl_status, 9);
     print("HD BUSY! STATUS:"); print(tmp); print("\n");
-    hd_ctrl_status = port_byte_in(HD_PORT_STATUS);
+    hd_ctrl_status = port_byte_in(status_port);
   }
 
   int_to_string(tmp, hd_ctrl_status, 9);
   print("HD READY! STATUS:"); print(tmp); print("\n");
 
   print("before: ["); print(buffer); print("]\n");
-  insw(HD_PORT_DATA, buffer, 512);
+  insw(data_port, buffer, n_bytes >> 1);
   print("after: ["); print(buffer); print("]\n");
 
   SHOW_DISK_CTRL_STATUS("STATUS [after insb] STATUS:");
@@ -98,7 +133,39 @@ void read_from_storage_disk(void) {
 
   print("Finished reading from disk.\n");
 	enable_interrupts();
-  return;
+  return NONE;
+}
+
+static void assign_ports(enum disk_channel channel, uint16_t* drive_select_port,
+  uint16_t* sector_count_port, uint16_t* lba_high_port, uint16_t* lba_low_port,
+  uint16_t* lba_mid_port, uint16_t* command_port, uint16_t* status_port,
+  uint16_t* error_port, uint16_t* data_port) {
+  
+  if (channel == PRIMARY) {
+    print("primary drive selected");
+    *sector_count_port = HD_PORT_SECT_COUNT_PRIMARY;
+    *drive_select_port = HD_PORT_DRV_HEAD_PRIMARY;
+    *lba_high_port = HD_PORT_LBA_HIGH_PRIMARY;
+    *lba_low_port = HD_PORT_LBA_LOW_PRIMARY;
+    *lba_mid_port = HD_PORT_LBA_MID_PRIMARY;
+    *command_port = HD_PORT_COMMAND_PRIMARY;
+    *status_port = HD_PORT_STATUS_PRIMARY;
+    *error_port = HD_PORT_ERROR_PRIMARY;
+    *data_port = HD_PORT_DATA_PRIMARY;
+  } else if (channel == SECONDARY) {
+    print("secondary drive selected");
+    *sector_count_port = HD_PORT_SECT_COUNT_SECONDARY;
+    *drive_select_port = HD_PORT_DRV_HEAD_SECONDARY;
+    *lba_high_port = HD_PORT_LBA_HIGH_SECONDARY;
+    *lba_low_port = HD_PORT_LBA_LOW_SECONDARY;
+    *lba_mid_port = HD_PORT_LBA_MID_SECONDARY;
+    *command_port = HD_PORT_COMMAND_SECONDARY;
+    *status_port = HD_PORT_STATUS_SECONDARY;
+    *error_port = HD_PORT_ERROR_SECONDARY;
+    *data_port = HD_PORT_DATA_SECONDARY;
+  } else {
+    print("Bad drive selection. Neither primary or secondary chosen.\n");
+  }
 }
 
 void lba_to_hd_sect_params(unsigned int lba, struct hd_sect_params* hd_params) {
