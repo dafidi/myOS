@@ -18,8 +18,11 @@ OBJ = $(patsubst %.c, %.o, ${C_SOURCES})
 # Default build target.
 all: os-image
 
-os-image: boot/boot_sect.bin kernel.bin
-	cat $^ > os-image
+os_image_dependencies=boot/boot_sect.bin kernel.bin
+os-image: $(os_image_dependencies) storage_disk
+	cat $(os_image_dependencies) > os-image
+
+storage_disk:
 	nasm -f bin -o storage_disk.img storage_disk.asm
 
 kernel.bin: kernel/kernel_entry.o ${OBJ}

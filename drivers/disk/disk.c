@@ -6,14 +6,13 @@
 #include <kernel/error.h>
 
 // Helpful variables.
-static char oldbuffer[1024] = "BEFORE";
 static char tmp[10] = "0000000";
 
 static unsigned char hd_ctrl_status;
-static unsigned char hd_ctrl_error;
 
 // #define LOGGING_ENABLED
 #if defined(LOGGING_ENABLED)
+static unsigned char hd_ctrl_error;
 #define SHOW_DISK_CTRL_STATUS(msg) hd_ctrl_status = port_byte_in(status_port); \
                                    int_to_string(tmp, hd_ctrl_status, 9); \
                                    print(msg); print(tmp); print("\n");
@@ -47,6 +46,11 @@ void install_disk_irq_handler(void) {
 // Read from ATA/IDE hard disk into buffer.
 void read_from_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
   read_from_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer);
+}
+
+// Write to ATA/IDE hard disk into buffer.
+void write_to_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
+  write_to_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer);
 }
 
 enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class, lba_t block_address, int n_bytes, void* buffer) {
@@ -132,6 +136,91 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
   SHOW_DISK_CTRL_ERROR("ERROR [after insb] ERROR:");
 
   print("Finished reading from disk.\n");
+	enable_interrupts();
+  return NONE;
+}
+
+enum sys_error write_to_disk(enum disk_channel channel, enum drive_class class, lba_t block_address, int n_bytes, void* buffer) {
+  uint16_t drive_select_port;
+  uint16_t sector_count_port;
+  uint16_t lba_high_port;
+  uint16_t lba_low_port;
+  uint16_t lba_mid_port;
+  uint16_t command_port;
+  uint16_t status_port;
+  uint16_t error_port;
+  uint16_t data_port;
+  int write_command;
+  int num_sectors;
+
+  if (n_bytes <= 0) {
+    return -1;
+  }
+
+  print("Writing to Disk...\n");
+	disable_interrupts();
+  assign_ports(channel,
+               &drive_select_port,
+               &sector_count_port,
+               &lba_high_port,
+               &lba_low_port,
+               &lba_mid_port,
+               &command_port,
+               &status_port,
+               &error_port,
+               &data_port);
+
+  num_sectors = (n_bytes >> 9) + (n_bytes & 0x1ff ? 1 : 0);
+
+  while((port_byte_in(status_port) & 0xc0) != 0x40) {
+    int hd_ctrl_status = port_byte_in(status_port);
+    int_to_string(tmp, hd_ctrl_status, 9);
+    print("hd_ctrl_status:"); print(tmp); print("\n");
+    print("Disk Controller busy...\n");
+  }
+
+  port_byte_out(error_port, 0x0);
+  port_byte_out(sector_count_port, num_sectors);
+  port_byte_out(lba_low_port, block_address);
+  port_byte_out(lba_mid_port, block_address >> 8);
+  port_byte_out(lba_high_port, block_address >> 16);
+  port_byte_out(drive_select_port, (0xE0 | (class == SLAVE ? 0x10 : 0x0) | ((block_address >> 24) & 0x0f)));
+
+  SHOW_DISK_CTRL_STATUS("STATUS [before write] STATUS:");
+  SHOW_DISK_CTRL_ERROR("ERROR [before write] ERROR:");
+
+  while ((hd_ctrl_status & 0xc0) != 0x40) { // Loop while controller is busy nor not ready.
+    int_to_string(tmp, hd_ctrl_status, 9);
+    print("HD BUSY! STATUS:"); print(tmp); print("\n");
+    hd_ctrl_status = port_byte_in(status_port);
+  }
+
+  // Send read command to controller.
+  write_command = num_sectors > 1 ? HD_WRITE_MULTIPLE : HD_WRITE;
+
+  port_byte_out(command_port, write_command);
+
+  SHOW_DISK_CTRL_STATUS("STATUS [after write (1)] STATUS:");
+  SHOW_DISK_CTRL_ERROR("ERROR [after write (1)] ERROR:");
+
+  SHOW_DISK_CTRL_STATUS("STATUS [after write (2)] STATUS:");
+  SHOW_DISK_CTRL_ERROR("ERROR [after write (2)] ERROR:");
+
+  while ((hd_ctrl_status & 0xc0) != 0x40) { // Loop while controller is busy nor not ready.
+    int_to_string(tmp, hd_ctrl_status, 9);
+    print("HD BUSY! STATUS:"); print(tmp); print("\n");
+    hd_ctrl_status = port_byte_in(status_port);
+  }
+
+  int_to_string(tmp, hd_ctrl_status, 9);
+  print("HD READY! STATUS:"); print(tmp); print("\n");
+
+  outsw(data_port, buffer, n_bytes >> 1);
+
+  SHOW_DISK_CTRL_STATUS("STATUS [after outsw] STATUS:");
+  SHOW_DISK_CTRL_ERROR("ERROR [after outsw] ERROR:");
+
+  print("Finished writing to disk.\n");
 	enable_interrupts();
   return NONE;
 }

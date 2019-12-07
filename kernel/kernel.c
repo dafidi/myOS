@@ -51,7 +51,10 @@ int main(void) {
 	print(long_kernel_story);
 
 	read_from_storage_disk(/*start_sector=*/0, /*n_bytes=*/1024, buffer1);
-	read_from_storage_disk(1, 512, buffer2);
+	read_from_storage_disk(2, 1024, buffer2);
+
+	write_to_storage_disk(0, 1024, buffer2);
+	write_to_storage_disk(2, 1024, buffer1);
 
 	while(true);
 }
