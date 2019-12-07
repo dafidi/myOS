@@ -5,8 +5,8 @@
 #	$@ = name of target
 
 # Generate list of sources automatically.
-C_SOURCES = $(wildcard kernel/*.c drivers/**/*.c)
-HEADERS = $(wildcard kernel/*.h drivers/*.h)
+C_SOURCES = $(wildcard kernel/*.c drivers/**/*.c fs/*.c)
+HEADERS = $(wildcard kernel/*.h drivers/*.h fs/*.h)
 
 C_FLAGS = -Wall -O0 -m32 -fno-pie -fno-stack-protector -ffreestanding
 C_FLAGS += -I./

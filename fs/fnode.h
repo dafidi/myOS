@@ -3,10 +3,23 @@
 /**
  * TBD!
  */
-#include "system.h"
+#include <kernel/system.h>
+#include <drivers/disk/disk.h>
 
-struct fnode {
+struct file_node {
+  lba_t first_block;
+  lba_t last_block;
+  char name[4];
+  uint32_t id;
+}__attribute__((packed));
 
-};
+struct folder_node {
+  lba_t first_block;
+  lba_t last_block;
+  uint32_t num_contents;
+  char name[4];
+  uint32_t id;
+  void* folder_id_list;
+}__attribute__((packed));
 
 #endif /* __FNODE_H__ */
