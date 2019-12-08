@@ -9,6 +9,7 @@
 #include <drivers/keyboard/keyboard.h>
 #include <drivers/screen/screen.h>
 #include <drivers/disk/disk.h>
+#include <fs/fs.h>
 
 extern void enable_interrupts(void);
 extern void initialize_idt(void);
@@ -25,6 +26,9 @@ void init(void) {
 
 	/* Set up disk. */
 	init_disk();
+
+	/* Set up fs. */
+	init_fs();
 
 	/* Setup keyboard */
 	install_keyboard();
@@ -50,11 +54,11 @@ int main(void) {
 	print(kernel_init_message);
 	print(long_kernel_story);
 
-	read_from_storage_disk(/*start_sector=*/0, /*n_bytes=*/1024, buffer1);
-	read_from_storage_disk(2, 1024, buffer2);
+	// read_from_storage_disk(/*start_sector=*/0, /*n_bytes=*/1024, buffer1);
+	// read_from_storage_disk(2, 1024, buffer2);
 
-	write_to_storage_disk(0, 1024, buffer2);
-	write_to_storage_disk(2, 1024, buffer1);
+	// write_to_storage_disk(0, 1024, buffer2);
+	// write_to_storage_disk(2, 1024, buffer1);
 
 	while(true);
 }

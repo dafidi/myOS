@@ -19,10 +19,10 @@ OBJ = $(patsubst %.c, %.o, ${C_SOURCES})
 all: os-image
 
 os_image_dependencies=boot/boot_sect.bin kernel.bin
-os-image: $(os_image_dependencies) storage_disk
+os-image: $(os_image_dependencies) storage_disk.img
 	cat $(os_image_dependencies) > os-image
 
-storage_disk:
+storage_disk.img:
 	nasm -f bin -o storage_disk.img storage_disk.asm
 
 kernel.bin: kernel/kernel_entry.o ${OBJ}
@@ -55,5 +55,5 @@ kernel.bin: kernel/kernel_entry.o ${OBJ}
 
 clean:
 	rm -rf *.bin *.dis *.o os-image *.map *.img
-	rm -rf kernel/*.o boot/*.bin drivers/**/*.o
+	rm -rf kernel/*.o boot/*.bin drivers/**/*.o fs/*.o
 

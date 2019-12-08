@@ -128,9 +128,9 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
   int_to_string(tmp, hd_ctrl_status, 9);
   print("HD READY! STATUS:"); print(tmp); print("\n");
 
-  print("before: ["); print(buffer); print("]\n");
+  // print("before: ["); print(buffer); print("]\n");
   insw(data_port, buffer, n_bytes >> 1);
-  print("after: ["); print(buffer); print("]\n");
+  // print("after: ["); print(buffer); print("]\n");
 
   SHOW_DISK_CTRL_STATUS("STATUS [after insb] STATUS:");
   SHOW_DISK_CTRL_ERROR("ERROR [after insb] ERROR:");
@@ -231,7 +231,7 @@ static void assign_ports(enum disk_channel channel, uint16_t* drive_select_port,
   uint16_t* error_port, uint16_t* data_port) {
   
   if (channel == PRIMARY) {
-    print("primary drive selected");
+    print("primary drive selected\n");
     *sector_count_port = HD_PORT_SECT_COUNT_PRIMARY;
     *drive_select_port = HD_PORT_DRV_HEAD_PRIMARY;
     *lba_high_port = HD_PORT_LBA_HIGH_PRIMARY;
