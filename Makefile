@@ -5,8 +5,8 @@
 #	$@ = name of target
 
 # Generate list of sources automatically.
-C_SOURCES = $(wildcard kernel/*.c drivers/**/*.c fs/*.c)
-HEADERS = $(wildcard kernel/*.h drivers/*.h fs/*.h)
+C_SOURCES = $(wildcard kernel/*.c kernel/**/*.c drivers/**/*.c fs/*.c)
+HEADERS = $(wildcard kernel/*.h kernel/**/*.h drivers/*.h fs/*.h)
 
 C_FLAGS = -Wall -O0 -m32 -fno-pie -fno-stack-protector -ffreestanding
 C_FLAGS += -I./
@@ -26,7 +26,7 @@ storage_disk.img:
 	nasm -f bin -o storage_disk.img storage_disk.asm
 
 kernel.bin: kernel/kernel_entry.o ${OBJ}
-	ld -o kernel.bin -m elf_i386 -Ttext 0x1000 $^ --oformat binary
+	ld -o kernel.bin -m elf_i386 -Ttext 0x8000 $^ --oformat binary
 
 %.o: %.c
 	gcc ${C_FLAGS} -c $< -o $@

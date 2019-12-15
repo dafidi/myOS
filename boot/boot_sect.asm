@@ -2,7 +2,7 @@
 ; into address 0x1000.
 [org 0x7c00]
 
-KERNEL_OFFSET equ 0x1000
+KERNEL_OFFSET equ 0x8000
 
 xor ax, ax
 mov ds, ax
@@ -32,7 +32,7 @@ jmp $
 [bits 16]
 load_kernel:
 	mov bx, KERNEL_OFFSET
-	mov dh, 35 ; Read this many sectors.
+	mov dh, 50 ; Read this many sectors.
 	mov dl, [BOOT_DRIVE]
 
 	call disk_load

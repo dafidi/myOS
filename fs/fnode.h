@@ -1,7 +1,7 @@
 #ifndef __FNODE_H__
 #define __FNODE_H__
 /**
- * TBD!
+ * WIP!
  */
 #include <kernel/system.h>
 #include <drivers/disk/disk.h>

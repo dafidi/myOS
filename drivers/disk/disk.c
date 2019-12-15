@@ -1,9 +1,10 @@
 #include "disk.h"
 
 #include <drivers/screen/screen.h>
+#include <kernel/error.h>
+#include <kernel/string.h>
 #include <kernel/irq.h>
 #include <kernel/low_level.h>
-#include <kernel/error.h>
 
 // Helpful variables.
 static char tmp[10] = "0000000";

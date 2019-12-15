@@ -21,6 +21,15 @@ struct folder_node* root_folder_node;
 
 enum sys_error init_fs(void);
 
+void setup_fs_configs(void);
+void load_root_folder(void);
+void construct_default_master_fs_record(void);
+void construct_root_folder_node(void);
+void configure_pristine_fs(void);
+void write_fs_bitmap_to_disk(uint8_t* bitmap, int n_bytes, lba_t first_sector_number);
+void write_folder_to_buffer(struct folder_node folder, uint8_t* buffer, int buffer_size);
+void write_buffer_to_sector(uint8_t* buffer, int buffer_size, int sector_number);
+void write_master_record_to_buffer(struct master_fs_record record, uint8_t* buffer, int buffer_size);
 void configure_pristine_fs(void);
 
 #endif /* __FS_H__ */

@@ -1,6 +1,7 @@
 #include "fs.h"
 #include <drivers/screen/screen.h>
 #include <kernel/system.h>
+#include <kernel/string.h>
 
 #define FS_BITMAP_SIZE 1<<18
 #define F_OUT_BUFFER_SIZE 1024
@@ -17,7 +18,7 @@ char tmp[10] = "000000000";
 enum sys_error init_fs(void) {
   read_from_storage_disk(0, 512, master_record_buffer);
   
-  master_record = (struct master_fs_records*) master_record_buffer;
+  master_record = (struct master_fs_record*) master_record_buffer;
 
   if (master_record->magic_bits == magic_bits) {
     print("Valid fs was found!\n");
@@ -91,14 +92,14 @@ void configure_pristine_fs(void) {
   *root_folder_node = default_root_folder_node;
 }
 
-void write_fs_bitmap_to_disk(char* bitmap, int n_bytes, lba_t first_sector_number) {
+void write_fs_bitmap_to_disk(uint8_t* bitmap, int n_bytes, lba_t first_sector_number) {
   write_to_storage_disk(first_sector_number, n_bytes, bitmap);
 }
 
-void write_folder_to_buffer(struct folder_node folder, char* buffer, int buffer_size) {
+void write_folder_to_buffer(struct folder_node folder, uint8_t* buffer, int buffer_size) {
   int record_size_bytes = sizeof(struct master_fs_record);
   int n_written = 0;
-  char* ptr = &folder;
+  char* ptr = (char*) &folder;
 
   for (int i = 0; i < record_size_bytes; i++) {
     buffer[i] = ptr[i];
@@ -111,14 +112,14 @@ void write_folder_to_buffer(struct folder_node folder, char* buffer, int buffer_
   }
 }
 
-void write_buffer_to_sector(char* buffer, int buffer_size, int sector_number) {
+void write_buffer_to_sector(uint8_t* buffer, int buffer_size, int sector_number) {
   write_to_storage_disk(sector_number, buffer_size, buffer);
 }
 
-void write_master_record_to_buffer(struct master_fs_record record, char* buffer, int buffer_size) {
+void write_master_record_to_buffer(struct master_fs_record record, uint8_t* buffer, int buffer_size) {
   int record_size_bytes = sizeof(struct master_fs_record);
   int n_written = 0;
-  char* ptr = &record;
+  char* ptr = (char*) &record;
 
   for (int i = 0; i < record_size_bytes; i++) {
     buffer[i] = ptr[i];
@@ -131,9 +132,3 @@ void write_master_record_to_buffer(struct master_fs_record record, char* buffer,
   }
 }
 
-void clear_buffer(char* buffer, int n){
-  int i;
-  for (i = 0; i < n; i++) {
-    buffer[i] = 0;
-  }
-}

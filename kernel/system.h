@@ -2,7 +2,6 @@
 #define __SYSTEM_H__
 
 #define DEFAULT_TIMER_FREQUENCY_HZ 100
-#define STR_MESSAGE_LENGTH 256
 
 #define bool unsigned char
 #define true 1
@@ -19,9 +18,7 @@ struct registers {
   unsigned int eip, cs, eflags, useresp, ss;   /* pushed by the processor automatically */ 
 }__attribute__((packed));
 
-void int_to_string(char* s, int val, int n);
-
-void strcopy(char* dest, const char* src);
+void clear_buffer(char* buffer, int n);
 
 extern void enable_interrupts(void);
 extern void disable_interrupts(void);

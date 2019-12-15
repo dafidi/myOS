@@ -5,6 +5,7 @@
 #include "isrs.h"
 #include "irq.h"
 #include "timer.h"
+#include "shell/shell.h"
 
 #include <drivers/keyboard/keyboard.h>
 #include <drivers/screen/screen.h>
@@ -20,7 +21,7 @@ void init(void) {
 	install_isrs();
 	install_irqs();
 
-	/* Set up systems timer. */
+	/* Set up system's timer. */
 	timer_phase(DEFAULT_TIMER_FREQUENCY_HZ);
 	timer_install();
 
@@ -44,9 +45,6 @@ static char* long_kernel_story =
 	"This is the story of a little kernel\n"
 	"============================================\n";
 
-static char buffer1[1025] = "BUFFER 1 BEFORE";
-static char buffer2[1025] = "BUFFER 2 BEFORE";
-
 int main(void) {
 
 	print(kernel_load_message);
@@ -54,11 +52,7 @@ int main(void) {
 	print(kernel_init_message);
 	print(long_kernel_story);
 
-	// read_from_storage_disk(/*start_sector=*/0, /*n_bytes=*/1024, buffer1);
-	// read_from_storage_disk(2, 1024, buffer2);
+	exec_main_shell();
 
-	// write_to_storage_disk(0, 1024, buffer2);
-	// write_to_storage_disk(2, 1024, buffer1);
-
-	while(true);
+	return 0;
 }
