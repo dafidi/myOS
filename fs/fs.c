@@ -3,14 +3,16 @@
 #include <kernel/system.h>
 #include <kernel/string.h>
 
-#define FS_BITMAP_SIZE 1<<18
+#define NUM_SECTORS_ON_DISK 1<<21
+#define FS_BITMAP_SIZE (NUM_SECTORS_ON_DISK) >> 3
 #define F_OUT_BUFFER_SIZE 1024
 #define NUM_DEFAULT_FOLDER_NODES 1
 
-//Note about changing magic bits: x86 is little endian.
+// Note about changing magic bits: x86 is little endian.
 static const uint16_t magic_bits = 0xbaba;
 static uint16_t master_record_buffer[1024];
 static uint8_t f_out_buffer[F_OUT_BUFFER_SIZE];
+static int list_of_free_sectors[NUM_SECTORS_ON_DISK];
 
 uint8_t fs_bitmap[FS_BITMAP_SIZE];
 
@@ -27,6 +29,8 @@ enum sys_error init_fs(void) {
     print("No Valid fs found! Configuring pristine fs.\n");
     configure_pristine_fs();
   }
+
+  get_list_of_free_sectors();;
 
   return NONE;
 }
@@ -70,8 +74,8 @@ void configure_pristine_fs(void) {
   construct_root_folder_node();
 
   clear_buffer(f_out_buffer, F_OUT_BUFFER_SIZE);
+  
   // Write master record to fs_out_buffer
-
   write_master_record_to_buffer(default_master_fs_record, f_out_buffer, F_OUT_BUFFER_SIZE);
   // Write f_out_buffer to sector 0
   write_buffer_to_sector(f_out_buffer, F_OUT_BUFFER_SIZE, /*sector_number=*/0);
@@ -132,3 +136,39 @@ void write_master_record_to_buffer(struct master_fs_record record, uint8_t* buff
   }
 }
 
+int get_list_of_free_sectors() {
+  int i = 0;
+  int nth_byte = 0;
+  int curr_sector_index = 0;
+  int num_free_sectors = 0;
+  
+  // return 0;
+  uint8_t* ptr = fs_bitmap;
+  uint8_t mini_bitmap;
+  for (nth_byte = 0; nth_byte < FS_BITMAP_SIZE; nth_byte++) {
+    ptr += nth_byte;
+    mini_bitmap = *ptr;
+    for (i = 7; i >=0; i++) {
+      if ((mini_bitmap >> i) & 0x1) {
+        // Bit set, so sector is not free.
+      } else {
+        // list_of_free_sectors[num_free_sectors] = curr_sector_index;
+        num_free_sectors++;
+      }
+      curr_sector_index++;
+    }
+  }
+  return num_free_sectors;
+}
+
+void write_buffer_to_consecutive_sectors(const uint8_t* buffer, lba_t start_sector, int buffer_size) {
+  int curr_sector_offset = 0;
+  int bytes_written = 0;
+
+  while (bytes_written < buffer_size) {
+    // if curr_sector_offset bit in bitmap is clear:
+    //    write the next 512 bytes in buffer to start_sector + curr_sector_offset
+    //
+    //
+  }
+}

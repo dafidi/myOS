@@ -30,6 +30,7 @@ void write_fs_bitmap_to_disk(uint8_t* bitmap, int n_bytes, lba_t first_sector_nu
 void write_folder_to_buffer(struct folder_node folder, uint8_t* buffer, int buffer_size);
 void write_buffer_to_sector(uint8_t* buffer, int buffer_size, int sector_number);
 void write_master_record_to_buffer(struct master_fs_record record, uint8_t* buffer, int buffer_size);
+void write_buffer_to_consecutive_sectors(const uint8_t* buffer, lba_t start_sector, int buffer_size);
 void configure_pristine_fs(void);
 
 #endif /* __FS_H__ */

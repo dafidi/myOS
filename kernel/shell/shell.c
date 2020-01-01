@@ -13,7 +13,7 @@ static char* known_commands[NUM_KNOWN_COMMANDS] = {
 };
 
 void shell_exec(char* input) {
-  print("Attempting to execute:"); print(input); print("\n");
+  print("Attempting to execute: "); print(input); print("\n");
   char* known_cmd;
   int l, m;
   int i;

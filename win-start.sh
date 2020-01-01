@@ -1,12 +1,17 @@
 #!/bin/bash
-echo "Building kernel."
-make
-echo "Done building kernel."
+echo "***********************Building kernel*************************"
+make kernel.bin
+make storage_disk.img
+
+
+make os-image
+echo "***********************Done building kernel********************"
 
 IFS=' '
-stat_output=`stat os-image | grep Size`
-last_field=' '
+last_field=''
 kernel_size=''
+
+stat_output=`stat os-image | grep Size`
 
 read -ra ADDR <<< "$stat_output"
 
@@ -39,6 +44,7 @@ nasm -f bin -o null.bin null.asm
 
 cat os-image pad.bin > padded_kernel.bin
 cat padded_kernel.bin null.bin > os-image
+# cat padded_kernel.bin > os-image
 
 # Convenience script to start the VM.
 echo "****************************************************************"
