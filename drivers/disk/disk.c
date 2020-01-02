@@ -89,8 +89,8 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
   while((port_byte_in(status_port) & 0xc0) != 0x40) {
     int hd_ctrl_status = port_byte_in(status_port);
     int_to_string(tmp, hd_ctrl_status, 9);
-    print("hd_ctrl_status:"); print(tmp); print("\n");
-    print("Disk Controller busy...\n");
+    // print("hd_ctrl_status:"); print(tmp); print("\n");
+    // print("Disk Controller busy...\n");
   }
 
   port_byte_out(error_port, 0x0);
@@ -105,13 +105,12 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
 
   while ((hd_ctrl_status & 0xc0) != 0x40) { // Loop while controller is busy nor not ready.
     int_to_string(tmp, hd_ctrl_status, 9);
-    print("HD BUSY! STATUS:"); print(tmp); print("\n");
+    // print("HD BUSY! STATUS:"); print(tmp); print("\n");
     hd_ctrl_status = port_byte_in(status_port);
   }
 
   // Send read command to controller.
   read_command = num_sectors > 1 ? HD_READ_MULTIPLE : HD_READ;
-
   port_byte_out(command_port, read_command);
 
   SHOW_DISK_CTRL_STATUS("STATUS [after read (1)] STATUS:");
@@ -176,8 +175,8 @@ enum sys_error write_to_disk(enum disk_channel channel, enum drive_class class, 
   while((port_byte_in(status_port) & 0xc0) != 0x40) {
     int hd_ctrl_status = port_byte_in(status_port);
     int_to_string(tmp, hd_ctrl_status, 9);
-    print("hd_ctrl_status:"); print(tmp); print("\n");
-    print("Disk Controller busy...\n");
+    // print("hd_ctrl_status:"); print(tmp); print("\n");
+    // print("Disk Controller busy...\n");
   }
 
   port_byte_out(error_port, 0x0);
@@ -192,7 +191,7 @@ enum sys_error write_to_disk(enum disk_channel channel, enum drive_class class, 
 
   while ((hd_ctrl_status & 0xc0) != 0x40) { // Loop while controller is busy nor not ready.
     int_to_string(tmp, hd_ctrl_status, 9);
-    print("HD BUSY! STATUS:"); print(tmp); print("\n");
+    // print("HD BUSY! STATUS:"); print(tmp); print("\n");
     hd_ctrl_status = port_byte_in(status_port);
   }
 
@@ -214,7 +213,7 @@ enum sys_error write_to_disk(enum disk_channel channel, enum drive_class class, 
   }
 
   int_to_string(tmp, hd_ctrl_status, 9);
-  print("HD READY! STATUS:"); print(tmp); print("\n");
+  // print("HD READY! STATUS:"); print(tmp); print("\n");
 
   outsw(data_port, buffer, n_bytes >> 1);
 
@@ -232,7 +231,7 @@ static void assign_ports(enum disk_channel channel, uint16_t* drive_select_port,
   uint16_t* error_port, uint16_t* data_port) {
   
   if (channel == PRIMARY) {
-    print("primary drive selected\n");
+    // print("primary drive selected\n");
     *sector_count_port = HD_PORT_SECT_COUNT_PRIMARY;
     *drive_select_port = HD_PORT_DRV_HEAD_PRIMARY;
     *lba_high_port = HD_PORT_LBA_HIGH_PRIMARY;

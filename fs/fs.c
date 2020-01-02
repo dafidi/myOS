@@ -5,19 +5,20 @@
 
 #define NUM_SECTORS_ON_DISK 1<<21
 #define FS_BITMAP_SIZE (NUM_SECTORS_ON_DISK) >> 3
-#define F_OUT_BUFFER_SIZE 1024
+#define F_OUT_BUFFER_SIZE 512
+#define SECTOR_SIZE 512
 #define NUM_DEFAULT_FOLDER_NODES 1
 
 // Note about changing magic bits: x86 is little endian.
 static const uint16_t magic_bits = 0xbaba;
-static uint16_t master_record_buffer[1024];
+static uint16_t master_record_buffer[512];
 static uint8_t f_out_buffer[F_OUT_BUFFER_SIZE];
 static int list_of_free_sectors[NUM_SECTORS_ON_DISK];
 
 uint8_t fs_bitmap[FS_BITMAP_SIZE];
 
-char tmp[10] = "000000000";
 enum sys_error init_fs(void) {
+  int num_free_sectors = 0;
   read_from_storage_disk(0, 512, master_record_buffer);
   
   master_record = (struct master_fs_record*) master_record_buffer;
@@ -27,11 +28,17 @@ enum sys_error init_fs(void) {
     setup_fs_configs();
   } else {
     print("No Valid fs found! Configuring pristine fs.\n");
+    clear_buffer(fs_bitmap, FS_BITMAP_SIZE);
     configure_pristine_fs();
   }
 
-  get_list_of_free_sectors();;
+  // *(fs_bitmap) = 7;        // Just testing setting
+  // *(fs_bitmap + 1) = 7;  // some bitmap bits.
 
+  num_free_sectors = get_list_of_free_sectors();
+  print("fs_bitmap is located at: ["); print_int32(fs_bitmap); print("].\n");
+  print("Size of the fs_bitmap is: ["); print_int32(sizeof(fs_bitmap)); print("].\n");
+  print("The number of free sectors is ["); print_int32(num_free_sectors); print("]\n");
   return NONE;
 }
 
@@ -39,8 +46,7 @@ void setup_fs_configs(void) {
   load_root_folder();
 
   int num_contents = root_folder_node->num_contents;
-  int_to_string(tmp, num_contents, 9);
-  print("there are "); print(tmp); print(" contents in the root folder.\n");
+  print("There are "); print_int32(num_contents); print(" contents in the root folder.\n");
 }
 
 void load_root_folder(void) {
@@ -79,6 +85,7 @@ void configure_pristine_fs(void) {
   write_master_record_to_buffer(default_master_fs_record, f_out_buffer, F_OUT_BUFFER_SIZE);
   // Write f_out_buffer to sector 0
   write_buffer_to_sector(f_out_buffer, F_OUT_BUFFER_SIZE, /*sector_number=*/0);
+  set_bit(fs_bitmap, 0);
   // Clear f_out_buffer.
   clear_buffer(f_out_buffer, F_OUT_BUFFER_SIZE);
 
@@ -88,15 +95,29 @@ void configure_pristine_fs(void) {
   write_buffer_to_sector(f_out_buffer, F_OUT_BUFFER_SIZE, /*sector_number=*/1);
   // Clear f_out_buffer.
   clear_buffer(f_out_buffer, F_OUT_BUFFER_SIZE);
+  set_bit(fs_bitmap, 1);
 
   // Write fs_bitmap to sector 2.
-  write_fs_bitmap_to_disk(fs_bitmap, FS_BITMAP_SIZE, 2);
+  write_fs_bitmap_to_disk(fs_bitmap, 2);
 
   *master_record = default_master_fs_record;
   *root_folder_node = default_root_folder_node;
 }
 
-void write_fs_bitmap_to_disk(uint8_t* bitmap, int n_bytes, lba_t first_sector_number) {
+void write_fs_bitmap_to_disk(uint8_t* bitmap, lba_t first_sector_number) {
+  int num_sectors_needed;
+  int n_bytes;
+  int sector_idx; // Bitmap always starts from the 3rd sector. n=2.
+  int c;                 // Count of sectors written to so far.
+
+  num_sectors_needed = (FS_BITMAP_SIZE) / (SECTOR_SIZE);
+  num_sectors_needed = num_sectors_needed == 0 ? 1 : num_sectors_needed;
+
+  for (sector_idx=2, c=0; c < num_sectors_needed; c++, sector_idx++) {
+    set_bit(fs_bitmap, sector_idx);
+  }
+
+  n_bytes = num_sectors_needed * SECTOR_SIZE;
   write_to_storage_disk(first_sector_number, n_bytes, bitmap);
 }
 
@@ -136,28 +157,35 @@ void write_master_record_to_buffer(struct master_fs_record record, uint8_t* buff
   }
 }
 
+/**
+ * Seems this function does work correctly but is extremely slow, especially when using a
+ * bitmap of size 1 << 21 bytes.
+*/
 int get_list_of_free_sectors() {
-  int i = 0;
-  int nth_byte = 0;
   int curr_sector_index = 0;
   int num_free_sectors = 0;
-  
-  // return 0;
   uint8_t* ptr = fs_bitmap;
   uint8_t mini_bitmap;
+  int nth_byte = 0;
+  int i = 0;
+  
+
   for (nth_byte = 0; nth_byte < FS_BITMAP_SIZE; nth_byte++) {
+
     ptr += nth_byte;
     mini_bitmap = *ptr;
-    for (i = 7; i >=0; i++) {
+    for (i = 7; i >=0; i--) {
+      
       if ((mini_bitmap >> i) & 0x1) {
         // Bit set, so sector is not free.
       } else {
-        // list_of_free_sectors[num_free_sectors] = curr_sector_index;
+        list_of_free_sectors[num_free_sectors] = curr_sector_index;
         num_free_sectors++;
       }
       curr_sector_index++;
     }
   }
+
   return num_free_sectors;
 }
 

@@ -18,6 +18,7 @@ void set_cursor(int);
 void print_at(char*, int, int);
 
 void print(char*);
+void print_int(char*);
 
 void clear_screen();
 

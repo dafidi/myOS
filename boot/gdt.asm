@@ -22,8 +22,8 @@ gdt_data:
 	; Same as code section except for the type flags
 	; type flags (code)0 (expand down)0 (writeable)1 (accessed)0 -> 0010b
 	dw 0xffff	; Limit (bits 0-15)
-	dw 0x0		; Base (bits 0-15_
-	db 0x0		;Base (bits 16-23)
+	dw 0x0		; Base (bits 0-15)
+	db 0x0		; Base (bits 16-23)
 	db 10010010b	; 1st flags, type flags
 	db 11001111b	; 2nd flags, Limit (bits 16-19)
 	db 0x0		; Base (bits 24-31)

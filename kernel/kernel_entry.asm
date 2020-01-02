@@ -4,6 +4,8 @@ extern main
 global initialize_idt
 extern idt_info_ptr
 
+global kernel_entry
+kernel_entry:
 call main
 
 jmp $

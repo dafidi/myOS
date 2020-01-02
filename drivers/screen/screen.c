@@ -130,5 +130,14 @@ int  handle_scrolling(int  cursor_offset) {
 	
 	//  Return  the  updated  cursor  position.
 	return  cursor_offset;
-	}
+}
 
+/**/
+void print_int(char* p) {
+	while(*p == '0') { p++;	}
+	
+	if (*p == '\0')
+		p--; // Need to be able to print 0.
+	
+	print(p);
+}

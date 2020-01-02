@@ -1,5 +1,11 @@
 #include "string.h"
 
+#include "drivers/screen/screen.h"
+/*
+2^32 = 4294967296
+*/
+static char int_template[11] = "0000000000";
+
 void int_to_string(char* s, int val, int n) {
   char t;
   int i;
@@ -40,12 +46,26 @@ bool strmatchn(char* s1, char* s2, int n) {
   return match;
 }
 
-
 int strlen(char* str) {
   int i = 0;
   while (str[i] != 0) {
     i++;
   }
   return i;
+}
+
+void print_int32(int n) {
+  int_to_string(int_template, n, 10);
+  print_int(int_template);
+}
+
+void set_bit(char* addr, int nr) {
+  int byte_offset = nr / 8;
+  uint8_t bit_offset_mod = nr % 8;
+  uint8_t c = *(addr + byte_offset);
+  uint8_t sh =  0x80 >> bit_offset_mod;
+ 
+  c |= (sh);
+  *(addr + byte_offset) = c;
 }
 

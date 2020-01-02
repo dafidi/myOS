@@ -13,4 +13,8 @@ void strcopy(char* dest, const char* src);
 
 int strlen(char* str);
 
+void print_int32(int);
+
+void set_bit(char* addr, int nr);
+
 #endif

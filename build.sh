@@ -52,6 +52,7 @@ make kernel.bin
 # Figure out numbers of sectors to load in boot sector.
 get_raw_kernel_size
 get_num_blocks_needed
+# Padding is just to make the kernel size a multiple of 512 (sector size).
 pad_kernel_to_multiple_of_sector_size
 sed -i "s/KERNEL_SIZE_SECTORS equ .*/KERNEL_SIZE_SECTORS equ $num_blocks/" boot/boot_sect.asm
 
@@ -59,7 +60,7 @@ make boot_sect.bin
 make storage_disk.img
 
 make os-image
-echo "***********************Done building kernel********************"
+echo "***********************Done building Image********************"
 
 # Convenience script to start the VM.
 echo "****************************************************************"
