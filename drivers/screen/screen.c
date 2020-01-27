@@ -141,3 +141,13 @@ void print_int(char* p) {
 	
 	print(p);
 }
+
+// Doesn't really work, lol
+void set_screen_to_blue(void) {
+	unsigned char* p = (unsigned char*) 	0xa0000;
+
+	while (((int)p) < 0xbffff) {
+		*p = 1;
+		p++;
+	}
+}
