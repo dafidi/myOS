@@ -59,7 +59,7 @@ void print_int32(int n) {
   print_int(int_template);
 }
 
-void set_bit(char* addr, int nr) {
+void set_bit(uint8_t* addr, int nr) {
   int byte_offset = nr / 8;
   uint8_t bit_offset_mod = nr % 8;
   uint8_t c = *(addr + byte_offset);

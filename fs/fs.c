@@ -17,6 +17,39 @@ static int list_of_free_sectors[NUM_SECTORS_ON_DISK];
 
 uint8_t fs_bitmap[FS_BITMAP_SIZE];
 
+
+/**
+ * Seems this function does work correctly but is extremely slow, especially when using a
+ * bitmap of size 1 << 21 bytes.
+*/
+static int get_list_of_free_sectors() {
+  int curr_sector_index = 0;
+  int num_free_sectors = 0;
+  uint8_t* ptr = fs_bitmap;
+  uint8_t mini_bitmap;
+  int nth_byte = 0;
+  int i = 0;
+  
+
+  for (nth_byte = 0; nth_byte < FS_BITMAP_SIZE; nth_byte++) {
+
+    ptr += nth_byte;
+    mini_bitmap = *ptr;
+    for (i = 7; i >=0; i--) {
+      
+      if ((mini_bitmap >> i) & 0x1) {
+        // Bit set, so sector is not free.
+      } else {
+        list_of_free_sectors[num_free_sectors] = curr_sector_index;
+        num_free_sectors++;
+      }
+      curr_sector_index++;
+    }
+  }
+
+  return num_free_sectors;
+}
+
 enum sys_error init_fs(void) {
   int num_free_sectors = 0;
   read_from_storage_disk(0, 512, master_record_buffer);
@@ -36,7 +69,7 @@ enum sys_error init_fs(void) {
   // *(fs_bitmap + 1) = 7;  // some bitmap bits.
 
   num_free_sectors = get_list_of_free_sectors();
-  print("fs_bitmap is located at: ["); print_int32(fs_bitmap); print("].\n");
+  print("fs_bitmap is located at: ["); print_int32((int ) fs_bitmap); print("].\n");
   print("Size of the fs_bitmap is: ["); print_int32(sizeof(fs_bitmap)); print("].\n");
   print("The number of free sectors is ["); print_int32(num_free_sectors); print("]\n");
   return NONE;
@@ -157,40 +190,9 @@ void write_master_record_to_buffer(struct master_fs_record record, uint8_t* buff
   }
 }
 
-/**
- * Seems this function does work correctly but is extremely slow, especially when using a
- * bitmap of size 1 << 21 bytes.
-*/
-int get_list_of_free_sectors() {
-  int curr_sector_index = 0;
-  int num_free_sectors = 0;
-  uint8_t* ptr = fs_bitmap;
-  uint8_t mini_bitmap;
-  int nth_byte = 0;
-  int i = 0;
-  
-
-  for (nth_byte = 0; nth_byte < FS_BITMAP_SIZE; nth_byte++) {
-
-    ptr += nth_byte;
-    mini_bitmap = *ptr;
-    for (i = 7; i >=0; i--) {
-      
-      if ((mini_bitmap >> i) & 0x1) {
-        // Bit set, so sector is not free.
-      } else {
-        list_of_free_sectors[num_free_sectors] = curr_sector_index;
-        num_free_sectors++;
-      }
-      curr_sector_index++;
-    }
-  }
-
-  return num_free_sectors;
-}
-
+// TODO (me)
 void write_buffer_to_consecutive_sectors(const uint8_t* buffer, lba_t start_sector, int buffer_size) {
-  int curr_sector_offset = 0;
+  // int curr_sector_offset = 0;
   int bytes_written = 0;
 
   while (bytes_written < buffer_size) {
@@ -198,5 +200,6 @@ void write_buffer_to_consecutive_sectors(const uint8_t* buffer, lba_t start_sect
     //    write the next 512 bytes in buffer to start_sector + curr_sector_offset
     //
     //
+    break;
   }
 }

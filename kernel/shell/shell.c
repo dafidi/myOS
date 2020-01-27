@@ -107,8 +107,8 @@ void process_new_scancodes(int offset, int num_new_characters) {
         process_cmd_input();
         show_prompt();
 
-        clear_buffer(shell_ascii_buffer, SHELL_CMD_INPUT_LIMIT);
-        clear_buffer(shell_scancode_buffer, SHELL_CMD_INPUT_LIMIT);
+        clear_buffer((uint8_t*)shell_ascii_buffer, SHELL_CMD_INPUT_LIMIT);
+        clear_buffer((uint8_t*)shell_scancode_buffer, SHELL_CMD_INPUT_LIMIT);
         shell_input_counter = 0;
         last_known_input_buffer_size = 0;
         continue;
@@ -119,8 +119,8 @@ void process_new_scancodes(int offset, int num_new_characters) {
 
       if (shell_input_counter >= SHELL_CMD_INPUT_LIMIT) {
         print("You have entered too many characters.  Resetting prompt...\n");
-        clear_buffer(shell_ascii_buffer, SHELL_CMD_INPUT_LIMIT);
-        clear_buffer(shell_scancode_buffer, SHELL_CMD_INPUT_LIMIT);        
+        clear_buffer((uint8_t*) shell_ascii_buffer, SHELL_CMD_INPUT_LIMIT);
+        clear_buffer((uint8_t*) shell_scancode_buffer, SHELL_CMD_INPUT_LIMIT);        
         shell_input_counter = 0;
         last_known_input_buffer_size = 0;
         show_prompt();

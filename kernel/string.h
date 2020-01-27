@@ -15,6 +15,6 @@ int strlen(char* str);
 
 void print_int32(int);
 
-void set_bit(char* addr, int nr);
+void set_bit(uint8_t* addr, int nr);
 
 #endif

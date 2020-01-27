@@ -18,7 +18,7 @@ struct registers {
   unsigned int eip, cs, eflags, useresp, ss;   /* pushed by the processor automatically */ 
 }__attribute__((packed));
 
-void clear_buffer(char* buffer, int n);
+void clear_buffer(uint8_t* buffer, int n);
 
 extern void enable_interrupts(void);
 extern void disable_interrupts(void);
