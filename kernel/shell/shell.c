@@ -57,25 +57,12 @@ void exec_known_cmd(int i) {
   }
 }
 
-static int last_known_input_buffer_size = 0;
+void exec_shell(struct shell* shell) {
+  shell->exec();
+}
 
 void exec_main_shell(void) {
-  shell_input_counter = 0;
-
-  show_prompt();
-
-  while(true) {
-    if (last_known_input_buffer_size < shell_input_counter) {
-      process_new_scancodes(last_known_input_buffer_size,
-                           shell_input_counter - last_known_input_buffer_size);
-      last_known_input_buffer_size = shell_input_counter;
-    } else if (last_known_input_buffer_size > shell_input_counter) {
-      print("Something has gone terribly wrong with the shell. Exiting.\n");
-      break;
-    }
-  }
-
-  while(true);
+  exec_shell(&default_shell);
 }
   
 static char char_buff[2] = { '\0', '\0' };

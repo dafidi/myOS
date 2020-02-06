@@ -49,9 +49,9 @@ int main(void) {
 
 	print(kernel_load_message);
 	init();
-	set_screen_to_blue(); // just for fun hehe.
-	print(kernel_init_message);
-	print(long_kernel_story);
+	// set_screen_to_blue(); // just for fun hehe.
+	// print(kernel_init_message);
+	// print(long_kernel_story);
 
 	exec_main_shell();
 
