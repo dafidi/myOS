@@ -1,5 +1,25 @@
 #!/bin/bash
 
+set -e
+
+noclean=0
+nobuild=0
+norun=0
+
+# Flag Parsing
+for arg in "$@"
+do
+  if [[ $arg == "--no-clean" ]]; then
+    noclean=1
+  elif [[ $arg == "--no-build" ]]; then
+    nobuild=1
+  elif [[ $arg == "--no-run" ]]; then
+    norun=1
+  else
+    echo " I don't know what to do about [$arg]."
+  fi
+done
+
 # Utility functions.
 get_raw_kernel_size () {
   IFS=' '
@@ -46,30 +66,38 @@ pad_kernel_to_multiple_of_sector_size() {
   num_blocks=$num_blocks
 }
 
-echo "***********************Building image*************************"
+echo "***********************Building image***************************"
 make kernel.bin
 
 # Figure out numbers of sectors to load in boot sector.
 get_raw_kernel_size
 get_num_blocks_needed
+
 # Padding is just to make the kernel size a multiple of 512 (sector size).
 pad_kernel_to_multiple_of_sector_size
+
+# Put the right kernel size in the boot sector.
 sed -i "s/KERNEL_SIZE_SECTORS equ .*/KERNEL_SIZE_SECTORS equ $num_blocks/" boot/boot_sect.asm
 
 make boot_sect.bin
 make storage_disk.img
 
 make os-image
-echo "***********************Done building Image********************"
+echo "***********************Done building Image**********************"
 
-# Convenience script to start the VM.
+
 echo "****************************************************************"
-echo "Launching Windows shell from which VM (qemu) will be launched..."
-cmd.exe /c start.bat
-echo "VM shut down."
+if [[ $norun == 0 ]]; then
+  # Convenience script to start the VM.
+  echo "Launching Windows shell from which VM (qemu) will be launched..."
+  cmd.exe /c start.bat
+  echo "VM shut down."
+else 
+  echo "Flag "--no-run" passed. Not running."
+fi
 echo "****************************************************************"
 
-if [[ $1 == "--no-clean" ]]; then
+if [[ $noclean == 1 ]]; then
   echo "Ha! I'm not cleaning my mess."
 else
   echo "Cleaning up my mess."

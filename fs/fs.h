@@ -33,4 +33,6 @@ void write_master_record_to_buffer(struct master_fs_record record, uint8_t* buff
 void write_buffer_to_consecutive_sectors(const uint8_t* buffer, lba_t start_sector, int buffer_size);
 void configure_pristine_fs(void);
 
+struct folder_node* get_folder_node_by_id(uint32_t id);
+
 #endif /* __FS_H__ */
