@@ -1,7 +1,7 @@
 ;*******************************************************************************
 ; Simple function to print a string given that the address of the string is 
 ; passed in bx.
-
+[bits 16]
 print_string:
 	pusha			;ensure to save all registers
 	mov ah, 0x0e		;set BIOS to scrolling teletype mode
@@ -32,9 +32,10 @@ print_endl:
 ; END of print_string
 ;*******************************************************************************
 ;*******************************************************************************
-; A simple boot sector program to print hexadecimal value of a given 4-byte value
+; A simple boot sector program to print hexadecimal value of a given 2-byte value
 ; passed in by dx
 
+[bits 16]
 print_hex:
 	pusha
 	mov bx, HEX_OUT

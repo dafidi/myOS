@@ -19,7 +19,7 @@ struct folder_node {
   uint32_t num_contents;
   char name[256];
   uint32_t id;
-  void* folder_id_list;
+  uint32_t* folder_id_list;
 }__attribute__((packed));
 
 #endif /* __FNODE_H__ */

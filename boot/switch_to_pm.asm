@@ -1,5 +1,5 @@
 ; A simple program to switch from 16-bit real mode to 32-bit protected mode.
-
+[bits 16]
 switch_to_pm:
 	cli	; disable interrupts.
 	lgdt [gdt_descriptor]
@@ -9,7 +9,7 @@ switch_to_pm:
 	mov cr0, eax
 
 	jmp CODE_SEG:init_pm	; cause the CPU to flush real-mode 16 bit 
-				; instructions in pipeline.
+																						; instructions in pipeline.
 
 [bits 32]
 init_pm:
@@ -23,10 +23,7 @@ init_pm:
 	mov ebp, 0x90000
 	mov esp, ebp
 
-	mov ebx, MSG_PROT_MODE
-	call print_string_pm
+	jmp BEGIN_PM
 
-	;ret
-	call BEGIN_PM
+MSG_PROT_MODE: db "Successfully landed in 32-bit Protected Mode [1]", 0
 
-MSG_PROT_MODE: db "Successfully landed in 32-bit Protected Mode", 0

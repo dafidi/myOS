@@ -29,3 +29,44 @@ print_string_pm_done:
 	popa
 	ret
 
+;*******************************************************************************
+; A simple boot sector program to print hexadecimal value of a given 2-byte value
+; passed in by dx
+
+print_hex_pm:
+	jmp$
+	pusha
+	mov ebx, HEX_OUT_pm
+	add ebx, 9
+
+to_ascii_loop_pm:
+	mov eax, edx
+	and eax, 0xf
+
+	cmp eax, 10
+	jge to_alpha_pm
+	add eax, 48
+	jmp end_to_ascii_loop_pm
+
+to_alpha_pm:
+	add eax, 87
+
+end_to_ascii_loop_pm:
+	mov [ebx], al
+	add ebx, -1
+	shr edx, 4
+	cmp edx, 0
+	je exit_print_hex_pm
+	jmp to_ascii_loop_pm
+
+exit_print_hex_pm:
+	mov bx, HEX_OUT_pm
+	call print_string_pm
+	popa
+	ret
+
+HEX_OUT_pm:
+	db "0x00000000", 0 
+; END of print_hex_pm. 
+;********************************************************************************
+

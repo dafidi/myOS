@@ -183,7 +183,7 @@ static void default_exec_routine(void) {
 }
 
 static void default_shell_init(void) {
-  default_shell.fs_ctx = default_fs_ctx;;
+  default_shell.fs_ctx = default_fs_ctx;
 }
 
 static void default_show_prompt(void) {

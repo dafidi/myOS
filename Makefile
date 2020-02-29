@@ -18,15 +18,18 @@ OBJ = $(patsubst %.c, %.o, ${C_SOURCES})
 # Default build target.
 all: os-image
 
-boot_sector_deps=boot_sect.bin
+boot_sector_deps=boot_sect_1.bin boot_sect_2.bin
 kernel_deps=kernel.bin
 os_image_deps=$(boot_sector_deps) $(kernel_deps) 
 
 os-image: $(os_image_deps) storage_disk.img
 	cat $(os_image_deps) > os-image
 
-boot_sect.bin: boot/boot_sect.bin
-	cp boot/boot_sect.bin boot_sect.bin
+boot_sect_1.bin: boot/boot_sect_1.bin
+	cp boot/boot_sect_1.bin boot_sect_1.bin
+
+boot_sect_2.bin: boot/boot_sect_2.bin
+	cp boot/boot_sect_2.bin boot_sect_2.bin
 
 kernel.bin: kernel/kernel_entry.o ${OBJ}
 	ld -o kernel.bin -m elf_i386 -Ttext 0x1000 $^ --oformat binary kernel.ld

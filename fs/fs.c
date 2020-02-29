@@ -204,18 +204,8 @@ void write_buffer_to_consecutive_sectors(const uint8_t* buffer, lba_t start_sect
 }
 
 struct folder_node* check_and_get_from_child_nodes(struct folder_node* node, uint32_t id) {
-  struct folder_node* curr_child = (struct folder_node*) node->folder_id_list;
-  if (!node) {
-    return root_folder_node;
-  }
-  
-  while (curr_child && curr_child->id != id) {
-    if (check_and_get_from_child_nodes(curr_child, id)) {
-      return curr_child;
-    }
-    curr_child = curr_child + 1;
-  }
-  return curr_child;
+  // WIP
+  return root_folder_node;
 }
 
 struct folder_node* get_folder_node_by_id(uint32_t id) {

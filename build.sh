@@ -77,9 +77,10 @@ get_num_blocks_needed
 pad_kernel_to_multiple_of_sector_size
 
 # Put the right kernel size in the boot sector.
-sed -i "s/KERNEL_SIZE_SECTORS equ .*/KERNEL_SIZE_SECTORS equ $num_blocks/" boot/boot_sect.asm
+sed -i "s/KERNEL_SIZE_SECTORS equ .*/KERNEL_SIZE_SECTORS equ $num_blocks/" boot/boot_sect_2.asm
 
-make boot_sect.bin
+make boot_sect_1.bin
+make boot_sect_2.bin
 make storage_disk.img
 
 make os-image
