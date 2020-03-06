@@ -4,7 +4,7 @@
 [bits 16]
 
 BOOTLOADER_2_OFFSET equ 0x7e00
-BOOTLOADER_2_SIZE_SECTORS equ 0x2
+BOOTLOADER_2_SIZE_SECTORS equ 0x3
 
 xor ax, ax
 mov ds, ax
@@ -57,7 +57,7 @@ load_bootloader_2:
 	ret
 
 BOOT_DRIVE: db 0
-MSG_2ND_BOOTLOADER: db "Loading 2nd stage boot loader into memory.", 0
+MSG_2ND_BOOTLOADER: db "Loading 2nd stage bootloader into memory.", 0
 
 ; Pad like before :)
 times 510 - ($ - $$) db 0

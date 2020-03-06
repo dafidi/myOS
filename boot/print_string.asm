@@ -38,6 +38,9 @@ print_endl:
 [bits 16]
 print_hex:
 	pusha
+
+	call clear_template
+
 	mov bx, HEX_OUT
 	add bx, 5
 
@@ -71,3 +74,13 @@ HEX_OUT:
 	db "0x0000", 0 
 ; END of print_hex. 
 ;********************************************************************************
+
+clear_template:
+	push bx
+	mov bl, '0'
+	mov [HEX_OUT+2], bl
+	mov [HEX_OUT+3], bl
+	mov [HEX_OUT+4], bl
+	mov [HEX_OUT+5], bl
+	pop bx
+	ret

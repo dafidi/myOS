@@ -34,8 +34,10 @@ print_string_pm_done:
 ; passed in by dx
 
 print_hex_pm:
-	jmp$
-	pusha
+	pushad
+
+	call clear_template_pm
+
 	mov ebx, HEX_OUT_pm
 	add ebx, 9
 
@@ -60,13 +62,26 @@ end_to_ascii_loop_pm:
 	jmp to_ascii_loop_pm
 
 exit_print_hex_pm:
-	mov bx, HEX_OUT_pm
+	mov ebx, HEX_OUT_pm
 	call print_string_pm
-	popa
+	popad
 	ret
 
 HEX_OUT_pm:
-	db "0x00000000", 0 
-; END of print_hex_pm. 
-;********************************************************************************
+	db "0x00000000", 0
+; END of print_hex_pm.
 
+clear_template_pm:
+	push ebx
+	mov bl, '0'
+	mov [HEX_OUT_pm+2], bl
+	mov [HEX_OUT_pm+3], bl
+	mov [HEX_OUT_pm+4], bl
+	mov [HEX_OUT_pm+5], bl
+	mov [HEX_OUT_pm+6], bl
+	mov [HEX_OUT_pm+7], bl
+	mov [HEX_OUT_pm+8], bl
+	mov [HEX_OUT_pm+9], bl
+	pop ebx
+	ret
+;********************************************************************************

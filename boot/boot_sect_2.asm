@@ -18,14 +18,13 @@ call print_endl
 call get_memory_map
 
 call load_kernel_1
-
+; This will jump to BEGIN_PM.
 call enter_protected_mode
-[bits 32]
 
-jmp $
 [bits 32]
 BEGIN_PM:
 call start_kernel 
+jmp $
 ;=======================================================================
 ; No return from here.
 ;=======================================================================
@@ -33,15 +32,19 @@ call start_kernel
 %include "boot/disk_load.asm"
 %include "boot/gdt.asm"
 %include "boot/print_string.asm"
-%include "boot/switch_to_pm.asm"
+%include "boot/print_hex_32.asm"
 %include "boot/print_string_pm.asm"
+%include "boot/switch_to_pm.asm"
+%include "boot/bios_memory_map.asm"
 
 [bits 16]
 get_memory_map:
 	mov bx, GET_MEM_MAP_MSG
 	call print_string
 	call print_endl
-  ; TODO
+
+	mov di, mem_map_buff
+	call BiosGetMemoryMap
   ret
 
 load_kernel_1:
@@ -56,7 +59,7 @@ load_kernel_1:
 	mov bx, KERNEL_OFFSET
 	push bx
 
-	mov cl, 0x04;  1st stage boot sector in sector 1, 2nd stage in sector 2, kernel in sectors 4, 5, ...
+	mov cl, 0x05;  1st stage boot sector in sector 1, 2nd stage in sector 2,3,4 kernel in sectors 5, 6, ...
 	mov ch, 0x00
 	push cx
 
@@ -91,7 +94,8 @@ GET_MEM_MAP_MSG: db "Getting memory map:", 0
 LOADING_KERNEL_MSG: db "Loading kernel into RAM.", 0
 MSG_SWITCHED_TO_PM: db "Switched to PM!", 0
 
-times 1024 - ($ - $$) db 0
+mem_map_buff: times 168 db 0xff
+times 1536 - ($ - $$) db 0
 
 ;=======================================================================
 ; DEBUGGING
