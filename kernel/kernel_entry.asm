@@ -1,14 +1,29 @@
 [bits 32]
 
-extern main
 global initialize_idt
+global mem_map_buf_addr
+global mem_map_buf_entry_count
+global kernel_entry
+
+extern main
 extern idt_info_ptr
 
-global kernel_entry
+; kernel_entry expects the following information about the
+; BIOS's memory map to be put on the stack:
+;   the address of the buffer holding the memory map (top of stack)
+;   the number of entries in the memory map.
 kernel_entry:
-call main
+  mov eax, [esp]
+  mov [mem_map_buf_addr], eax
+  mov eax, [esp+4]
+  mov [mem_map_buf_entry_count], eax
+
+  call main
 
 jmp $
+
+mem_map_buf_addr: dd 0x0
+mem_map_buf_entry_count: dd 0x0
 
 initialize_idt:
   lidt [idt_info_ptr]

@@ -23,6 +23,7 @@ init_pm:
 	mov ebp, 0x90000
 	mov esp, ebp
 
+	; BEGIN_PM is a label defined in the second stage bootloader.
 	jmp BEGIN_PM
 
 MSG_PROT_MODE: db "Successfully landed in 32-bit Protected Mode [1]", 0

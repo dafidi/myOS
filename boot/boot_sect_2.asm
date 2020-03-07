@@ -16,15 +16,32 @@ call print_string
 call print_endl
 
 call get_memory_map
+; Store number of memory map entries (returned in dx).
+mov [mem_map_buf_entry_count], dx
 
 call load_kernel_1
+mov bx, MSG_LOADED_KERNEL
+call print_string
+call print_endl
 ; This will jump to BEGIN_PM.
 call enter_protected_mode
 
 [bits 32]
 BEGIN_PM:
-call start_kernel 
-jmp $
+	mov ebx, MSG_SWITCHED_TO_PM
+	call print_string_pm
+
+	mov ax, [mem_map_buf_entry_count]
+	push ax
+	mov edx, mem_map_buff
+	call print_hex_pm
+	push mem_map_buff
+	
+	; 'jmp' may be better here than 'call' because we don't have use for
+	; the side effect(s) of 'call'.
+	jmp start_kernel 
+
+mem_map_buf_entry_count: dw 0x0
 ;=======================================================================
 ; No return from here.
 ;=======================================================================
@@ -77,21 +94,19 @@ load_kernel_1:
 
 enter_protected_mode:
   call switch_to_pm
-[bits 32]
-	mov ebx, MSG_SWITCHED_TO_PM
-	call print_string_pm
-  ret
 
 [bits 32]
 start_kernel:
-  call KERNEL_OFFSET
-  jmp $ ; we should never get here.
+	; 'jmp' may be better here than 'call' because we don't have use for
+	; the side effect(s) of 'call'.
+	jmp KERNEL_OFFSET
 
 [bits 16]
 BOOT_DRIVE: db 0
-BOOTLOADER2_START_MSG: db "2nd stage bootloader running.", 0
+BOOTLOADER2_START_MSG: db "2nd stage bootloader loaded running.", 0
 GET_MEM_MAP_MSG: db "Getting memory map:", 0
 LOADING_KERNEL_MSG: db "Loading kernel into RAM.", 0
+MSG_LOADED_KERNEL: db "Loaded kernel into RAM.", 0
 MSG_SWITCHED_TO_PM: db "Switched to PM!", 0
 
 mem_map_buff: times 168 db 0xff

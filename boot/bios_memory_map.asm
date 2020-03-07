@@ -13,7 +13,6 @@ endstruc
 ;---------------------------------------------
  
 BiosGetMemoryMap:
-	pushad
   xor	ebx, ebx
 	xor	bp, bp			; number of entries stored here
 	mov	edx, 'PAMS'		; 'SMAP'
@@ -52,26 +51,29 @@ BiosGetMemoryMap:
   call print_endl
 	stc
 .done:
+  push bp
   call show_result
-	popad
+  pop dx                    ; Return count in dx.
 	ret
 
 show_result:
 	mov di, mem_map_buff
+
+  mov bx, tag_base
+  call print_string
+
+  mov bx, tag_length
+  call print_string
+
+  call print_endl
+
 show_result_loop:
   cmp bp, 0
   je show_result_end
 
   dec bp
-  mov bx, tag_base
-  call print_string
-
   mov edx, [es:di]
   call print_hex_32
-  call print_endl
-
-  mov bx, tag_length
-  call print_string
 
   mov edx, [es:di + 8]
   call print_hex_32

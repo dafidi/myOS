@@ -29,6 +29,16 @@ print_string_pm_done:
 	popa
 	ret
 
+; print_endl_pm:
+; 	pusha
+; 	mov ah, 0x0e
+; 	mov al, 10
+; 	int 0x10
+; 	mov al, 13
+; 	int 0x10
+; 	popa
+; 	ret	
+
 ;*******************************************************************************
 ; A simple boot sector program to print hexadecimal value of a given 2-byte value
 ; passed in by dx

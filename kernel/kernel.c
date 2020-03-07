@@ -12,6 +12,9 @@
 #include <drivers/disk/disk.h>
 #include <fs/fs.h>
 
+extern unsigned int mem_map_buf_addr;
+extern unsigned int mem_map_buf_entry_count;
+
 extern void enable_interrupts(void);
 extern void initialize_idt(void);
 
@@ -46,6 +49,11 @@ static char* long_kernel_story =
 	"============================================\n";
 
 int main(void) {
+
+	print("mem_map_buf_addr="); print_int32(mem_map_buf_addr);
+	print("\n");
+	print("mem_map_buf_entry_count="); print_int32(mem_map_buf_entry_count);
+	print("\n");
 
 	print(kernel_load_message);
 	init();
