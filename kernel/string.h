@@ -5,7 +5,7 @@
 
 #define STR_MESSAGE_LENGTH 256
 
-void int_to_string(char* s, int val, int n);
+void int_to_string(char* s, unsigned  int val, int n);
 
 bool strmatchn(char* s1, char* s2, int n);
 

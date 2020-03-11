@@ -6,7 +6,7 @@
 */
 static char int_template[11] = "0000000000";
 
-void int_to_string(char* s, int val, int n) {
+void int_to_string(char* s, unsigned int val, int n) {
   char t;
   int i;
   
