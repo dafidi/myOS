@@ -45,13 +45,12 @@ void init(void) {
 
 	/* Setup keyboard */
 	install_keyboard();
-	
+
 	/* Let the fun begin. */
 	enable_interrupts();
 }
 
 int main(void) {
-
 	print(kernel_load_message);
 	init();
 	print(kernel_init_message);

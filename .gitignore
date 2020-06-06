@@ -2,6 +2,9 @@
 docs/vendor
 docs/random.txt
 
+# Experimental directory
+experimental/
+
 # What happensin sandbox stays in sandbox.
 sandbox/
 

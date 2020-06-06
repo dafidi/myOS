@@ -1,4 +1,5 @@
 #!/bin/bash
+# This ought to be run in a linux shell.
 
 set -e
 
@@ -22,22 +23,7 @@ done
 
 # Utility functions.
 get_raw_kernel_size () {
-  IFS=' '
-  last_field=''
-  kernel_size=''
-
-  stat_output=`stat kernel.bin | grep Size`
-
-  read -ra ADDR <<< "$stat_output"
-
-  for i in "${ADDR[@]}"; do
-    if [[ $last_field == 'Size:' ]]; then
-      kernel_size="$i"
-      echo "Found kernel size: $i"
-      break
-    fi
-    last_field=$i
-  done
+  kernel_size=$(stat kernel.bin | grep Size | tr -s ' ' | cut -d' ' -f3)
 
   kernel_size=$(($kernel_size))
 }
@@ -89,10 +75,15 @@ echo "***********************Done building Image**********************"
 
 echo "****************************************************************"
 if [[ $norun == 0 ]]; then
-  # Convenience script to start the VM.
-  echo "Launching Windows shell from which VM (qemu) will be launched..."
-  cmd.exe /c start.bat
-  echo "VM shut down."
+
+  version=$(cat /proc/version)
+  if [[ $version == *"Microsoft"* ]]; then
+    echo "Launching Windows shell from which VM (qemu) will be launched..."
+    cmd.exe /c start.bat
+    echo "VM shut down."
+  else
+    bash -x start.sh
+  fi
 else 
   echo "Flag "--no-run" passed. Not running."
 fi

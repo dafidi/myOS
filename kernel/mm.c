@@ -23,7 +23,7 @@ void init_mm(void) {
 
 	for (int i = 0; i < mem_map_buf_entry_count; i++) {
 		print("entry "); print_int32(i); print(" has base "); print_int32( bmm[i].base);
-    print(" and length "); print_int32( bmm[i].length); print(".\n");
+    	print(" and length "); print_int32( bmm[i].length); print(".\n");
 	}
 
 	kernel_mem_bitmap = ~((unsigned int) 0);

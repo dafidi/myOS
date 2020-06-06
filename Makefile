@@ -32,7 +32,7 @@ boot_sect_2.bin: boot/boot_sect_2.bin
 	cp boot/boot_sect_2.bin boot_sect_2.bin
 
 kernel.bin: kernel/kernel_entry.o ${OBJ}
-	ld -o kernel.bin -m elf_i386 -Ttext 0x1000 $^ --oformat binary kernel.ld
+	ld -o kernel.bin -m elf_i386 $^ --oformat binary -T kernel.ld
 
 storage_disk.img:
 	nasm -f bin -o storage_disk.img storage_disk.asm

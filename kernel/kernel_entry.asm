@@ -19,7 +19,6 @@ kernel_entry:
   mov [mem_map_buf_entry_count], eax
 
   call main
-
 jmp $
 
 mem_map_buf_addr: dd 0x0

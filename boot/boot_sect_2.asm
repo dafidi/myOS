@@ -9,7 +9,7 @@
 mov [BOOT_DRIVE], dl
 
 KERNEL_OFFSET equ 0x1000
-KERNEL_SIZE_SECTORS equ 49
+KERNEL_SIZE_SECTORS equ 30
 
 mov bx, BOOTLOADER2_START_MSG
 call print_string
@@ -23,6 +23,7 @@ call load_kernel_1
 mov bx, MSG_LOADED_KERNEL
 call print_string
 call print_endl
+
 ; This will jump to BEGIN_PM.
 call enter_protected_mode
 
@@ -31,17 +32,17 @@ BEGIN_PM:
 	mov ebx, MSG_SWITCHED_TO_PM
 	call print_string_pm
 
-	mov ax, [mem_map_buf_entry_count]
-	push ax
-	mov edx, mem_map_buff
-	call print_hex_pm
+	mov eax, [mem_map_buf_entry_count]
+	; The kernel expect the bios memory map count and address to be on 
+	; the stack when it starts executing, so push them to the stack.
+	push eax
 	push mem_map_buff
 	
 	; 'jmp' may be better here than 'call' because we don't have use for
 	; the side effect(s) of 'call'.
 	jmp start_kernel 
 
-mem_map_buf_entry_count: dw 0x0
+mem_map_buf_entry_count: dd 0x0
 ;=======================================================================
 ; No return from here.
 ;=======================================================================

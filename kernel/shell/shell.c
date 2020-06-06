@@ -7,6 +7,7 @@
 #include <fs/fs.h>
 #include <fs/fnode.h>
 
+const char stub[] = ">>";
 
 char shell_ascii_buffer[SHELL_CMD_INPUT_LIMIT];
 static char* known_commands[NUM_KNOWN_COMMANDS] = {
@@ -191,7 +192,7 @@ static void default_show_prompt(void) {
     default_shell.fs_ctx.curr_folder_id);
 
   print(curr_folder_node->name);
-  print(">");
+  print(stub);
 }
 
 // Executes the default/main shell.
