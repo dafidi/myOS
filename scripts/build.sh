@@ -1,25 +1,13 @@
 #!/bin/bash
-# This ought to be run in a linux shell.
+#
+# File: build.sh
+# 
+# This ought to be run in a Linux shell.
 
 set -e
+set -x
 
-noclean=0
-nobuild=0
-norun=0
-
-# Flag Parsing
-for arg in "$@"
-do
-  if [[ $arg == "--no-clean" ]]; then
-    noclean=1
-  elif [[ $arg == "--no-build" ]]; then
-    nobuild=1
-  elif [[ $arg == "--no-run" ]]; then
-    norun=1
-  else
-    echo " I don't know what to do about [$arg]."
-  fi
-done
+cd ${HOME}/dev/myOS
 
 # Utility functions.
 get_raw_kernel_size () {
@@ -52,7 +40,7 @@ pad_kernel_to_multiple_of_sector_size() {
   num_blocks=$num_blocks
 }
 
-echo "***********************Building image***************************"
+echo "***********************Generating os-image***************************"
 make kernel.bin
 
 # Figure out numbers of sectors to load in boot sector.
@@ -68,32 +56,6 @@ sed -i "s/KERNEL_SIZE_SECTORS equ .*/KERNEL_SIZE_SECTORS equ $num_blocks/" boot/
 make boot_sect_1.bin
 make boot_sect_2.bin
 make storage_disk.img
-
 make os-image
-echo "***********************Done building Image**********************"
-
-
-echo "****************************************************************"
-if [[ $norun == 0 ]]; then
-
-  version=$(cat /proc/version)
-  if [[ $version == *"Microsoft"* ]]; then
-    echo "Launching Windows shell from which VM (qemu) will be launched..."
-    cmd.exe /c start.bat
-    echo "VM shut down."
-  else
-    bash -x start.sh
-  fi
-else 
-  echo "Flag "--no-run" passed. Not running."
-fi
-echo "****************************************************************"
-
-if [[ $noclean == 1 ]]; then
-  echo "Ha! I'm not cleaning my mess."
-else
-  echo "Cleaning up my mess."
-  make clean
-fi
-echo "Done."
+echo "***********************Done generating os-image**********************"
 

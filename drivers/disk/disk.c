@@ -136,7 +136,6 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
   SHOW_DISK_CTRL_ERROR("ERROR [after insb] ERROR:");
 
   print("Finished reading from disk.\n");
-	enable_interrupts();
   return NONE;
 }
 

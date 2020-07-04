@@ -24,6 +24,18 @@ jmp $
 mem_map_buf_addr: dd 0x0
 mem_map_buf_entry_count: dd 0x0
 
+global pm_jump
+pm_jump:
+  jmp 0x8:pm_jmp_ret
+pm_jmp_ret:
+  mov ax, 0x10
+	mov ds, ax
+	mov ss, ax
+	mov es, ax
+	mov fs, ax
+	mov gs, ax
+  ret
+
 initialize_idt:
   lidt [idt_info_ptr]
   ret

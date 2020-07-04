@@ -52,7 +52,6 @@ static int get_list_of_free_sectors() {
 enum sys_error init_fs(void) {
   int num_free_sectors = 0;
   read_from_storage_disk(0, 512, master_record_buffer);
-  
   master_record = (struct master_fs_record*) master_record_buffer;
 
   if (master_record->magic_bits == magic_bits) {
