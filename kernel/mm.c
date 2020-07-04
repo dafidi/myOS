@@ -3,21 +3,30 @@
 #include "drivers/screen/screen.h"
 #include "string.h"
 
+// System memory map as told by BIOS.
 extern unsigned int mem_map_buf_addr;
 extern unsigned int mem_map_buf_entry_count;
 
+// Kernel uninitialized data start and end.
 extern int _bss_start;
 extern int _bss_end;
 
+// Memory management structures for the kernel's use.
 static uint32_t kernel_mem_bitmap;
 static struct bios_mem_map* bmm;
 
-extern void load_pm_gdt(void);
+// Kernel structures for segmentation.
 struct gdt_entry pm_gdt[5];
 struct gdt_info pm_gdt_info = {
 		.len = sizeof(pm_gdt),
 		.addr = pm_gdt,
 };
+
+// Kernel structures for paging.
+// We have 1024 page directory entries -> 1024 page tables and each page table has 1024 ptes.
+unsigned int kernel_page_directory[1024]__attribute__((aligned(0x1000)));
+unsigned int kernel_page_tables[1024][1024];
+extern void setup_and_enable_paging(void);
 
 void init_mm(void) {
   	print("mem_map_buf_addr="); print_int32(mem_map_buf_addr);
@@ -39,6 +48,29 @@ void init_mm(void) {
 	print("_bss_end="); print_int32((unsigned int) &_bss_end); print("\n");
 	
 	setup_pm_gdt();
+	setup_page_directory_and_page_tables();
+	setup_and_enable_paging();
+}
+
+void setup_page_directory_and_page_tables(void) {
+	unsigned int addr = (unsigned int) &kernel_page_tables[0];
+	unsigned int i, j, page_frame = 0;
+
+	for (i = 0; i < 1024; i++) {
+		// Set all PDEs.
+		kernel_page_directory[i] = addr & 0xfffff000;
+		kernel_page_directory[i] |= 0x3;
+		addr += 0x1000;
+	}
+
+	for (i = 0; i < 1024; i++) {
+		for (j = 0; j < 1024; j++) {
+			kernel_page_tables[i][j] = page_frame;
+			kernel_page_tables[i][j] |= 0x3;
+			page_frame += 0x1000;
+		}
+	}
+	return;
 }
 
 void setup_pm_gdt(void) {

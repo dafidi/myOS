@@ -28,4 +28,6 @@ void setup_pm_gdt(void);
 void show_gdt(struct gdt_entry* gdt, int num_entries);
 void make_gdt_entry(struct gdt_entry* entry, unsigned int limit, unsigned int base, char type, char flags);
 void load_pm_gdt(void);
+
+void setup_page_directory_and_page_tables(void);
 #endif // __MM_H__

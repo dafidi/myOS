@@ -36,6 +36,22 @@ pm_jmp_ret:
 	mov gs, ax
   ret
 
+extern kernel_page_directory
+global setup_and_enable_paging
+setup_and_enable_paging:
+  ; point CR3 to page directory
+  mov eax, kernel_page_directory
+  or eax, 0x3
+  mov cr3, eax
+
+  ; set CRO.PG to 1
+  mov ebx, cr0	; set left-most bit of CPU special control register.
+	or ebx, 0x80000000
+	mov cr0, ebx
+
+  ; return
+  ret
+
 initialize_idt:
   lidt [idt_info_ptr]
   ret
