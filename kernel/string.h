@@ -11,9 +11,9 @@ bool strmatchn(char* s1, char* s2, int n);
 
 void strcopy(char* dest, const char* src);
 
-int strlen(char* str);
+bool strmatchn(char* s1, char* s2, int n);
 
-void print_int32(int);
+int strlen(char* str);
 
 void set_bit(uint8_t* addr, int nr);
 

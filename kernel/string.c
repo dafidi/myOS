@@ -1,10 +1,6 @@
 #include "string.h"
 
 #include "drivers/screen/screen.h"
-/*
-2^32 = 4294967296
-*/
-static char int_template[11] = "0000000000";
 
 void int_to_string(char* s, unsigned int val, int n) {
   char t;
@@ -52,11 +48,6 @@ int strlen(char* str) {
     i++;
   }
   return i;
-}
-
-void print_int32(int n) {
-  int_to_string(int_template, n, 10);
-  print_int(int_template);
 }
 
 void set_bit(uint8_t* addr, int nr) {

@@ -8,7 +8,7 @@
 C_SOURCES = $(wildcard kernel/*.c kernel/**/*.c drivers/**/*.c fs/*.c)
 HEADERS = $(wildcard kernel/*.h kernel/**/*.h drivers/*.h fs/*.h)
 
-C_FLAGS = -Wall -O0 -m32 -fno-pie -fno-stack-protector -ffreestanding -fno-hosted
+C_FLAGS = -Wall -O0 -m32 -fno-pie -fno-stack-protector -ffreestanding -fno-hosted -g
 C_FLAGS += -I./
 
 # Generate object file names to build based on *.c filenames.
@@ -34,14 +34,17 @@ boot_sect_2.bin: boot/boot_sect_2.bin
 kernel.bin: kernel/kernel_entry.o ${OBJ}
 	ld -o kernel.bin -m elf_i386 $^ --oformat binary -T kernel.ld
 
-storage_disk.img:
+storage_disk.img: null.bin
 	nasm -f bin -o storage_disk.img storage_disk.asm
+	# Append app.bin
+	cat apps/app.bin >> storage_disk.img
+	cat null.bin >> storage_disk.img
 
 %.o: %.c
 	gcc ${C_FLAGS} -c $< -o $@
 
 %.o: %.asm
-	nasm $< -f elf -o $@
+	nasm $< -f elf -g -o $@
 
 %.bin: %.asm
 	nasm $< -f bin -o $@

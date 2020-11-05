@@ -3,6 +3,14 @@
 
 #include <drivers/screen/screen.h>
 
+#define __PAUSE_ON_FAULT__
+
+#ifdef __PAUSE_ON_FAULT__
+#define PAUSE_ON_FAULT() PAUSE();
+#else
+#define PAUSE_ON_FAULT()
+#endif
+
 void install_isrs() {
   set_idt_entry(0, (unsigned) isr0, 0x08, 0x8E);
   set_idt_entry(1, (unsigned) isr1, 0x08, 0x8E);
@@ -38,7 +46,7 @@ void install_isrs() {
   set_idt_entry(31, (unsigned) isr31, 0x08, 0x8E);
 }
 
-  char* exception_messages[] = {
+char* exception_messages[] = {
     /*0 */ "Division By Zero Exception",
     /*1 */ "Debug Exception",
     /*2 */ "Non Maskable Interrupt Exception",
@@ -47,13 +55,13 @@ void install_isrs() {
     /*5 */ "Out of Bounds Exception",
     /*6 */ "Invalid Opcode Exception",
     /*7 */ "No Coprocessor Exception",
-    /*8 */ "Double Fault Exception ",
+    /*8 */ "Double Fault Exception",
     /*9 */ "Coprocessor Segment Overrun Exception",
-    /*10*/  "Bad TSS Exception ",
-    /*11*/  "Segment Not Present Exception ",
-    /*12*/  "Stack Fault Exception ",
-    /*13*/  "General Protection Fault Exception ",
-    /*14*/  "Page Fault Exception ",
+    /*10*/  "Bad TSS Exception",
+    /*11*/  "Segment Not Present Exception",
+    /*12*/  "Stack Fault Exception",
+    /*13*/  "General Protection Fault Exception",
+    /*14*/  "Page Fault Exception",
     /*15*/  "Unknown Interrupt Exception",
     /*16*/  "Coprocessor Fault Exception",
     /*17*/  "Alignment Check Exception (486+)",
@@ -70,11 +78,16 @@ void install_isrs() {
     /*28*/  "Reserved",
     /*29*/  "Reserved",
     /*30*/  "Reserved"
-  };
+};
 
 void fault_handler(struct registers* regs) {
-  print("Handling Fault.\n");
+  print("Fault: msg=[");
   print(exception_messages[regs->int_no]);
-  print("\n");
-  return;
+  print("],code=[");
+  print_int32(regs->err_code);
+  print("]\n");
+
+  print_registers(regs);
+
+  PAUSE_ON_FAULT();
 }

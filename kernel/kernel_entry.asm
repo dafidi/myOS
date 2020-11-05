@@ -52,6 +52,30 @@ setup_and_enable_paging:
   ; return
   ret
 
+USER_TASK_SEG_IDX equ 7
+USER_TASK_SEG equ 8 * USER_TASK_SEG_IDX
+user_task_selector: dw USER_TASK_SEG
+
+global switch_task
+switch_task:
+  call USER_TASK_SEG: 0x0
+  ret
+
+KERNEL_TASK_SEG_IDX equ 5
+KERNEL_TASK_SEG equ 8 * KERNEL_TASK_SEG_IDX
+kernel_task_selector: dw KERNEL_TASK_SEG
+
+; Function to load kernel task register.
+global load_kernel_tr
+load_kernel_tr:
+  ltr [kernel_task_selector]
+  ret
+
+global dummy_branch
+dummy_branch:
+  mov eax, 0xfadefade
+  iret
+
 initialize_idt:
   lidt [idt_info_ptr]
   ret
@@ -69,6 +93,7 @@ disable_interrupts:
 extern fault_handler
 extern irq_handler
 
+global isr_common
 global isr0
 global isr1
 global isr2
@@ -449,3 +474,5 @@ irq_common:
   popa
   add esp, 8
   iret
+
+%include "kernel/print_string_pm.asm"

@@ -85,6 +85,7 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
                &data_port);
 
   num_sectors = (n_bytes >> 9) + (n_bytes & 0x1ff ? 1 : 0);
+  print("Reading "); print_int32(num_sectors); print(" sectors. \n");
 
   while((port_byte_in(status_port) & 0xc0) != 0x40) {
     int hd_ctrl_status = port_byte_in(status_port);
@@ -128,14 +129,15 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
   int_to_string(tmp, hd_ctrl_status, 9);
   print("HD READY! STATUS:"); print(tmp); print("\n");
 
-  // print("before: ["); print(buffer); print("]\n");
+  // print("before: buffer = ["); print(buffer); print("]\n");
   insw(data_port, buffer, n_bytes >> 1);
-  // print("after: ["); print(buffer); print("]\n");
+  // print("after: buffer = ["); print(buffer); print("]\n");
 
   SHOW_DISK_CTRL_STATUS("STATUS [after insb] STATUS:");
   SHOW_DISK_CTRL_ERROR("ERROR [after insb] ERROR:");
 
   print("Finished reading from disk.\n");
+  enable_interrupts();
   return NONE;
 }
 

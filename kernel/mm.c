@@ -1,7 +1,9 @@
 #include "mm.h"
 
-#include "drivers/screen/screen.h"
 #include "string.h"
+#include "task.h"
+
+#include "drivers/screen/screen.h"
 
 // System memory map as told by BIOS.
 extern unsigned int mem_map_buf_addr;
@@ -11,21 +13,30 @@ extern unsigned int mem_map_buf_entry_count;
 extern int _bss_start;
 extern int _bss_end;
 
+// TSS for kernel and user tasks.
+extern tss kernel_tss __attribute__((aligned(0x1000)));
+extern tss user_tss __attribute__((aligned(0x1000)));
+
 // Memory management structures for the kernel's use.
 static uint32_t kernel_mem_bitmap;
 static struct bios_mem_map* bmm;
 
+#define NUM_GDT_ENTRIES 8
 // Kernel structures for segmentation.
-struct gdt_entry pm_gdt[5];
+struct gdt_entry pm_gdt[NUM_GDT_ENTRIES];
 struct gdt_info pm_gdt_info = {
-		.len = sizeof(pm_gdt),
-		.addr = pm_gdt,
+	.len = sizeof(pm_gdt),
+	.addr = (unsigned int) pm_gdt,
 };
 
 // Kernel structures for paging.
 // We have 1024 page directory entries -> 1024 page tables and each page table has 1024 ptes.
 unsigned int kernel_page_directory[1024]__attribute__((aligned(0x1000)));
 unsigned int kernel_page_tables[1024][1024];
+
+unsigned int user_page_directory[USER_PAGE_TABLE_SIZE]__attribute__((aligned(0x1000)));
+unsigned int user_page_tables[USER_PAGE_TABLE_SIZE][USER_PAGE_TABLE_SIZE];
+
 extern void setup_and_enable_paging(void);
 
 void init_mm(void) {
@@ -37,8 +48,8 @@ void init_mm(void) {
 	bmm = (struct bios_mem_map*) mem_map_buf_addr;
 
 	for (int i = 0; i < mem_map_buf_entry_count; i++) {
-		print("entry "); print_int32(i); print(" has base "); print_int32( bmm[i].base);
-    	print(" and length "); print_int32( bmm[i].length); print(".\n");
+		print("entry "); print_int32(i); print(" has base "); print_int32(bmm[i].base);
+    	print(" and length "); print_int32(bmm[i].length); print(".\n");
 	}
 
 	kernel_mem_bitmap = ~((unsigned int) 0);
@@ -47,35 +58,59 @@ void init_mm(void) {
 	print("_bss_start="); print_int32((unsigned int) &_bss_start); print("\n");
 	print("_bss_end="); print_int32((unsigned int) &_bss_end); print("\n");
 	
+	setup_tss();
 	setup_pm_gdt();
 	setup_page_directory_and_page_tables();
 	setup_and_enable_paging();
 }
 
+extern unsigned int isr_common;
+extern unsigned int kernel_entry;
 void setup_page_directory_and_page_tables(void) {
 	unsigned int addr = (unsigned int) &kernel_page_tables[0];
 	unsigned int i, j, page_frame = 0;
 
+	// Setup kernel paging.
 	for (i = 0; i < 1024; i++) {
 		// Set all PDEs.
-		kernel_page_directory[i] = addr & 0xfffff000;
-		kernel_page_directory[i] |= 0x3;
+		kernel_page_directory[i] = (addr & 0xfffff000) | 0x3;
 		addr += 0x1000;
 	}
 
 	for (i = 0; i < 1024; i++) {
 		for (j = 0; j < 1024; j++) {
-			kernel_page_tables[i][j] = page_frame;
-			kernel_page_tables[i][j] |= 0x3;
+			kernel_page_tables[i][j] = page_frame | 0x3;
 			page_frame += 0x1000;
 		}
 	}
+
+	// Setup user paging.
+	addr = (unsigned int) &user_page_tables[0];
+	// start app at arbitrary physical address, later on we'll let
+	// the system pick from an available list of addresses.
+	page_frame = 0x0;
+	for (i = 0; i < USER_PAGE_TABLE_SIZE; i++) {
+		// Set all PDEs.
+		user_page_directory[i] = (addr & 0xfffff000) | 0x3;
+		addr += 0x1000;
+	}
+
+	// page_frame = 0;
+	for (i = 0; i < USER_PAGE_TABLE_SIZE; i++) {
+		for (j = 0; j < USER_PAGE_TABLE_SIZE; j++) {
+			user_page_tables[i][j] = page_frame | 0x3;
+			page_frame += 0x1000;
+		}
+	}
+	print("kernel_entry="); print_int32((unsigned int) kernel_entry); print("\n");
+	print("&user_page_directory="); print_int32((unsigned int) &user_page_directory); print("\n");
+	print("&kernel_page_directory="); print_int32((unsigned int) &kernel_page_directory); print("\n");
 	return;
 }
 
 void setup_pm_gdt(void) {
 	pm_gdt_info.len = sizeof(pm_gdt);
-	pm_gdt_info.addr = pm_gdt;
+	pm_gdt_info.addr = (long unsigned int) pm_gdt;
 
 	/* make_gdt_entry(gdt_entry*, limit, base, type, flags) */
 	/* In x86 (who knows about elsewhere) first GDT entry should be null. */
@@ -93,7 +128,14 @@ void setup_pm_gdt(void) {
 	// USER_DATA_SEGMENT
 	make_gdt_entry(&pm_gdt[4], 0x0, 0x0, 0x0, 0x0);
 
-	show_gdt(pm_gdt, 5);
+	// Add entry for kernel task (TSS descriptor).
+	make_gdt_entry(&pm_gdt[5], sizeof(kernel_tss), (unsigned int) &kernel_tss, 0x9, 0x18);
+	// Add entry for user task (TSS descriptor).
+	make_gdt_entry(&pm_gdt[6], sizeof(user_tss), (unsigned int) &user_tss, 0x9, 0x18);
+	// Add task gate for user TSS.
+	make_gdt_entry(&pm_gdt[7], sizeof(user_tss), 0x30, 0x5, 0xe);
+
+	show_gdt(pm_gdt, NUM_GDT_ENTRIES - 1);
 	load_pm_gdt();
 }
 
@@ -128,7 +170,6 @@ void load_pm_gdt(void) {
 	asm volatile("lgdt %0" : : "m"(pm_gdt_info));
 	pm_jump();
 }
-
 
 void make_gdt_entry(struct gdt_entry* entry,
 					unsigned int limit,

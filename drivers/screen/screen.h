@@ -13,8 +13,9 @@ int get_cursor();
 void set_cursor(int);
 
 // Printing things.
-void print(char*);
-void print_int(char*);
+void print(const char*);
+void print_int(const char*);
+void print_int32(int);
 void print_at(char*, int, int);
 void print_char(char, int, int, char);
 

@@ -5,6 +5,7 @@
 #include "isrs.h"
 #include "irq.h"
 #include "mm.h"
+#include "task.h"
 #include "timer.h"
 #include "shell/shell.h"
 #include "string.h"
@@ -37,24 +38,31 @@ void init(void) {
 	/* Set up memory management. */
 	init_mm();
 
-	/* Set up disk. */
-	init_disk();
-
 	/* Set up fs. */
 	init_fs();
 
 	/* Setup keyboard */
 	install_keyboard();
 
+	/* Set up disk. */
+	init_disk();
+
 	/* Let the fun begin. */
 	enable_interrupts();
 }
 
+// Not yet used. Will use soon.
+void *APP_PHY_ADDR = (void *) 0x2000000;
 int main(void) {
 	print(kernel_load_message);
 	init();
 	print(kernel_init_message);
-	print(long_kernel_story);
+
+	// Not yet used. Will use soon, app will load here.
+	// TODO: Load and run app/binary.
+	read_from_storage_disk(2, 512, APP_PHY_ADDR);
+
+	do_task_switch();
 
 	exec_main_shell();
 

@@ -1,5 +1,13 @@
 #include "kernel/low_level.h"
+#include "kernel/string.h"
+#include "kernel/system.h"
+
 #include "screen.h"
+
+/*
+2^32 = 4294967296
+*/
+static char int_template[11] = "0000000000";
 
 void print_char(char character, int row, int col, char attribute_byte) {
 	unsigned char* vidmem = (unsigned char*) VIDEO_ADDRESS;
@@ -39,7 +47,7 @@ int get_screen_offset(int row, int col) {
 
 int get_cursor() {
 	// The device uses its control register as an index to select its
-	// internal registeres, of which we are interested in:
+	// internal registers, of which we are interested in:
 	//	reg 14: which is the high byte of the cursor's offset
 	//	reg 15: which is the low byte of the cursor's offset
 	// Once the internal register has been selected, we may read or
@@ -73,7 +81,7 @@ void print_at(char* message, int row, int col) {
 	}
 }
 
-void print(char* message) {
+void print(const char* message) {
 	int i = 0;
 	while(message[i] != 0) {
 		int cursor_offset = get_cursor() - VIDEO_ADDRESS;
@@ -132,8 +140,9 @@ int  handle_scrolling(int  cursor_offset) {
 	return  cursor_offset;
 }
 
-/**/
-void print_int(char* p) {
+/* Special function for printing integers because we'd like to do without printing 0s. */
+/* which are usually left behind after converting ints to string  (by int_to_string).  */
+void print_int(const char* p) {
 	while(*p == '0') { p++;	}
 	
 	if (*p == '\0')
@@ -142,12 +151,40 @@ void print_int(char* p) {
 	print(p);
 }
 
+void print_int32(int n) {
+  int_to_string(int_template, n, 10);
+  print_int(int_template);
+}
+
 // Doesn't really work, lol
 void set_screen_to_blue(void) {
-	unsigned char* p = (unsigned char*) 	0xa0000;
+	unsigned char* p = (unsigned char*) 0xa0000;
 
 	while (((int)p) < 0xbffff) {
 		*p = 1;
 		p++;
 	}
+}
+
+void print_registers(struct registers *registers) {
+	print_register("gs", registers->gs);
+	print_register("fs", registers->fs);
+	print_register("es", registers->es);
+	print_register("ds", registers->ds);
+	print_register("edi", registers->edi);
+	print_register("esi", registers->esi);
+	print_register("ebp", registers->ebp);
+	print_register("esp", registers->esp);
+	print_register("ebx", registers->ebx);
+	print_register("edx", registers->edx);
+	print_register("ecx", registers->ecx);
+	print_register("eax", registers->eax);
+	print_register("eip", registers->eip);
+	print_register("cs", registers->cs);
+	print_register("useresp", registers->useresp);
+	print_register("ss", registers->ss);
+}
+
+void print_register(char *register_name, const int register_value) {
+	print(register_name); print("="); print_int32(register_value); print("\n");
 }

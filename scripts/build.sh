@@ -12,7 +12,6 @@ cd ${HOME}/dev/myOS
 # Utility functions.
 get_raw_kernel_size () {
   kernel_size=$(stat kernel.bin | grep Size | tr -s ' ' | cut -d' ' -f3)
-
   kernel_size=$(($kernel_size))
 }
 

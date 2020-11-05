@@ -1,7 +1,8 @@
 
-#include <screen/screen.h>
+// #include <screen/screen.h>
 
-int main() {
-    print("Let praises rise.");
+void main(void) {
+    asm volatile("add %eax, %ebx");
+    while(1);
     return 0;
 }

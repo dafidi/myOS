@@ -1,4 +1,2 @@
-;The idea was to generate data for at least 2 sectors.
-times (2*32) db "1111111111111111"
-times (2*32) db "2222222222222222"
-db 0x0
+times (512) db 0xba
+times (512) db 0x01
