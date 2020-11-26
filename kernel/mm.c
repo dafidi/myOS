@@ -32,10 +32,10 @@ struct gdt_info pm_gdt_info = {
 // Kernel structures for paging.
 // We have 1024 page directory entries -> 1024 page tables and each page table has 1024 ptes.
 unsigned int kernel_page_directory[1024]__attribute__((aligned(0x1000)));
-unsigned int kernel_page_tables[1024][1024];
+unsigned int kernel_page_tables[1024][1024];__attribute__((aligned(0x1000)))
 
 unsigned int user_page_directory[USER_PAGE_TABLE_SIZE]__attribute__((aligned(0x1000)));
-unsigned int user_page_tables[USER_PAGE_TABLE_SIZE][USER_PAGE_TABLE_SIZE];
+unsigned int user_page_tables[USER_PAGE_TABLE_SIZE][USER_PAGE_TABLE_SIZE];__attribute__((aligned(0x1000)))
 
 extern void setup_and_enable_paging(void);
 
@@ -64,8 +64,6 @@ void init_mm(void) {
 	setup_and_enable_paging();
 }
 
-extern unsigned int isr_common;
-extern unsigned int kernel_entry;
 void setup_page_directory_and_page_tables(void) {
 	unsigned int addr = (unsigned int) &kernel_page_tables[0];
 	unsigned int i, j, page_frame = 0;
@@ -95,16 +93,16 @@ void setup_page_directory_and_page_tables(void) {
 		addr += 0x1000;
 	}
 
-	// page_frame = 0;
 	for (i = 0; i < USER_PAGE_TABLE_SIZE; i++) {
 		for (j = 0; j < USER_PAGE_TABLE_SIZE; j++) {
 			user_page_tables[i][j] = page_frame | 0x3;
 			page_frame += 0x1000;
 		}
 	}
-	print("kernel_entry="); print_int32((unsigned int) kernel_entry); print("\n");
-	print("&user_page_directory="); print_int32((unsigned int) &user_page_directory); print("\n");
-	print("&kernel_page_directory="); print_int32((unsigned int) &kernel_page_directory); print("\n");
+	print("user_page_tables="); 		print_int32((unsigned int) user_page_tables); 		print("\n");
+	print("user_page_directory="); 		print_int32((unsigned int) user_page_directory); 	print("\n");
+	print("kernel_page_tables="); 		print_int32((unsigned int) kernel_page_tables); 	print("\n");
+	print("kernel_page_directory="); 	print_int32((unsigned int) kernel_page_directory); 	print("\n");
 	return;
 }
 

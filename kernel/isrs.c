@@ -6,7 +6,7 @@
 #define __PAUSE_ON_FAULT__
 
 #ifdef __PAUSE_ON_FAULT__
-#define PAUSE_ON_FAULT() PAUSE();
+#define PAUSE_ON_FAULT() PAUSE()
 #else
 #define PAUSE_ON_FAULT()
 #endif

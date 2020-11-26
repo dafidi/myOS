@@ -64,22 +64,22 @@ void irq_remap(void) {
 void install_irqs(void) {
   irq_remap();
 
-  set_idt_entry(32, (unsigned) irq0, 0x08, 0x8E);
-  set_idt_entry(33, (unsigned) irq1, 0x08, 0x8E);
-  set_idt_entry(34, (unsigned) irq2, 0x08, 0x8E);
-  set_idt_entry(35, (unsigned) irq3, 0x08, 0x8E);
-  set_idt_entry(36, (unsigned) irq4, 0x08, 0x8E);
-  set_idt_entry(37, (unsigned) irq5, 0x08, 0x8E);
-  set_idt_entry(38, (unsigned) irq6, 0x08, 0x8E);
-  set_idt_entry(39, (unsigned) irq7, 0x08, 0x8E);
-  set_idt_entry(40, (unsigned) irq8, 0x08, 0x8E);
-  set_idt_entry(41, (unsigned) irq9, 0x08, 0x8E);
-  set_idt_entry(42, (unsigned) irq10, 0x08, 0x8E);
-  set_idt_entry(43, (unsigned) irq11, 0x08, 0x8E);
-  set_idt_entry(44, (unsigned) irq12, 0x08, 0x8E);
-  set_idt_entry(45, (unsigned) irq13, 0x08, 0x8E);
-  set_idt_entry(46, (unsigned) irq14, 0x08, 0x8E);
-  set_idt_entry(47, (unsigned) irq15, 0x08, 0x8E);
+  set_idt_entry(32, (unsigned) irq0, 0x08, 0x8E);   /* (idx=0,  desc=timer)    */
+  set_idt_entry(33, (unsigned) irq1, 0x08, 0x8E);   /* (idx=1,  desc=keyboard) */
+  set_idt_entry(34, (unsigned) irq2, 0x08, 0x8E);   /* (idx=2,  desc=unknown)  */
+  set_idt_entry(35, (unsigned) irq3, 0x08, 0x8E);   /* (idx=3,  desc=unknown)  */
+  set_idt_entry(36, (unsigned) irq4, 0x08, 0x8E);   /* (idx=4,  desc=serial port 1/3)  */
+  set_idt_entry(37, (unsigned) irq5, 0x08, 0x8E);   /* (idx=5,  desc=unknown)  */
+  set_idt_entry(38, (unsigned) irq6, 0x08, 0x8E);   /* (idx=6,  desc=unknown)  */
+  set_idt_entry(39, (unsigned) irq7, 0x08, 0x8E);   /* (idx=7,  desc=unknown)  */
+  set_idt_entry(40, (unsigned) irq8, 0x08, 0x8E);   /* (idx=8,  desc=unknown)  */
+  set_idt_entry(41, (unsigned) irq9, 0x08, 0x8E);   /* (idx=9,  desc=unknown)  */
+  set_idt_entry(42, (unsigned) irq10, 0x08, 0x8E);  /* (idx=10, desc=unknown)  */  
+  set_idt_entry(43, (unsigned) irq11, 0x08, 0x8E);  /* (idx=11, desc=unknown)  */  
+  set_idt_entry(44, (unsigned) irq12, 0x08, 0x8E);  /* (idx=12, desc=unknown)  */  
+  set_idt_entry(45, (unsigned) irq13, 0x08, 0x8E);  /* (idx=13, desc=unknown)  */  
+  set_idt_entry(46, (unsigned) irq14, 0x08, 0x8E);  /* (idx=14, desc=disk)     */  
+  set_idt_entry(47, (unsigned) irq15, 0x08, 0x8E);  /* (idx=15, desc=unknown)  */  
 }
 
 // static char tmp[10] = "000000000";

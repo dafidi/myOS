@@ -20,6 +20,7 @@ pad.asm
 *.swo
 *.img
 *.dump
+*.elf
 
 # The final image, just another binary.
 os-image

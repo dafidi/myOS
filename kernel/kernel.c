@@ -35,6 +35,9 @@ void init(void) {
 	timer_phase(DEFAULT_TIMER_FREQUENCY_HZ);
 	timer_install();
 
+	/* Set up disk. */
+	init_disk();
+
 	/* Set up memory management. */
 	init_mm();
 
@@ -43,9 +46,6 @@ void init(void) {
 
 	/* Setup keyboard */
 	install_keyboard();
-
-	/* Set up disk. */
-	init_disk();
 
 	/* Let the fun begin. */
 	enable_interrupts();

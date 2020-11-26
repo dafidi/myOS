@@ -1,7 +1,7 @@
 ; Second-stage boot loader whose functions are to:
 ;  - Get the memory map using BIOS.
 ;  - Load kernel into RAM.
-;  - Enter protected mode .
+;  - Enter protected mode.
 ;  - Begin kernel execution.
 [org 0x7e00]
 [bits 16]
@@ -9,7 +9,7 @@
 mov [BOOT_DRIVE], dl
 
 KERNEL_OFFSET equ 0x1000
-KERNEL_SIZE_SECTORS equ 37
+KERNEL_SIZE_SECTORS equ 35
 
 mov bx, BOOTLOADER2_START_MSG
 call print_string
