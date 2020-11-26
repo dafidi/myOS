@@ -46,11 +46,13 @@ kernel.elf: kernel/kernel_entry.o ${OBJ}
 kernel.bin: kernel.elf
 	objcopy -O binary kernel.elf kernel.bin
 
-storage_disk.img: null.bin
+app.bin:
+	make -C apps/ s
+
+storage_disk.img: app.bin
 	nasm -f bin -o storage_disk.img storage_disk.asm
 	# Append app.bin
 	cat apps/app.bin >> storage_disk.img
-	cat null.bin >> storage_disk.img
 
 %.o: %.c
 	gcc ${C_FLAGS} -c $< -o $@
@@ -62,6 +64,6 @@ storage_disk.img: null.bin
 	nasm $< -f bin -o $@
 
 clean:
-	rm -rf *.bin *.o os-image *.map *.elf #*.dis
+	rm -rf *.bin *.o os-image *.map *.img *.elf #*.dis
 	rm -rf kernel/*.o kernel/**/*.o boot/*.bin drivers/**/*.o fs/*.o
 

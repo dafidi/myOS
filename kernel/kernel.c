@@ -53,15 +53,32 @@ void init(void) {
 
 // Not yet used. Will use soon.
 void *APP_PHY_ADDR = (void *) 0x2000000;
+int APP_SIZE = 28;
+
+void read_app_into_memory(void) {
+	void *write_pos = APP_PHY_ADDR;
+	int app_size = APP_SIZE;
+	int amt_left = app_size;
+	int amt_read = 0;
+
+	while(amt_left) {
+		int chunk_size = amt_left > 8192 ? 8192 : amt_left;
+		int sector_offset = amt_read / 512 /* size of a sector. */;
+
+		read_from_storage_disk(2 + sector_offset, chunk_size, write_pos);
+
+		amt_left -= chunk_size;
+		write_pos += chunk_size;
+		amt_read += chunk_size;
+	}
+}
+
 int main(void) {
 	print(kernel_load_message);
 	init();
 	print(kernel_init_message);
 
-	// Not yet used. Will use soon, app will load here.
-	// TODO: Load and run app/binary.
-	read_from_storage_disk(2, 512, APP_PHY_ADDR);
-
+	read_app_into_memory();
 	do_task_switch();
 
 	exec_main_shell();

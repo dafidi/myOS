@@ -1,11 +1,15 @@
-C_FLAGS = -Wall -O0 -m32 -fno-pie -fno-stack-protector -ffreestanding -fno-hosted
+C_FLAGS = -Wall -O0 -m32 -nostdlib -fno-pic -fno-pie -fno-stack-protector -fno-hosted -ffreestanding
+S_FLAGS = -Wall -O0 -m32 -nostdlib -fno-pic -fno-pie -fno-stack-protector -fno-hosted -ffreestanding
 
-default: clean app.o
-	ld -o app.bin -m elf_i386 --oformat binary -T app.ld\
-	 /home/david/dev/myOS/drivers/screen/screen.o /home/david/dev/myOS/kernel/low_level.o app.o
+s:	clean
+	gcc -o app.s.elf ${S_FLAGS} -Ttext=0x4000 -Wl,-emain app.s
+	objdump -d app.s.elf > app.s.dis
+	objcopy -O binary --only-section=.text app.s.elf app.bin
 
-app.o:
-	gcc ${C_FLAGS} -o app.o -c -I/home/david/dev/myOS/drivers app.c
+c:	clean
+	gcc -o app.c.elf ${C_FLAGS} -Ttext=0x4000 -Wl,-emain app.c
+	objdump -d app.c.elf > app.c.dis
+	objcopy -O binary app.c.elf app.bin
 
 clean:
-	rm -rf *.o *.binary
+	rm -rf *.o *.bin

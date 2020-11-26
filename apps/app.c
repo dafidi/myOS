@@ -1,8 +1,6 @@
 
-// #include <screen/screen.h>
-
 void main(void) {
-    asm volatile("add %eax, %ebx");
-    while(1);
-    return 0;
+    asm volatile("add $0xbabe, %eax");
+    int a = 1;
+    while(a) { a = 0x1; }
 }
