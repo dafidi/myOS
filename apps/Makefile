@@ -2,7 +2,7 @@ C_FLAGS = -Wall -O0 -m32 -nostdlib -fno-pic -fno-pie -fno-stack-protector -fno-h
 S_FLAGS = -Wall -O0 -m32 -nostdlib -fno-pic -fno-pie -fno-stack-protector -fno-hosted -ffreestanding
 
 s:	clean
-	gcc -o app.s.elf ${S_FLAGS} -Ttext=0x4000 -Wl,-emain app.s
+	gcc -o app.s.elf ${S_FLAGS} -Ttext=0x30000000 -Wl,-emain app.s
 	objdump -d app.s.elf > app.s.dis
 	objcopy -O binary --only-section=.text app.s.elf app.bin
 

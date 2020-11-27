@@ -2,6 +2,8 @@
 
 #include "system.h"
 
+#define PAGE_SIZE 0x1000
+
 struct bios_mem_map {
   unsigned long long base;
   unsigned long long length;

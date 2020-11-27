@@ -2,14 +2,8 @@
     .intel_syntax noprefix
 
 main:
-    #jmp $
-    #;jmp 0xbaba
+    # Checking with objdump, 0x30000007 is the next line with the add instruction.
+    jmp 0x8: 0x30000007
     add eax, ebx
-    iret
-loop:
-    mov eax, 0x1
-    cmp eax, 0x1
-    jmp 0x8: 0x119f
 exit:
     iret
-    jmp 0x0:0x119d

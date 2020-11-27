@@ -51,8 +51,7 @@ void init(void) {
 	enable_interrupts();
 }
 
-// Not yet used. Will use soon.
-void *APP_PHY_ADDR = (void *) 0x2000000;
+void *APP_PHY_ADDR = (void *) 0x20000000;
 int APP_SIZE = 28;
 
 void read_app_into_memory(void) {
