@@ -11,5 +11,5 @@
 char shell_scancode_buffer[SHELL_CMD_INPUT_LIMIT];
 int shell_input_counter;
 
- void exec_main_shell(void);
+void exec_main_shell(void);
 #endif

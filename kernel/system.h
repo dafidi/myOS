@@ -14,10 +14,10 @@ typedef unsigned short uint16_t;
 typedef unsigned char uint8_t;
 
 struct registers {
-  unsigned int gs, fs, es, ds;      /* pushed the segs last */
-  unsigned int edi, esi, ebp, esp, ebx, edx, ecx, eax;  /* pushed by 'pusha' */
-  unsigned int int_no, err_code;    /* our 'push byte #' and ecodes do this */
-  unsigned int eip, cs, eflags, useresp, ss;   /* pushed by the processor automatically */ 
+	unsigned int gs, fs, es, ds;      /* pushed the segs last */
+	unsigned int edi, esi, ebp, esp, ebx, edx, ecx, eax;  /* pushed by 'pusha' */
+	unsigned int int_no, err_code;    /* our 'push byte #' and ecodes do this */
+	unsigned int eip, cs, eflags, useresp, ss;   /* pushed by the processor automatically */ 
 }__attribute__((packed));
 
 void clear_buffer(uint8_t* buffer, int n);

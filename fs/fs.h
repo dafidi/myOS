@@ -9,11 +9,11 @@
  */
 
 struct master_fs_record {
-  uint16_t magic_bits;
-  lba_t fs_bitmap_first_block;
-  lba_t fs_bitmap_last_block;
-  struct folder_node fs_root_folder_node;
-  uint32_t num_extra_master_fs_record_sectors;
+	uint16_t magic_bits;
+	lba_t fs_bitmap_first_block;
+	lba_t fs_bitmap_last_block;
+	struct folder_node fs_root_folder_node;
+	uint32_t num_extra_master_fs_record_sectors;
 }__attribute__((packed));
 
 struct master_fs_record* master_record;

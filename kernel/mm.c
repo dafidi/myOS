@@ -101,6 +101,7 @@ void setup_page_directory_and_page_tables(void) {
 	}
 
 	// Setup user paging.
+	int num_app_pages = 2;
 	// Identity map everything up to where the app should be in virtual memory.
 	//	-> VA: 0x0 -> PAGE_ALIGN(APP_VIRT_ADDR), PA: 0x0 -> PAGE_ALIGN(APP_VIRT_ADDR)
 	// Map user virtual address arbitrarily ->
@@ -129,16 +130,12 @@ void setup_page_directory_and_page_tables(void) {
 
 		for (j = 0; j < tmp_j_end; j++) {
 			user_page_tables[i][j] = page_frame | 0x3;
-			if ((i % 64) == 0 && (j == 0)) {
-				print("[id] mapping ("); print_int32(i); print(","); print_int32(j); print(") to "); print_int32(page_frame); print("\n");
-			}
 			page_frame += 0x1000;
 		}
 	}
 
 	page_frame = APP_PHY_ADDR;
 
-	int num_app_pages = 2;
 	i_end = (non_identity_map_start + num_app_pages) / (USER_PAGE_TABLE_SIZE * PAGE_SIZE);
 	j_end = ((non_identity_map_start / PAGE_SIZE) + num_app_pages) % USER_PAGE_TABLE_SIZE; 
 

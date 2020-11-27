@@ -11,32 +11,32 @@ cd ${HOME}/dev/myOS
 
 # Utility functions.
 get_raw_kernel_size () {
-  kernel_size=$(stat kernel.bin | grep Size | tr -s ' ' | cut -d' ' -f3)
-  kernel_size=$(($kernel_size))
+	kernel_size=$(stat kernel.bin | grep Size | tr -s ' ' | cut -d' ' -f3)
+	kernel_size=$(($kernel_size))
 }
 
 get_num_blocks_needed() {
-  num_blocks=1
+	num_blocks=1
 
-  echo "Looking for minimum number of sectors required for entire kernel."
-  echo "Starting at num_blocks=$num_blocks"
-  while [ $((512*$num_blocks)) -le $(($kernel_size)) ]
-  do
-    num_blocks=$(($num_blocks + 1))
-  done
-  echo "Finished! Needed num_blocks=$num_blocks."
+	echo "Looking for minimum number of sectors required for entire kernel."
+	echo "Starting at num_blocks=$num_blocks"
+	while [ $((512*$num_blocks)) -le $(($kernel_size)) ]
+	do
+		num_blocks=$(($num_blocks + 1))
+	done
+	echo "Finished! Needed num_blocks=$num_blocks."
 }
 
 pad_kernel_to_multiple_of_sector_size() {
-  padding=$((512*$num_blocks - $kernel_size))
-  echo "Padding Kernel with $padding bytes."
+	padding=$((512*$num_blocks - $kernel_size))
+	echo "Padding Kernel with $padding bytes."
 
-  echo "times $padding db 0" > pad.asm
-  nasm -f bin -o padding.bin pad.asm
+	echo "times $padding db 0" > pad.asm
+	nasm -f bin -o padding.bin pad.asm
 
-  cat kernel.bin padding.bin > padded_kernel.bin
-  cat padded_kernel.bin > kernel.bin
-  num_blocks=$num_blocks
+	cat kernel.bin padding.bin > padded_kernel.bin
+	cat padded_kernel.bin > kernel.bin
+	num_blocks=$num_blocks
 }
 
 echo "***********************Generating os-image***************************"

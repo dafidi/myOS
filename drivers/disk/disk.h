@@ -57,13 +57,13 @@
 typedef uint32_t lba_t;
 
 enum disk_channel {
-  PRIMARY,
-  SECONDARY 
+	PRIMARY,
+	SECONDARY 
 };
 
 enum drive_class {
- MASTER,
- SLAVE
+	MASTER,
+	SLAVE
 };
 
 void init_disk(void);
@@ -78,9 +78,9 @@ enum sys_error write_to_disk(enum disk_channel, enum drive_class, lba_t, int, vo
 
 // CHS stuff (not used).
 struct hd_sect_params {
-  unsigned int cylinder;
-  unsigned int head;
-  unsigned int sector;
+	unsigned int cylinder;
+	unsigned int head;
+	unsigned int sector;
 };
 
 void lba_to_hd_sect_params(unsigned int, struct hd_sect_params*);
