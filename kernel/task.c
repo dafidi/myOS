@@ -6,9 +6,8 @@ extern unsigned int kernel_page_directory[1024]__attribute__((aligned(0x1000)));
 tss kernel_tss __attribute__((aligned(0x1000)));
 tss user_tss __attribute__((aligned(0x1000)));
 
-// Entry to dummy task that runs.
-extern void dummy_branch(void);
-extern void *APP_PHY_ADDR;
+extern void *APP_START_VIRT_ADDR;
+extern void *APP_START_PHY_ADDR;
 
 #define APP_TASK_START_OFFSET 0x0
 
@@ -24,7 +23,7 @@ void setup_tss(void) {
     // where the task starts.
     // The other higher priority TODO is to support setting eip to the virtual
     // address. not the physical address.
-    tss_->EIP = APP_PHY_ADDR + APP_TASK_START_OFFSET;
+    tss_->EIP = APP_START_VIRT_ADDR + APP_TASK_START_OFFSET;
 
     // TODO: Update these to use genuine user task values, not just copy kernel values.
     __asm__("   movw %%es, %0 \n" : "=m" (tss_->ES_l16b) : );

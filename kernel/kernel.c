@@ -51,11 +51,12 @@ void init(void) {
 	enable_interrupts();
 }
 
-void *APP_PHY_ADDR = (void *) 0x20000000;
+void *APP_START_PHY_ADDR = (void *) 0x20000000;
+void *APP_START_VIRT_ADDR = (void *) 0x30000000;
 int APP_SIZE = 28;
 
 void read_app_into_memory(void) {
-	void *write_pos = APP_PHY_ADDR;
+	void *write_pos = APP_START_PHY_ADDR;
 	int app_size = APP_SIZE;
 	int amt_left = app_size;
 	int amt_read = 0;

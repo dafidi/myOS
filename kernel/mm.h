@@ -3,6 +3,7 @@
 #include "system.h"
 
 #define PAGE_SIZE 0x1000
+#define PAGE_ADDR_MASK (~(PAGE_SIZE - 1))
 
 struct bios_mem_map {
 	unsigned long long base;
@@ -30,6 +31,10 @@ void setup_pm_gdt(void);
 void show_gdt(struct gdt_entry* gdt, int num_entries);
 void make_gdt_entry(struct gdt_entry* entry, unsigned int limit, unsigned int base, char type, char flags);
 void load_pm_gdt(void);
+
+typedef unsigned int pte_t;
+typedef long long unsigned int va_t;
+typedef long long unsigned int va_range_sz_t;
 
 void setup_page_directory_and_page_tables(void);
 #endif // __MM_H__

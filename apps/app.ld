@@ -1,15 +1,10 @@
 
 SECTIONS
 {
-	. = 0x0;
+	. = 0x30000000;
 	.text : { *(.text) }
 	.data : { *(.data) }
-	.bss : {
-	_bss_start = ( ADDR(.bss) ) ;
-	*(.bss)
-	*(.COMMON)
-	_bss_end = ( ADDR(.bss ) + SIZEOF(.bss) ) ;
-	}
+	.bss : { *(.bss) }
 }
 
 ENTRY(main)

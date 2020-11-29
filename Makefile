@@ -55,7 +55,7 @@ storage_disk.img: app.bin
 	cat apps/app.bin >> storage_disk.img
 
 %.o: %.c
-	gcc ${C_FLAGS} -c $< -o $@
+	gcc ${C_FLAGS} -g -c $< -o $@
 
 %.o: %.asm
 	nasm $< -f elf -g -o $@

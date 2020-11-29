@@ -31,8 +31,7 @@ static int get_list_of_free_sectors() {
 
 	for (nth_byte = 0; nth_byte < FS_BITMAP_SIZE; nth_byte++) {
 
-		ptr += nth_byte;
-		mini_bitmap = *ptr;
+		mini_bitmap = *(ptr + nth_byte);
 		for (i = 7; i >=0; i--) {
 			
 			if ((mini_bitmap >> i) & 0x1) {

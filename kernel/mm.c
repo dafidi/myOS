@@ -25,7 +25,8 @@ extern tss user_tss __attribute__((aligned(0x1000)));
 static uint32_t kernel_mem_bitmap;
 static struct bios_mem_map* bmm;
 
-extern void *APP_PHY_ADDR;
+extern void *APP_START_PHY_ADDR;
+extern void *APP_START_VIRT_ADDR;
 
 #define NUM_GDT_ENTRIES 8
 // Kernel structures for segmentation.
@@ -83,29 +84,31 @@ unsigned int PAGE_ALIGN(unsigned int val) {
 }
 
 void setup_page_directory_and_page_tables(void) {
-	unsigned int addr = (unsigned int) &kernel_page_tables[0];
-	unsigned int i, j, page_frame = 0;
+	va_range_sz_t region_length;
+	unsigned int i, page_frame;
+	int num_app_pages = 2;
+	unsigned int addr;
+
+	print("kernel_page_directory="); 	print_int32((unsigned int) kernel_page_directory); 	print("\n");
+	print("user_page_directory="); 		print_int32((unsigned int) user_page_directory); 	print("\n");
+	print("kernel_page_tables="); 		print_int32((unsigned int) kernel_page_tables); 	print("\n");
+	print("user_page_tables="); 		print_int32((unsigned int) user_page_tables); 		print("\n");
 
 	// Setup kernel paging.
+	addr = (unsigned int) &kernel_page_tables[0];
 	for (i = 0; i < 1024; i++) {
 		// Set all PDEs.
 		kernel_page_directory[i] = (addr & 0xfffff000) | 0x3;
 		addr += 0x1000;
 	}
 
-	for (i = 0; i < 1024; i++) {
-		for (j = 0; j < 1024; j++) {
-			kernel_page_tables[i][j] = page_frame | 0x3;
-			page_frame += 0x1000;
-		}
+	{
+		region_length = (va_range_sz_t)0x100000000ULL;
+		page_frame = 0x0;
+		map_va_range_to_pa_range(kernel_page_tables, /*va=*/(va_t)0x0, /*size=*/region_length, /*pa=*/page_frame);
 	}
 
 	// Setup user paging.
-	int num_app_pages = 2;
-	// Identity map everything up to where the app should be in virtual memory.
-	//	-> VA: 0x0 -> PAGE_ALIGN(APP_VIRT_ADDR), PA: 0x0 -> PAGE_ALIGN(APP_VIRT_ADDR)
-	// Map user virtual address arbitrarily ->
-	//	-> VA: APP_VIRT_ADDR -> PAGE_ALIGN(APP_VIRT_ADDR + APP_SIZE), PA: 0x20000000 -> PAGE_ALIGN(0x20000000 + APP_SIZE)
 	addr = (unsigned int) &user_page_tables[0];
 	for (i = 0; i < USER_PAGE_DIR_SIZE; i++) {
 		// Set all PDEs.
@@ -113,55 +116,50 @@ void setup_page_directory_and_page_tables(void) {
 		addr += 0x1000;
 	}
 
-	page_frame = 0x0;
-	int non_identity_map_start = 0x30000000;
-	int i_end = non_identity_map_start / (USER_PAGE_TABLE_SIZE * PAGE_SIZE);
-	int j_end = (non_identity_map_start / PAGE_SIZE) % USER_PAGE_TABLE_SIZE;
+	{
+		// Identity map everything up to where the app should be in virtual memory.
+		//	-> VA: 0x0 -> PAGE_ALIGN(APP_VIRT_ADDR), PA: 0x0 -> PAGE_ALIGN(APP_VIRT_ADDR)
+		region_length = (va_range_sz_t)APP_START_VIRT_ADDR;
+		page_frame = 0x0;
+		map_va_range_to_pa_range(user_page_tables, /*va=*/(va_t)0x0, /*size=*/region_length, /*pa=*/page_frame);
+	}
 
-	print("identity mapping:\n");
-	print("i_end="); print_int32(i_end); print("\n");
-	print("j_end="); print_int32(j_end); print("\n");
+	{
+		// Map user virtual address arbitrarily ->
+		//	-> VA: APP_VIRT_ADDR -> PAGE_ALIGN(APP_VIRT_ADDR + APP_SIZE), PA: 0x20000000 -> PAGE_ALIGN(0x20000000 + APP_SIZE)
+		region_length = (va_range_sz_t)(num_app_pages * PAGE_SIZE);
+		page_frame = APP_START_PHY_ADDR;
+		map_va_range_to_pa_range(user_page_tables, /*va=*/(va_t)APP_START_VIRT_ADDR, /*size=*/(va_range_sz_t)region_length, /*pa=*/page_frame);
+	}
 
-	for (i = 0; i < i_end; i++) {
+	return;
+}
+
+int map_va_range_to_pa_range(unsigned int page_tables_ptr[][USER_PAGE_TABLE_SIZE], va_t va, va_range_sz_t range_size_bytes, unsigned int pa) {
+	int i_end = (va + range_size_bytes) / (USER_PAGE_TABLE_SIZE * PAGE_SIZE);
+	int j_end = ((va + range_size_bytes) / PAGE_SIZE) % USER_PAGE_TABLE_SIZE;
+	int i_start = va / (USER_PAGE_TABLE_SIZE * PAGE_SIZE);
+	int j_start = (va / PAGE_SIZE) % USER_PAGE_TABLE_SIZE;
+	int i = i_start, j = j_start;
+
+	if (j_end)
+		i_end++;
+
+	for (; i < i_end; i++) {
 		int tmp_j_end = USER_PAGE_TABLE_SIZE;
 
 		if (i == i_end - 1)
 			tmp_j_end = j_end;
 
-		for (j = 0; j < tmp_j_end; j++) {
-			user_page_tables[i][j] = page_frame | 0x3;
-			page_frame += 0x1000;
-		}
-	}
-
-	page_frame = APP_PHY_ADDR;
-
-	i_end = (non_identity_map_start + num_app_pages) / (USER_PAGE_TABLE_SIZE * PAGE_SIZE);
-	j_end = ((non_identity_map_start / PAGE_SIZE) + num_app_pages) % USER_PAGE_TABLE_SIZE; 
-
-	print("non-identity mapping:\n");
-	print("i_end="); print_int32(i_end); print("\n");
-	print("j_end="); print_int32(j_end); print("\n");
-
-	for (i; i < i_end + 1; i++) {
-		int tmp_j_end = USER_PAGE_TABLE_SIZE;
-
-		if (i == i_end)
-			tmp_j_end = j_end;
-
-		for (j; j < tmp_j_end; j++) {
-			user_page_tables[i][j] = page_frame | 0x3;
-			print("mapping ("); print_int32(i); print(","); print_int32(j); print(") to "); print_int32(page_frame); print("\n");
-			page_frame += 0x1000;
+		for (; j < tmp_j_end; j++) {
+			page_tables_ptr[i][j] = (pa & PAGE_ADDR_MASK) | 0x3;
+			pa += 0x1000;
 		}
 		j = 0;
 	}
+	// while(1);
 
-	print("user_page_tables="); 		print_int32((unsigned int) user_page_tables); 		print("\n");
-	print("user_page_directory="); 		print_int32((unsigned int) user_page_directory); 	print("\n");
-	print("kernel_page_tables="); 		print_int32((unsigned int) kernel_page_tables); 	print("\n");
-	print("kernel_page_directory="); 	print_int32((unsigned int) kernel_page_directory); 	print("\n");
-	return;
+	return 0;
 }
 
 void setup_pm_gdt(void) {
