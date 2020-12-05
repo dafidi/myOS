@@ -23,3 +23,9 @@ void port_word_out(unsigned short port, unsigned char data) {
 	__asm__("out %%al, %%dx" : : "a" (data), "d" (port));
 }
 
+void insl(int port, void* addr, int cnt) {
+	asm volatile("cld\n\trepne\n\tinsl"
+	: "=D" (addr), "=c"(cnt)
+	: "d" (port), "0" (addr), "1"(cnt)
+	: "memory", "cc");
+}

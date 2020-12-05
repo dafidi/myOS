@@ -1,5 +1,15 @@
 # No need to check docs in.
 docs/vendor
+docs/random.txt
+
+# Experimental directory
+experimental/
+
+# What happensin sandbox stays in sandbox.
+sandbox/
+
+# Build by-product.
+pad.asm
 
 # Binaries and other file format that don't need to be kept.
 *.bin
@@ -8,6 +18,9 @@ docs/vendor
 *.map
 *.swp
 *.swo
+*.img
+*.dump
+*.elf
 
-# The executable, just another binary
+# The final image, just another binary.
 os-image

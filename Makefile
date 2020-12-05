@@ -5,11 +5,13 @@
 #	$@ = name of target
 
 # Generate list of sources automatically.
-C_SOURCES = $(wildcard kernel/*.c drivers/*.c)
-HEADERS = $(wildcard kernel/*.h drivers/*.h)
+C_SOURCES = $(wildcard kernel/*.c kernel/**/*.c drivers/**/*.c fs/*.c)
+HEADERS = $(wildcard kernel/*.h kernel/**/*.h drivers/*.h fs/*.h)
 
-C_FLAGS = -Wall -O0 -m32 -fno-pie -fno-stack-protector -ffreestanding
-C_FLAGS += -I./
+C_FLAGS = -Wall -O0 -m32 -fno-pie -fno-pic -no-pie \
+-fno-stack-protector -ffreestanding -fno-hosted -nolibc \
+-nostdlib \
+-I./
 
 # Generate object file names to build based on *.c filenames.
 #OBJ = ${C_SOURCES: .c=.o}
@@ -18,43 +20,50 @@ OBJ = $(patsubst %.c, %.o, ${C_SOURCES})
 # Default build target.
 all: os-image
 
-# I concatenate null.bin  (which is a binary with nothing but 0x0) because I 
-# was experiencing errors when trying to load disc sectors for more data than
-# is contained in the binary. Weirdly enough, it seemed to solve the problem 
-# the first time, but then I tried running the image again without concatenating
-# null.bin - this did not result in errors.
-os-image: boot/boot_sect.bin kernel.bin null.bin
-	cat $^ > os-image
+boot_sector_deps=boot_sect_1.bin boot_sect_2.bin
+kernel_deps=kernel.bin
+os_image_deps=$(boot_sector_deps) $(kernel_deps) 
 
-kernel.bin: kernel/kernel_entry.o ${OBJ}
-	ld -o kernel.bin -m elf_i386 -Ttext 0x1000 $^ --oformat binary
+os-image: $(os_image_deps) storage_disk.img
+	cat $(os_image_deps) > os-image
+
+boot_sect_1.bin: boot/boot_sect_1.bin
+	cp boot/boot_sect_1.bin boot_sect_1.bin
+
+boot_sect_2.bin: boot/boot_sect_2.bin
+	cp boot/boot_sect_2.bin boot_sect_2.bin
+
+kernel.elf: kernel/kernel_entry.o ${OBJ}
+	ld -o kernel.elf -m elf_i386 $^ --oformat elf32-i386 -T kernel.ld
+	objdump -d kernel.elf > kernel.asm.dis
+
+# Not sure why but using kernel_entry.s results in  a bad error where 
+# eip inexplicably jumps to 0xfbxxxxxx.
+# kernel.elf:
+# 	gcc -o kernel.elf -T kernel.ld -fuse-ld=gold ${C_FLAGS} kernel/kernel_entry.s ${C_SOURCES}
+# 	objdump -d kernel.elf > kernel.s.dis
+
+kernel.bin: kernel.elf
+	objcopy -O binary kernel.elf kernel.bin
+
+app.bin:
+	make -C apps/ s
+
+storage_disk.img: app.bin
+	nasm -f bin -o storage_disk.img storage_disk.asm
+	# Append app.bin
+	cat apps/app.bin >> storage_disk.img
 
 %.o: %.c
-	gcc ${C_FLAGS} -c $< -o $@
+	gcc ${C_FLAGS} -g -c $< -o $@
 
 %.o: %.asm
-	nasm $< -f elf -o $@
+	nasm $< -f elf -g -o $@
 
 %.bin: %.asm
 	nasm $< -f bin -o $@
 
-#boot_sect.bin: boot_sect.asm
-#	nasm $< -f bin -o $@
-
-#kernel_entry.o: kernel_entry.asm
-#	nasm $< -f elf -o $@
-
-# The -m32 flag lets the compiler know to compile the kernel for a 32-bit 
-# machine. This has a side effect of throwing the error:
-# 	"undefined reference to `_GLOBAL_OFFSET_TABLE_'"
-# I address this by adding the -fno-pie flag.
-#kernel.o: kernel.c
-#	gcc -m32 -fno-pie -c $< -o $@
-
-#null.bin: null.asm
-#	nasm $< -f bin -o $@
-
 clean:
-	rm -rf *.bin *.dis *.o os-image *.map
-	rm -rf kernel/*.o boot/*.bin drivers/*.o
+	rm -rf *.bin *.o os-image *.map *.img *.elf #*.dis
+	rm -rf kernel/*.o kernel/**/*.o boot/*.bin drivers/**/*.o fs/*.o
 
