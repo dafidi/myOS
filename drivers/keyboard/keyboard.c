@@ -3,7 +3,6 @@
 #include <kernel/irq.h>
 #include <kernel/system.h>
 #include <kernel/shell/shell.h>
-#include <drivers/screen/screen.h>
 
 extern char shell_scancode_buffer[SHELL_CMD_INPUT_LIMIT];
 extern int shell_input_counter;

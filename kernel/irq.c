@@ -1,7 +1,7 @@
 #include "system.h"
 #include "low_level.h"
 
-#include <drivers/screen/screen.h>
+#include <kernel/print.h>
 
 #include "irq.h"
 #include "idt.h"

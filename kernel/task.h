@@ -40,7 +40,4 @@ void setup_tss();
 
 void do_task_switch();
 
-#define USER_PAGE_TABLE_SIZE 1024
-#define USER_PAGE_DIR_SIZE 1024
-
 #endif // __TASK_H__

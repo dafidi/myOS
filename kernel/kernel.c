@@ -2,28 +2,25 @@
 #include "system.h"
 
 #include "idt.h"
-#include "isrs.h"
 #include "irq.h"
+#include "isrs.h"
 #include "mm.h"
+#include "print.h"
+#include "string.h"
 #include "task.h"
 #include "timer.h"
-#include "shell/shell.h"
-#include "string.h"
 
-#include <drivers/keyboard/keyboard.h>
-#include <drivers/screen/screen.h>
+#include "shell/shell.h"
+
 #include <drivers/disk/disk.h>
+#include <drivers/keyboard/keyboard.h>
 #include <fs/fs.h>
 
 extern void enable_interrupts(void);
 extern void initialize_idt(void);
 
-static char* kernel_load_message = "Kernel loaded and running.\n";
 static char* kernel_init_message = "Kernel initialized successfully.\n";
-static char* long_kernel_story =
-	"============================================\n"
-	"This is the story of a little kernel\n"
-	"============================================\n";
+static char* kernel_load_message = "Kernel loaded and running.\n";
 
 void init(void) {
 	/* Set up fault handlers and interrupt handlers. */
@@ -51,8 +48,8 @@ void init(void) {
 	enable_interrupts();
 }
 
-void *APP_START_PHY_ADDR = (void *) 0x20000000;
 void *APP_START_VIRT_ADDR = (void *) 0x30000000;
+void *APP_START_PHY_ADDR = (void *) 0x20000000;
 int APP_SIZE = 28;
 
 void read_app_into_memory(void) {
@@ -74,9 +71,9 @@ void read_app_into_memory(void) {
 }
 
 int main(void) {
-	print(kernel_load_message);
+	print_string(kernel_load_message);
 	init();
-	print(kernel_init_message);
+	print_string(kernel_init_message);
 
 	read_app_into_memory();
 	do_task_switch();

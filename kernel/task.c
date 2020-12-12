@@ -1,13 +1,19 @@
 #include "task.h"
 
+#include "mm.h"
+#include "print.h"
+
 extern unsigned int user_page_directory[USER_PAGE_TABLE_SIZE]__attribute__((aligned(0x1000)));
 extern unsigned int kernel_page_directory[1024]__attribute__((aligned(0x1000)));
 
-tss kernel_tss __attribute__((aligned(0x1000)));
-tss user_tss __attribute__((aligned(0x1000)));
-
 extern void *APP_START_VIRT_ADDR;
 extern void *APP_START_PHY_ADDR;
+
+extern void load_kernel_tr(void);
+extern void switch_task(void);
+
+tss kernel_tss __attribute__((aligned(0x1000)));
+tss user_tss __attribute__((aligned(0x1000)));
 
 #define APP_TASK_START_OFFSET 0x0
 
@@ -23,7 +29,7 @@ void setup_tss(void) {
     // where the task starts.
     // The other higher priority TODO is to support setting eip to the virtual
     // address. not the physical address.
-    tss_->EIP = APP_START_VIRT_ADDR + APP_TASK_START_OFFSET;
+    tss_->EIP = (unsigned int)APP_START_VIRT_ADDR + APP_TASK_START_OFFSET;
 
     // TODO: Update these to use genuine user task values, not just copy kernel values.
     __asm__("   movw %%es, %0 \n" : "=m" (tss_->ES_l16b) : );
@@ -32,8 +38,8 @@ void setup_tss(void) {
     __asm__("   movw %%ds, %0 \n" : "=m" (tss_->DS_l16b) : );
     __asm__("   movw %%fs, %0 \n" : "=m" (tss_->FS_l16b) : );
     __asm__("   movw %%gs, %0 \n" : "=m" (tss_->GS_l16b) : );
-    __asm__("   movw %%esp, %0 \n" : "=m" (tss_->ESP) : );
-    __asm__("   movw %%ebp, %0 \n" : "=m" (tss_->EBP) : );
+    __asm__("   movl %%esp, %0 \n" : "=m" (tss_->ESP) : );
+    __asm__("   movl %%ebp, %0 \n" : "=m" (tss_->EBP) : );
 
     kernel_tss_->CR3 = (unsigned int) kernel_page_directory;
     __asm__("   movw %%ss, %0 \n \
@@ -41,11 +47,11 @@ void setup_tss(void) {
 }
 
 void do_task_switch(void) {
-    print("attempting to loading task register.\n");
+    print_string("attempting to loading task register.\n");
     load_kernel_tr();
-    print("successfully loaded task register.\n");
+    print_string("successfully loaded task register.\n");
 
-    print("attempting task switch.\n");
+    print_string("attempting task switch.\n");
     switch_task();
-    print("task switch successful.\n");
+    print_string("task switch successful.\n");
 }

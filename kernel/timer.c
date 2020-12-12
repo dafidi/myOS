@@ -3,8 +3,6 @@
 
 #include "irq.h"
 
-#include <drivers/screen/screen.h>
-
 int timer_ticks = 0;
 
 void timer_phase(int hz) {
@@ -16,10 +14,6 @@ void timer_phase(int hz) {
 
 void timer_handler(struct registers* r) {
 	timer_ticks++;
-
-	if(timer_ticks % DEFAULT_TIMER_FREQUENCY_HZ == 0) {
-		// print("TICK\n");
-	}
 }
 
 void timer_wait(int ticks) {

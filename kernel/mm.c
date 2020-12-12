@@ -3,7 +3,7 @@
 #include "string.h"
 #include "task.h"
 
-#include "drivers/screen/screen.h"
+#include "print.h"
 
 // System memory map as told by BIOS.
 extern unsigned int mem_map_buf_addr;
@@ -39,35 +39,35 @@ struct gdt_info pm_gdt_info = {
 // Kernel structures for paging.
 // We have 1024 page directory entries -> 1024 page tables and each page table has 1024 ptes.
 unsigned int kernel_page_directory[1024]__attribute__((aligned(0x1000)));
-unsigned int kernel_page_tables[1024][1024];__attribute__((aligned(0x1000)))
+unsigned int kernel_page_tables[1024][1024]__attribute__((aligned(0x1000)));
 
 unsigned int user_page_directory[USER_PAGE_DIR_SIZE]__attribute__((aligned(0x1000)));
-unsigned int user_page_tables[USER_PAGE_DIR_SIZE][USER_PAGE_TABLE_SIZE];__attribute__((aligned(0x1000)))
+unsigned int user_page_tables[USER_PAGE_DIR_SIZE][USER_PAGE_TABLE_SIZE]__attribute__((aligned(0x1000)));
 
 extern void setup_and_enable_paging(void);
 
 void init_mm(void) {
-  	print("mem_map_buf_addr="); print_int32(mem_map_buf_addr);
-	print("\n");
-	print("mem_map_buf_entry_count="); print_int32(mem_map_buf_entry_count);
-	print("\n");
+  	print_string("mem_map_buf_addr="); print_int32(mem_map_buf_addr);
+	print_string("\n");
+	print_string("mem_map_buf_entry_count="); print_int32(mem_map_buf_entry_count);
+	print_string("\n");
 
 	bmm = (struct bios_mem_map*) mem_map_buf_addr;
 
 	for (int i = 0; i < mem_map_buf_entry_count; i++) {
-		print("entry "); print_int32(i); print(" has base "); print_int32(bmm[i].base);
-    	print(" and length "); print_int32(bmm[i].length); print(".\n");
+		print_string("entry "); print_int32(i); print_string(" has base "); print_int32(bmm[i].base);
+    	print_string(" and length "); print_int32(bmm[i].length); print_string(".\n");
 	}
 
 	kernel_mem_bitmap = ~((unsigned int) 0);
-	print("kernel_mem_bitmap="); print_int32(kernel_mem_bitmap); print("\n");
+	print_string("kernel_mem_bitmap="); print_int32(kernel_mem_bitmap); print_string("\n");
 
-	print("_bss_start="); print_int32((unsigned int) &_bss_start); print("\n");
-	print("_bss_end="); print_int32((unsigned int) &_bss_end); print("\n");
-	print("_text_start="); print_int32((unsigned int) &_text_start); print("\n");
-	print("_text_end="); print_int32((unsigned int) &_text_end); print("\n");
-	print("_data_start="); print_int32((unsigned int) &_data_start); print("\n");
-	print("_data_end="); print_int32((unsigned int) &_data_end); print("\n");
+	print_string("_bss_start="); print_int32((unsigned int) &_bss_start); print_string("\n");
+	print_string("_bss_end="); print_int32((unsigned int) &_bss_end); print_string("\n");
+	print_string("_text_start="); print_int32((unsigned int) &_text_start); print_string("\n");
+	print_string("_text_end="); print_int32((unsigned int) &_text_end); print_string("\n");
+	print_string("_data_start="); print_int32((unsigned int) &_data_start); print_string("\n");
+	print_string("_data_end="); print_int32((unsigned int) &_data_end); print_string("\n");
 
 	setup_tss();
 	setup_pm_gdt();
@@ -87,12 +87,13 @@ void setup_page_directory_and_page_tables(void) {
 	va_range_sz_t region_length;
 	unsigned int i, page_frame;
 	int num_app_pages = 2;
+	va_t region_start;
 	unsigned int addr;
 
-	print("kernel_page_directory="); 	print_int32((unsigned int) kernel_page_directory); 	print("\n");
-	print("user_page_directory="); 		print_int32((unsigned int) user_page_directory); 	print("\n");
-	print("kernel_page_tables="); 		print_int32((unsigned int) kernel_page_tables); 	print("\n");
-	print("user_page_tables="); 		print_int32((unsigned int) user_page_tables); 		print("\n");
+	print_string("kernel_page_directory="); 	print_int32((unsigned int) kernel_page_directory); 	print_string("\n");
+	print_string("user_page_directory="); 		print_int32((unsigned int) user_page_directory); 	print_string("\n");
+	print_string("kernel_page_tables="); 		print_int32((unsigned int) kernel_page_tables); 	print_string("\n");
+	print_string("user_page_tables="); 		print_int32((unsigned int) user_page_tables); 		print_string("\n");
 
 	// Setup kernel paging.
 	addr = (unsigned int) &kernel_page_tables[0];
@@ -104,8 +105,9 @@ void setup_page_directory_and_page_tables(void) {
 
 	{
 		region_length = (va_range_sz_t)0x100000000ULL;
+		region_start = 0x0;
 		page_frame = 0x0;
-		map_va_range_to_pa_range(kernel_page_tables, /*va=*/(va_t)0x0, /*size=*/region_length, /*pa=*/page_frame);
+		map_va_range_to_pa_range(kernel_page_tables, /*va=*/(va_t)region_start, /*size=*/region_length, /*pa=*/page_frame);
 	}
 
 	// Setup user paging.
@@ -119,17 +121,19 @@ void setup_page_directory_and_page_tables(void) {
 	{
 		// Identity map everything up to where the app should be in virtual memory.
 		//	-> VA: 0x0 -> PAGE_ALIGN(APP_VIRT_ADDR), PA: 0x0 -> PAGE_ALIGN(APP_VIRT_ADDR)
-		region_length = (va_range_sz_t)APP_START_VIRT_ADDR;
+		region_length = (unsigned int)APP_START_VIRT_ADDR;
+		region_start = 0x0;
 		page_frame = 0x0;
-		map_va_range_to_pa_range(user_page_tables, /*va=*/(va_t)0x0, /*size=*/region_length, /*pa=*/page_frame);
+		map_va_range_to_pa_range(user_page_tables, /*va=*/(va_t)region_start, /*size=*/region_length, /*pa=*/page_frame);
 	}
 
 	{
 		// Map user virtual address arbitrarily ->
 		//	-> VA: APP_VIRT_ADDR -> PAGE_ALIGN(APP_VIRT_ADDR + APP_SIZE), PA: 0x20000000 -> PAGE_ALIGN(0x20000000 + APP_SIZE)
 		region_length = (va_range_sz_t)(num_app_pages * PAGE_SIZE);
-		page_frame = APP_START_PHY_ADDR;
-		map_va_range_to_pa_range(user_page_tables, /*va=*/(va_t)APP_START_VIRT_ADDR, /*size=*/(va_range_sz_t)region_length, /*pa=*/page_frame);
+		region_start = (unsigned int)APP_START_VIRT_ADDR;
+		page_frame = (unsigned int)APP_START_PHY_ADDR;
+		map_va_range_to_pa_range(user_page_tables, /*va=*/(va_t)region_start, /*size=*/(va_range_sz_t)region_length, /*pa=*/page_frame);
 	}
 
 	return;
@@ -210,10 +214,10 @@ void show_gdt(struct gdt_entry* gdt, int num_entries) {
 
 		type |= (gdt[i].type_s_dpl_p & 0xf);
 
-		print("limit="); print_int32(limit); print(",");
-		print("base="); print_int32(base); print(",");
-		print("type="); print_int32(type); print(",");
-		print("flags="); print_int32(flags); print("\n");
+		print_string("limit="); print_int32(limit); print_string(",");
+		print_string("base="); print_int32(base); print_string(",");
+		print_string("type="); print_int32(type); print_string(",");
+		print_string("flags="); print_int32(flags); print_string("\n");
 
 		(limit = 0, base = 0, flags = 0, type = 0);
 	}	

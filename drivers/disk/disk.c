@@ -1,10 +1,10 @@
 #include "disk.h"
 
-#include <drivers/screen/screen.h>
 #include <kernel/error.h>
-#include <kernel/string.h>
 #include <kernel/irq.h>
 #include <kernel/low_level.h>
+#include <kernel/print.h>
+#include <kernel/string.h>
 
 // Helpful variables.
 static char tmp[10] = "0000000";
@@ -16,11 +16,11 @@ static unsigned char hd_ctrl_status;
 static unsigned char hd_ctrl_error;
 #define SHOW_DISK_CTRL_STATUS(msg) hd_ctrl_status = port_byte_in(status_port); \
 																	 int_to_string(tmp, hd_ctrl_status, 9); \
-																	 print(msg); print(tmp); print("\n");
+																	 print_string(msg); print_string(tmp); print_string("\n");
 
 #define SHOW_DISK_CTRL_ERROR(msg) hd_ctrl_error = port_byte_in(error_port); \
 																	 int_to_string(tmp, hd_ctrl_error, 9); \
-																	 print(msg); print(tmp); print("\n");
+																	 print_string(msg); print_string(tmp); print_string("\n");
 #else
 #define SHOW_DISK_CTRL_STATUS(msg)
 #define SHOW_DISK_CTRL_ERROR(msg)
@@ -37,7 +37,7 @@ void init_disk(void) {
 }
 
 void disk_irq_handler(struct registers* r) {
-	print("[DISK IRQ]\n");
+	print_string("[DISK IRQ]\n");
 }
 
 void install_disk_irq_handler(void) {
@@ -71,7 +71,7 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
 		return -1;
 	}
 
-	print("Reading from Disk...\n");
+	print_string("Reading from Disk...\n");
 	disable_interrupts();
 	assign_ports(channel,
 							 &drive_select_port,
@@ -85,13 +85,13 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
 							 &data_port);
 
 	num_sectors = (n_bytes >> 9) + (n_bytes & 0x1ff ? 1 : 0);
-	print("Reading "); print_int32(num_sectors); print(" sectors. \n");
+	print_string("Reading "); print_int32(num_sectors); print_string(" sectors. \n");
 
 	while((port_byte_in(status_port) & 0xc0) != 0x40) {
 		int hd_ctrl_status = port_byte_in(status_port);
 		int_to_string(tmp, hd_ctrl_status, 9);
-		// print("hd_ctrl_status:"); print(tmp); print("\n");
-		// print("Disk Controller busy...\n");
+		// print_string("hd_ctrl_status:"); print_string(tmp); print_string("\n");
+		// print_string("Disk Controller busy...\n");
 	}
 
 	port_byte_out(error_port, 0x0);
@@ -106,7 +106,7 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
 
 	while ((hd_ctrl_status & 0xc0) != 0x40) { // Loop while controller is busy nor not ready.
 		int_to_string(tmp, hd_ctrl_status, 9);
-		// print("HD BUSY! STATUS:"); print(tmp); print("\n");
+		// print_string("HD BUSY! STATUS:"); print_string(tmp); print_string("\n");
 		hd_ctrl_status = port_byte_in(status_port);
 	}
 
@@ -122,21 +122,21 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
 
 	while ((hd_ctrl_status & 0xc0) != 0x40) { // Loop while controller is busy nor not ready.
 		int_to_string(tmp, hd_ctrl_status, 9);
-		print("HD BUSY! STATUS:"); print(tmp); print("\n");
+		print_string("HD BUSY! STATUS:"); print_string(tmp); print_string("\n");
 		hd_ctrl_status = port_byte_in(status_port);
 	}
 
 	int_to_string(tmp, hd_ctrl_status, 9);
-	print("HD READY! STATUS:"); print(tmp); print("\n");
+	print_string("HD READY! STATUS:"); print_string(tmp); print_string("\n");
 
-	// print("before: buffer = ["); print(buffer); print("]\n");
+	// print_string("before: buffer = ["); print_string(buffer); print_string("]\n");
 	insw(data_port, buffer, n_bytes >> 1);
-	// print("after: buffer = ["); print(buffer); print("]\n");
+	// print_string("after: buffer = ["); print_string(buffer); print_string("]\n");
 
 	SHOW_DISK_CTRL_STATUS("STATUS [after insb] STATUS:");
 	SHOW_DISK_CTRL_ERROR("ERROR [after insb] ERROR:");
 
-	print("Finished reading from disk.\n");
+	print_string("Finished reading from disk.\n");
 	enable_interrupts();
 	return NONE;
 }
@@ -158,7 +158,7 @@ enum sys_error write_to_disk(enum disk_channel channel, enum drive_class class, 
 		return -1;
 	}
 
-	print("Writing to Disk...\n");
+	print_string("Writing to Disk...\n");
 	disable_interrupts();
 	assign_ports(channel,
 							 &drive_select_port,
@@ -176,8 +176,8 @@ enum sys_error write_to_disk(enum disk_channel channel, enum drive_class class, 
 	while((port_byte_in(status_port) & 0xc0) != 0x40) {
 		int hd_ctrl_status = port_byte_in(status_port);
 		int_to_string(tmp, hd_ctrl_status, 9);
-		// print("hd_ctrl_status:"); print(tmp); print("\n");
-		// print("Disk Controller busy...\n");
+		// print_string("hd_ctrl_status:"); print_string(tmp); print_string("\n");
+		// print_string("Disk Controller busy...\n");
 	}
 
 	port_byte_out(error_port, 0x0);
@@ -192,7 +192,7 @@ enum sys_error write_to_disk(enum disk_channel channel, enum drive_class class, 
 
 	while ((hd_ctrl_status & 0xc0) != 0x40) { // Loop while controller is busy nor not ready.
 		int_to_string(tmp, hd_ctrl_status, 9);
-		// print("HD BUSY! STATUS:"); print(tmp); print("\n");
+		// print_string("HD BUSY! STATUS:"); print_string(tmp); print_string("\n");
 		hd_ctrl_status = port_byte_in(status_port);
 	}
 
@@ -209,19 +209,19 @@ enum sys_error write_to_disk(enum disk_channel channel, enum drive_class class, 
 
 	while ((hd_ctrl_status & 0xc0) != 0x40) { // Loop while controller is busy nor not ready.
 		int_to_string(tmp, hd_ctrl_status, 9);
-		print("HD BUSY! STATUS:"); print(tmp); print("\n");
+		print_string("HD BUSY! STATUS:"); print_string(tmp); print_string("\n");
 		hd_ctrl_status = port_byte_in(status_port);
 	}
 
 	int_to_string(tmp, hd_ctrl_status, 9);
-	// print("HD READY! STATUS:"); print(tmp); print("\n");
+	// print_string("HD READY! STATUS:"); print_string(tmp); print_string("\n");
 
 	outsw(data_port, buffer, n_bytes >> 1);
 
 	SHOW_DISK_CTRL_STATUS("STATUS [after outsw] STATUS:");
 	SHOW_DISK_CTRL_ERROR("ERROR [after outsw] ERROR:");
 
-	print("Finished writing to disk.\n");
+	print_string("Finished writing to disk.\n");
 	enable_interrupts();
 	return NONE;
 }
@@ -232,7 +232,7 @@ static void assign_ports(enum disk_channel channel, uint16_t* drive_select_port,
 	uint16_t* error_port, uint16_t* data_port) {
 	
 	if (channel == PRIMARY) {
-		// print("primary drive selected\n");
+		// print_string("primary drive selected\n");
 		*sector_count_port = HD_PORT_SECT_COUNT_PRIMARY;
 		*drive_select_port = HD_PORT_DRV_HEAD_PRIMARY;
 		*lba_high_port = HD_PORT_LBA_HIGH_PRIMARY;
@@ -243,7 +243,7 @@ static void assign_ports(enum disk_channel channel, uint16_t* drive_select_port,
 		*error_port = HD_PORT_ERROR_PRIMARY;
 		*data_port = HD_PORT_DATA_PRIMARY;
 	} else if (channel == SECONDARY) {
-		print("secondary drive selected");
+		print_string("secondary drive selected");
 		*sector_count_port = HD_PORT_SECT_COUNT_SECONDARY;
 		*drive_select_port = HD_PORT_DRV_HEAD_SECONDARY;
 		*lba_high_port = HD_PORT_LBA_HIGH_SECONDARY;
@@ -254,7 +254,7 @@ static void assign_ports(enum disk_channel channel, uint16_t* drive_select_port,
 		*error_port = HD_PORT_ERROR_SECONDARY;
 		*data_port = HD_PORT_DATA_SECONDARY;
 	} else {
-		print("Bad drive selection. Neither primary or secondary chosen.\n");
+		print_string("Bad drive selection. Neither primary or secondary chosen.\n");
 	}
 }
 

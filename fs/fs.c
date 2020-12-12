@@ -1,7 +1,8 @@
 #include "fs.h"
-#include <drivers/screen/screen.h>
-#include <kernel/system.h>
+
+#include <kernel/print.h>
 #include <kernel/string.h>
+#include <kernel/system.h>
 
 #define NUM_SECTORS_ON_DISK 1<<21
 #define FS_BITMAP_SIZE (NUM_SECTORS_ON_DISK) >> 3
@@ -53,10 +54,10 @@ enum sys_error init_fs(void) {
 	master_record = (struct master_fs_record*) master_record_buffer;
 
 	if (master_record->magic_bits == magic_bits) {
-		print("Valid fs was found!\n");
+		print_string("Valid fs was found!\n");
 		setup_fs_configs();
 	} else {
-		print("No Valid fs found! Configuring pristine fs.\n");
+		print_string("No Valid fs found! Configuring pristine fs.\n");
 		clear_buffer(fs_bitmap, FS_BITMAP_SIZE);
 		configure_pristine_fs();
 	}
@@ -65,9 +66,9 @@ enum sys_error init_fs(void) {
 	// *(fs_bitmap + 1) = 7;  // some bitmap bits.
 
 	num_free_sectors = get_list_of_free_sectors();
-	print("fs_bitmap is located at: ["); print_int32((int ) fs_bitmap); print("].\n");
-	print("Size of the fs_bitmap is: ["); print_int32(sizeof(fs_bitmap)); print("].\n");
-	print("The number of free sectors is ["); print_int32(num_free_sectors); print("]\n");
+	print_string("fs_bitmap is located at: ["); print_int32((int ) fs_bitmap); print_string("].\n");
+	print_string("Size of the fs_bitmap is: ["); print_int32(sizeof(fs_bitmap)); print_string("].\n");
+	print_string("The number of free sectors is ["); print_int32(num_free_sectors); print_string("]\n");
 	return NONE;
 }
 
@@ -75,7 +76,7 @@ void setup_fs_configs(void) {
 	load_root_folder();
 
 	int num_contents = root_folder_node->num_contents;
-	print("There are "); print_int32(num_contents); print(" contents in the root folder.\n");
+	print_string("There are "); print_int32(num_contents); print_string(" contents in the root folder.\n");
 }
 
 void load_root_folder(void) {

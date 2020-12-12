@@ -1,7 +1,6 @@
-#include "system.h"
 #include "isrs.h"
-
-#include <drivers/screen/screen.h>
+#include "print.h"
+#include "system.h"
 
 #define __PAUSE_ON_FAULT__
 
@@ -81,11 +80,11 @@ char* exception_messages[] = {
 };
 
 void fault_handler(struct registers* regs) {
-	print("Fault: msg=[");
-	print(exception_messages[regs->int_no]);
-	print("],code=[");
+	print_string("Fault: msg=[");
+	print_string(exception_messages[regs->int_no]);
+	print_string("],code=[");
 	print_int32(regs->err_code);
-	print("]\n");
+	print_string("]\n");
 
 	print_registers(regs);
 

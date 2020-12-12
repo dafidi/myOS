@@ -5,6 +5,10 @@
 #define PAGE_SIZE 0x1000
 #define PAGE_ADDR_MASK (~(PAGE_SIZE - 1))
 
+#define USER_PAGE_TABLE_SIZE 1024
+#define USER_PAGE_DIR_SIZE 1024
+
+
 struct bios_mem_map {
 	unsigned long long base;
 	unsigned long long length;
@@ -36,5 +40,6 @@ typedef unsigned int pte_t;
 typedef long long unsigned int va_t;
 typedef long long unsigned int va_range_sz_t;
 
+int map_va_range_to_pa_range(unsigned int page_tables_ptr[][USER_PAGE_TABLE_SIZE], va_t va, va_range_sz_t range_size_bytes, unsigned int pa);
 void setup_page_directory_and_page_tables(void);
 #endif // __MM_H__
