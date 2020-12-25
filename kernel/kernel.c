@@ -51,6 +51,8 @@ void init(void) {
 void *APP_START_VIRT_ADDR = (void *) 0x30000000;
 void *APP_START_PHY_ADDR = (void *) 0x20000000;
 int APP_SIZE = 28;
+int APP_STACK_SIZE = 8192;
+int APP_HEAP_SIZE = 16384;
 
 void read_app_into_memory(void) {
 	void *write_pos = APP_START_PHY_ADDR;
@@ -70,10 +72,13 @@ void read_app_into_memory(void) {
 	}
 }
 
+extern void fault_handler(struct registers *regs);
 int main(void) {
 	print_string(kernel_load_message);
 	init();
 	print_string(kernel_init_message);
+
+	print_string("fault_handler is at "); print_int32(fault_handler); print_string("\n");
 
 	read_app_into_memory();
 	do_task_switch();

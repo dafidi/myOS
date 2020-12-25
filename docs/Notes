@@ -1,3 +1,6 @@
 # Qemu
 To close qemu from the terminal, you can use `ctrl+a c` ;).
 
+# Assembly
+Intel syntax: mov dest, src
+ATT   syntax: mov src, dest

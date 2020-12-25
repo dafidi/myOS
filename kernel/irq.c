@@ -1,7 +1,7 @@
 #include "system.h"
 #include "low_level.h"
 
-#include <kernel/print.h>
+#include "print.h"
 
 #include "irq.h"
 #include "idt.h"
@@ -82,7 +82,6 @@ void install_irqs(void) {
 	set_idt_entry(47, (unsigned) irq15, 0x08, 0x8E);  /* (idx=15, desc=unknown)  */  
 }
 
-// static char tmp[10] = "000000000";
 void irq_handler(struct registers* r) {
  void (*handler) (struct registers* r);
 

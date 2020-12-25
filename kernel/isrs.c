@@ -10,41 +10,6 @@
 #define PAUSE_ON_FAULT()
 #endif
 
-void install_isrs() {
-	set_idt_entry(0, (unsigned) isr0, 0x08, 0x8E);
-	set_idt_entry(1, (unsigned) isr1, 0x08, 0x8E);
-	set_idt_entry(2, (unsigned) isr2, 0x08, 0x8E);
-	set_idt_entry(3, (unsigned) isr3, 0x08, 0x8E);
-	set_idt_entry(4, (unsigned) isr4, 0x08, 0x8E);
-	set_idt_entry(5, (unsigned) isr5, 0x08, 0x8E);
-	set_idt_entry(6, (unsigned) isr6, 0x08, 0x8E);
-	set_idt_entry(7, (unsigned) isr7, 0x08, 0x8E);
-	set_idt_entry(8, (unsigned) isr8, 0x08, 0x8E);
-	set_idt_entry(9, (unsigned) isr9, 0x08, 0x8E);
-	set_idt_entry(10, (unsigned) isr10, 0x08, 0x8E);
-	set_idt_entry(11, (unsigned) isr11, 0x08, 0x8E);
-	set_idt_entry(12, (unsigned) isr12, 0x08, 0x8E);
-	set_idt_entry(13, (unsigned) isr13, 0x08, 0x8E);
-	set_idt_entry(14, (unsigned) isr14, 0x08, 0x8E);
-	set_idt_entry(15, (unsigned) isr15, 0x08, 0x8E);
-	set_idt_entry(16, (unsigned) isr16, 0x08, 0x8E);
-	set_idt_entry(17, (unsigned) isr17, 0x08, 0x8E);
-	set_idt_entry(18, (unsigned) isr18, 0x08, 0x8E);
-	set_idt_entry(19, (unsigned) isr19, 0x08, 0x8E);
-	set_idt_entry(20, (unsigned) isr20, 0x08, 0x8E);
-	set_idt_entry(21, (unsigned) isr21, 0x08, 0x8E);
-	set_idt_entry(22, (unsigned) isr22, 0x08, 0x8E);
-	set_idt_entry(23, (unsigned) isr23, 0x08, 0x8E);
-	set_idt_entry(24, (unsigned) isr24, 0x08, 0x8E);
-	set_idt_entry(25, (unsigned) isr25, 0x08, 0x8E);
-	set_idt_entry(26, (unsigned) isr26, 0x08, 0x8E);
-	set_idt_entry(27, (unsigned) isr27, 0x08, 0x8E);
-	set_idt_entry(28, (unsigned) isr28, 0x08, 0x8E);
-	set_idt_entry(29, (unsigned) isr29, 0x08, 0x8E);
-	set_idt_entry(30, (unsigned) isr30, 0x08, 0x8E);
-	set_idt_entry(31, (unsigned) isr31, 0x08, 0x8E);
-}
-
 char* exception_messages[] = {
 		/*0 */ "Division By Zero Exception",
 		/*1 */ "Debug Exception",
@@ -79,14 +44,58 @@ char* exception_messages[] = {
 		/*30*/  "Reserved"
 };
 
-void fault_handler(struct registers* regs) {
-	print_string("Fault: msg=[");
-	print_string(exception_messages[regs->int_no]);
-	print_string("],code=[");
-	print_int32(regs->err_code);
-	print_string("]\n");
+const char exception_message_fmt_1[] = "Fault: msg=[";
+const char exception_message_fmt_2[] = "],code=[";
+const char exception_message_fmt_3[] = "]\n";
 
-	print_registers(regs);
+void install_isrs(void) {
+	set_idt_entry(0, (unsigned) isr0, 0x08, 0x8E);
+	set_idt_entry(1, (unsigned) isr1, 0x08, 0x8E);
+	set_idt_entry(2, (unsigned) isr2, 0x08, 0x8E);
+	set_idt_entry(3, (unsigned) isr3, 0x08, 0x8E);
+	set_idt_entry(4, (unsigned) isr4, 0x08, 0x8E);
+	set_idt_entry(5, (unsigned) isr5, 0x08, 0x8E);
+	set_idt_entry(6, (unsigned) isr6, 0x08, 0x8E);
+	set_idt_entry(7, (unsigned) isr7, 0x08, 0x8E);
+	set_idt_entry(8, (unsigned) isr8, 0x08, 0x8E);
+	set_idt_entry(9, (unsigned) isr9, 0x08, 0x8E);
+	set_idt_entry(10, (unsigned) isr10, 0x08, 0x8E);
+	set_idt_entry(11, (unsigned) isr11, 0x08, 0x8E);
+	set_idt_entry(12, (unsigned) isr12, 0x08, 0x8E);
+	set_idt_entry(13, (unsigned) isr13, 0x08, 0x8E);
+	set_idt_entry(14, (unsigned) isr14, 0x08, 0x8E);
+	set_idt_entry(15, (unsigned) isr15, 0x08, 0x8E);
+	set_idt_entry(16, (unsigned) isr16, 0x08, 0x8E);
+	set_idt_entry(17, (unsigned) isr17, 0x08, 0x8E);
+	set_idt_entry(18, (unsigned) isr18, 0x08, 0x8E);
+	set_idt_entry(19, (unsigned) isr19, 0x08, 0x8E);
+	set_idt_entry(20, (unsigned) isr20, 0x08, 0x8E);
+	set_idt_entry(21, (unsigned) isr21, 0x08, 0x8E);
+	set_idt_entry(22, (unsigned) isr22, 0x08, 0x8E);
+	set_idt_entry(23, (unsigned) isr23, 0x08, 0x8E);
+	set_idt_entry(24, (unsigned) isr24, 0x08, 0x8E);
+	set_idt_entry(25, (unsigned) isr25, 0x08, 0x8E);
+	set_idt_entry(26, (unsigned) isr26, 0x08, 0x8E);
+	set_idt_entry(27, (unsigned) isr27, 0x08, 0x8E);
+	set_idt_entry(28, (unsigned) isr28, 0x08, 0x8E);
+	set_idt_entry(29, (unsigned) isr29, 0x08, 0x8E);
+	set_idt_entry(30, (unsigned) isr30, 0x08, 0x8E);
+	set_idt_entry(31, (unsigned) isr31, 0x08, 0x8E);
+}
+
+/**
+ * fault_handler - Handler for CPU exceptions.
+ * 
+ * @regs: Register values pushed to the stack.
+ */
+void fault_handler(struct registers* regs) {
+	// print_string(exception_message_fmt_1);
+	// print_string(exception_messages[regs->int_no]);
+	// print_string(exception_message_fmt_2);
+	// print_int32(regs->err_code);
+	// print_string(exception_message_fmt_3);
+
+	// print_registers(regs);
 
 	PAUSE_ON_FAULT();
 }

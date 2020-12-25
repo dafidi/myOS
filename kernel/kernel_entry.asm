@@ -37,8 +37,8 @@ pm_jmp_ret:
 	ret
 
 extern kernel_page_directory
-global setup_and_enable_paging
-setup_and_enable_paging:
+global enable_paging
+enable_paging:
 	; point CR3 to page directory
 	mov eax, kernel_page_directory
 	or eax, 0x3
@@ -143,6 +143,12 @@ global irq13
 global irq14
 global irq15
 
+global isrs_begin
+global isrs_end
+global irqs_begin
+global irqs_end
+
+isrs_begin:
 isr0:
 	cli
 	push byte 0
@@ -352,7 +358,9 @@ isr_common:
 	popa
 	add esp, 8
 	iret
+isrs_end:
 
+irqs_begin:
 irq0:
 	cli
 	push byte 0
@@ -449,7 +457,6 @@ irq15:
 	push byte 47
 	jmp irq_common
 
-
 irq_common:
 	pusha
 	push ds
@@ -473,5 +480,6 @@ irq_common:
 	popa
 	add esp, 8
 	iret
+irqs_end:
 
 %include "kernel/print_string_pm.asm"

@@ -4,9 +4,9 @@
 
 #include "screen.h"
 
-/*
-2^32 = 4294967296
-*/
+/**
+ * 2^32 = 4294967296
+ */
 static char int_template[11] = "0000000000";
 
 // Cursor things.
@@ -14,7 +14,7 @@ static int get_screen_offset(int row, int col) {
 	return 2 * ((row)* MAX_COLS + col);
 }
 
-static int get_cursor() {
+static int get_cursor(void) {
 	// The device uses its control register as an index to select its
 	// internal registers, of which we are interested in:
 	//	reg 14: which is the high byte of the cursor's offset

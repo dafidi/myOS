@@ -38,8 +38,8 @@ pm_jmp_ret:
 	ret
 
 .extern kernel_page_directory
-.global setup_and_enable_paging
-setup_and_enable_paging:
+.global enable_paging
+enable_paging:
 	/*  ; point CR3 to page directory */
 	mov eax, kernel_page_directory
 	or eax, 0x3
