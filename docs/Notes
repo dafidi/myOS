@@ -4,3 +4,6 @@ To close qemu from the terminal, you can use `ctrl+a c` ;).
 # Assembly
 Intel syntax: mov dest, src
 ATT   syntax: mov src, dest
+
+# Intel ia32 manual.
+#NP is segment-not-present exception, #GP is general-protection exception, #TS is invalid-TSS exception, and #SS is stack-fault exception.

@@ -51,7 +51,7 @@ enable_paging:
 
   	ret
 
-USER_TASK_SEG_IDX equ 7
+USER_TASK_SEG_IDX equ 6
 USER_TASK_SEG equ 8 * USER_TASK_SEG_IDX
 user_task_selector: dw USER_TASK_SEG
 

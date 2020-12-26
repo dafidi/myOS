@@ -114,7 +114,7 @@ void setup_page_directory_and_page_tables(void) {
 	addr = (unsigned int) &user_page_tables[0];
 	for (i = 0; i < USER_PAGE_DIR_SIZE; i++) {
 		// Set all PDEs.
-		user_page_directory[i] = (addr & 0xfffff000) | 0x3;
+		user_page_directory[i] = (addr & 0xfffff000) | 0x7;
 		addr += 0x1000;
 	}
 
@@ -218,9 +218,9 @@ void setup_pm_gdt(void) {
 	// KERNEL_DATA_SEGMENT
 	make_gdt_entry(&pm_gdt[2], 0xfffff, 0x0, 0x2, 0xc9);
 	// USER_CODE_SEGMENT
-	make_gdt_entry(&pm_gdt[3], 0x0, 0x0, 0x0, 0x0);
+	make_gdt_entry(&pm_gdt[3], 0xfffff, 0x0, 0xa, 0xcf);
 	// USER_DATA_SEGMENT
-	make_gdt_entry(&pm_gdt[4], 0x0, 0x0, 0x0, 0x0);
+	make_gdt_entry(&pm_gdt[4], 0xfffff, 0x0, 0x2, 0xcf);
 
 	// Add entry for kernel task (TSS descriptor).
 	make_gdt_entry(&pm_gdt[5], sizeof(kernel_tss), (unsigned int) &kernel_tss, 0x9, 0x18);
