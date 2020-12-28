@@ -1,9 +1,15 @@
 #include "timer.h"
-#include "low_level.h"
 
 #include "irq.h"
+#include "low_level.h"
+#include "system.h"
 
 int timer_ticks = 0;
+
+void init_timer(void) {
+	timer_phase(DEFAULT_TIMER_FREQUENCY_HZ);
+	timer_install();
+}
 
 void timer_phase(int hz) {
 	int divisor = 1193180 / hz;

@@ -67,9 +67,8 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
 	int read_command;
 	int num_sectors;
 
-	if (n_bytes <= 0) {
+	if (n_bytes <= 0)
 		return -1;
-	}
 
 	print_string("Reading from Disk...\n");
 	disable_interrupts();
@@ -133,8 +132,8 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
 	insw(data_port, buffer, n_bytes >> 1);
 	// print_string("after: buffer = ["); print_string(buffer); print_string("]\n");
 
-	SHOW_DISK_CTRL_STATUS("STATUS [after insb] STATUS:");
-	SHOW_DISK_CTRL_ERROR("ERROR [after insb] ERROR:");
+	SHOW_DISK_CTRL_STATUS("STATUS [after insw] STATUS:");
+	SHOW_DISK_CTRL_ERROR("ERROR [after insw] ERROR:");
 
 	print_string("Finished reading from disk.\n");
 	enable_interrupts();

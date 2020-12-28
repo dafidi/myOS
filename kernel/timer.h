@@ -3,6 +3,7 @@
 
 #include "system.h"
 
+void init_timer(void);
 void timer_phase(int hz);
 void timer_handler(struct registers* r);
 void timer_wait(int);

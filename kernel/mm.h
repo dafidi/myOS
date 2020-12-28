@@ -9,7 +9,6 @@
 #define USER_PAGE_TABLE_SIZE 1024
 #define USER_PAGE_DIR_SIZE 1024
 
-
 struct bios_mem_map {
 	unsigned long long base;
 	unsigned long long length;
@@ -31,16 +30,10 @@ struct gdt_info {
 	unsigned long addr;
 }__attribute__((packed));
 
-void init_mm(void);
-void setup_pm_gdt(void);
-void show_gdt(struct gdt_entry* gdt, int num_entries);
-void make_gdt_entry(struct gdt_entry* entry, unsigned int limit, unsigned int base, char type, char flags);
-void load_pm_gdt(void);
-
 typedef unsigned int pte_t;
 typedef long long unsigned int va_t;
 typedef long long unsigned int va_range_sz_t;
 
-int map_va_range_to_pa_range(unsigned int page_tables_ptr[][USER_PAGE_TABLE_SIZE], va_t va, va_range_sz_t range_size_bytes, unsigned int pa, unsigned int access_flags);
-void setup_page_directory_and_page_tables(void);
+void init_mm(void);
+
 #endif // __MM_H__

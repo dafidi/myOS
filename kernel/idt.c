@@ -1,15 +1,22 @@
 #include "idt.h"
 
+extern void enable_interrupts(void);
 extern void initialize_idt(void);
 
 struct idt_info idt_info_ptr;
 struct idt_entry idt[256];
 
-void init_idt(void) {
+void init_interrupts(void) {
 	idt_info_ptr.base = (u32) (&idt);
 	idt_info_ptr.limit = sizeof(struct idt_entry) * 256;
 
 	initialize_idt();
+	install_isrs();
+	install_irqs();
+}
+
+void start_interrupts(void) {
+	enable_interrupts();
 }
 
 void set_idt_entry(unsigned char isr_index, unsigned int base, unsigned short sel, unsigned char flags) {

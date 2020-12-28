@@ -20,3 +20,7 @@ void keyboard_handler(struct registers* r) {
 void install_keyboard(void) {
 	install_irq(1, keyboard_handler);
 }
+
+void init_keyboard(void) {
+	install_keyboard();
+}
