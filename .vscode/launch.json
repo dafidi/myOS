@@ -5,29 +5,17 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "i386 Launch",
-      "type": "cppdbg",
-      "request": "launch",
-      "program": "/usr/bin/qemu-system-i386",
-      "args": [
-        "-drive",
-        "file=os-image,format=raw",
-        "-m",
-        "4G"],
-      "stopAtEntry": false,
-      "cwd": "${workspaceFolder}",
-      "environment": [],
-      "externalConsole": false,
-      "MIMode": "gdb",
-      "preLaunchTask": "build",
-      "postDebugTask": "clean",
-      "setupCommands": [
-        {
-          "description": "Enable pretty-printing for gdb",
-          "text": "-enable-pretty-printing",
-          "ignoreFailures": true
-        }
-      ]
+      "type": "gdb",
+      "request": "attach",
+      "name": "Attach to QEMU",
+      "executable": "${workspaceFolder}/kernel.elf",
+      "target": ":1234",
+      "remote": true,
+      "cwd": "${workspaceRoot}", 
+      "gdbpath": "/usr/bin/gdb",
+      "internalConsoleOptions": "openOnSessionStart",
+      "preLaunchTask": "StartVM",
+      "postDebugTask": "StopVM"
     }
   ]
 }

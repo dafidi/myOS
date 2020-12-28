@@ -4,23 +4,33 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "build",
+      "label": "StartVM",
       "type": "shell",
-      "command": "make",
-      "args": [],
+      "command": "./scripts/run.sh",
       "group": "build",
+      "isBackground": true,
       "presentation": {
         // Reveal the output only if unrecognized errors occur.
-        "reveal": "silent"
+        "reveal": "silent",
+        "clear": true,
+        "revealProblems": "always"
       },
-      // Use the standard MS compiler pattern to detect errors, warnings and infos
-      "problemMatcher": "$msCompile"
+      "problemMatcher": {
+        "owner": "qemu",
+        "pattern": {
+          "regexp": "" // TODO: Figure what this is and how to take advantage of it.
+        },
+        "background": {
+          "activeOnStart": false,
+          "beginsPattern": "make",
+          "endsPattern": "qemu-system-i386",
+        }
+      }
     },
     {
-      "label": "clean",
+      "label": "StopVM",
       "type": "shell",
-      "command": "make",
-      "args": ["clean"],
+      "command": "./scripts/stop.sh",
       "group": "build",
       "presentation": {
         // Reveal the output only if unrecognized errors occur.
