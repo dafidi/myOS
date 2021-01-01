@@ -11,6 +11,11 @@ void init_timer(void) {
 	timer_install();
 }
 
+/**
+ * timer_phase
+ *
+ * Perhaps a TODO here is to check for and return on errors.
+ */
 void timer_phase(int hz) {
 	int divisor = 1193180 / hz;
 	port_byte_out(0x43, 0x36);

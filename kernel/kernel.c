@@ -1,9 +1,7 @@
 // A simple kernel.
 #include "system.h"
 
-#include "idt.h"
-#include "irq.h"
-#include "isrs.h"
+#include "interrupts.h"
 #include "mm.h"
 #include "print.h"
 #include "string.h"

@@ -31,9 +31,13 @@ static void assign_ports(enum disk_channel channel, uint16_t* drive_select_port,
 	uint16_t* lba_mid_port, uint16_t* command_port, uint16_t* status_port,
 	uint16_t* error_port, uint16_t* data_port);
 
+/**
+ * init_disk
+ *
+ * Perhaps a TODO: implement more useful disk setup.
+ */
 void init_disk(void) {
 	install_disk_irq_handler();
-	/* TODO: More intelligent disk setup.*/
 }
 
 void disk_irq_handler(struct registers* r) {

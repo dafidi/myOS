@@ -15,7 +15,7 @@
       "gdbpath": "/usr/bin/gdb",
       "internalConsoleOptions": "openOnSessionStart",
       "preLaunchTask": "StartVM",
-      "postDebugTask": "StopVM"
-    }
+      "postDebugTask": "StopVM",
+    },
   ]
 }

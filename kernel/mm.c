@@ -104,7 +104,6 @@ static int map_va_range_to_pa_range(unsigned int page_tables_ptr[][USER_PAGE_TAB
  * 2.  (i) Identity map kernel-occupied region into  user page tables & directory.
  * 	  (ii) Arbitrarily map user-program-occupied memory into user page-tables and directory.
  * 		   The current mapping is very simple: VA [0x30000000, ...) => PA [0x20000000, ...).
- * 
  */
 static void setup_page_directory_and_page_tables(void) {
 	va_range_sz_t region_length;
@@ -314,6 +313,10 @@ static void setup_and_load_pm_gdt(void) {
  * init_mm - Configure segmentation and paging and task related business and
  * print a bunch of stuff that might be useful to see (although we can probably
  * get all the same information via gdb so maybe not so useful).
+ * 
+ * Perhaps a couple of TODO:(s) here are:
+ * 	i) Check for and return on errors.
+ * ii) Separate task initialization.
  */
 void init_mm(void) {
 	print_string("mem_map_buf_entry_count="); 	print_int32(mem_map_buf_entry_count);

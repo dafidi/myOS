@@ -13,8 +13,6 @@
 #define NUMLOCK_STATUS_INDEX 4
 #define SCROLLOCK_STATUS_INDEX 5
 
-void keyboard_handler(struct registers* r);
-
-void install_keyboard(void);
+void init_keyboard(void);
 
 #endif /* __KEYBOARD_H__ */

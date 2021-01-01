@@ -48,6 +48,11 @@ static int get_list_of_free_sectors() {
 	return num_free_sectors;
 }
 
+/**
+ * init_fs
+ * 
+ * Perhaps a TODO: here is to check for and return errors.
+ */
 enum sys_error init_fs(void) {
 	int num_free_sectors = 0;
 	read_from_storage_disk(0, 512, master_record_buffer);

@@ -73,17 +73,6 @@ static int handle_scrolling(int  cursor_offset) {
 	return  cursor_offset;
 }
 
-/* Special function for printing integers because we'd like to do without printing 0s. */
-/* which are usually left behind after converting ints to string  (by int_to_string).  */
-static void print_int(const char* p) {
-	while(*p == '0') { p++;	}
-	
-	if (*p == '\0')
-		p--; // Need to be able to print 0.
-	
-	print_string(p);
-}
-
 static void print_char(char character, int row, int col, char attribute_byte) {
 	unsigned char* vidmem = (unsigned char*) VIDEO_ADDRESS;
 
@@ -116,15 +105,6 @@ static void print_char(char character, int row, int col, char attribute_byte) {
 	set_cursor(offset);
 }
 
-static void print_register(char *register_name, const int register_value) {
-	print_string(register_name); print_string("="); print_int32(register_value); print_string("\n");
-}
-
-void print_int32(int n) {
-  int_to_string(int_template, n, 10);
-  print_int(int_template);
-}
-
 void print_string(const char* message) {
 	int i = 0;
 	while(message[i] != 0) {
@@ -133,6 +113,26 @@ void print_string(const char* message) {
 		int col = cursor_offset % (2 * MAX_COLS);
 		print_char(message[i++], row, col, WHITE_ON_BLACK);
 	}
+}
+
+/* Special function for printing integers because we'd like to do without printing 0s. */
+/* which are usually left behind after converting ints to string  (by int_to_string).  */
+static void print_int(const char* p) {
+	while(*p == '0') { p++;	}
+	
+	if (*p == '\0')
+		p--; // Need to be able to print 0.
+	
+	print_string(p);
+}
+
+void print_int32(int n) {
+  int_to_string(int_template, n, 10);
+  print_int(int_template);
+}
+
+static void print_register(char *register_name, const int register_value) {
+	print_string(register_name); print_string("="); print_int32(register_value); print_string("\n");
 }
 
 void print_registers(struct registers *registers) {
