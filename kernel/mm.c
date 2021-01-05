@@ -19,8 +19,8 @@ extern int _data_end;
 
 // TSS for kernel and user tasks.
 // Perhaps a future item here is to dynamically allocate user TSSes.
-extern tss kernel_tss __attribute__((aligned(0x1000)));
-extern tss user_tss __attribute__((aligned(0x1000)));
+extern tss_t kernel_tss __attribute__((aligned(0x1000)));
+extern tss_t user_tss __attribute__((aligned(0x1000)));
 
 // Arbitrarily defined parameters for executing user program.
 extern void *APP_START_VIRT_ADDR;
@@ -32,16 +32,21 @@ extern int APP_HEAP_SIZE;
 extern void enable_paging(void);
 extern void pm_jump(void);
 
+// Macros for page management.
+#if PAGE_SIZE == 0x1000
+#define SYSTEM_NUM_PAGES (SYSTEM_RAM_BYTES >> 12)
+#endif
+#define NUM_BITMAP_INTS (SYSTEM_NUM_PAGES >> 5)
 // Memory management structures for the kernel's use.
-static uint32_t kernel_mem_bitmap;
+static uint32_t page_usage_bitmap[NUM_BITMAP_INTS];
 static struct bios_mem_map *bmm;
 
 #define NUM_GDT_ENTRIES 8
 // Kernel structures for segmentation.
-static struct gdt_entry pm_gdt[NUM_GDT_ENTRIES];
-static struct gdt_info pm_gdt_info = {
+struct gdt_entry pm_gdt[NUM_GDT_ENTRIES];
+struct gdt_info pm_gdt_info = {
 	.len = sizeof(pm_gdt),
-	.addr = (unsigned int) pm_gdt,
+	.addr = (unsigned long)pm_gdt,
 };
 
 // Kernel structures for paging.
@@ -94,6 +99,104 @@ static int map_va_range_to_pa_range(unsigned int page_tables_ptr[][USER_PAGE_TAB
 	return 0;
 }
 
+static int unmap_va_range_to_pa_range(unsigned int page_tables_ptr[][USER_PAGE_TABLE_SIZE],
+							 va_t va, va_range_sz_t range_size_bytes, unsigned int pa,
+							 unsigned int access_flags) {
+	unsigned int va_aligned = PAGE_ALIGN(va);
+	unsigned int i_start, j_start;
+	unsigned int i_end, j_end;
+	unsigned int i, j;
+
+	i_end = (va_aligned + range_size_bytes) / (USER_PAGE_TABLE_SIZE * PAGE_SIZE);
+	j_end = ((va_aligned + range_size_bytes) / PAGE_SIZE) % USER_PAGE_TABLE_SIZE;
+	i_start = va_aligned / (USER_PAGE_TABLE_SIZE * PAGE_SIZE);
+	j_start = (va_aligned / PAGE_SIZE) % USER_PAGE_TABLE_SIZE;
+	i = i_start, j = j_start;
+
+	if (j_end)
+		i_end++;
+
+	for (; i < i_end; i++) {
+		int tmp_j_end = USER_PAGE_TABLE_SIZE;
+
+		if (i == i_end - 1)
+			tmp_j_end = j_end;
+
+		for (; j < tmp_j_end; j++)
+			page_tables_ptr[i][j] = 0x0;
+
+		j = 0;
+	}
+	return 0;
+}
+
+void mark_page_used(const int page_idx) {
+	set_bit((uint8_t *)page_usage_bitmap, page_idx);
+}
+
+void mark_page_unused(const int page_idx) {
+	clear_bit((uint8_t *)page_usage_bitmap, page_idx);
+}
+
+unsigned int get_available_memory(void) {
+	unsigned long long free_memory = 0;
+	int i = 0;
+
+	for (i = 0; i < SYSTEM_NUM_PAGES; i++) {
+		if (get_bit((uint8_t *)page_usage_bitmap, i) == 0)
+			free_memory += PAGE_SIZE;
+	}
+
+	return free_memory;
+}
+
+int get_next_free_user_page(void) {
+	return -1;
+}
+
+int reserve_and_map_user_memory(va_t va, unsigned int pa, unsigned int amount) {
+	int num_pages;
+	int page_idx;
+	int i;
+
+	// Verify requested physical address is not in [0, _bss_end)
+	if (pa < (unsigned int)&_bss_end)
+		return -1;
+	page_idx = pa >> 12;
+
+	// Our arbitrary policy is that programs should expect to start at
+	// addresses no less than 250MB.
+	if (va < 0x10000000U)
+		return -1;
+
+	if (amount > 3 * 0x40000000U)
+		return -1;
+	num_pages = amount / PAGE_SIZE;
+
+	for (i = page_idx; i < page_idx + num_pages; i++)
+		mark_page_used(i);
+
+	map_va_range_to_pa_range(user_page_tables, va, (va_range_sz_t)amount, pa, 0x7);
+
+	return 0;
+}
+
+int unreserve_and_unmap_user_memory(va_t va, pa_t pa, unsigned int amount) {
+	int num_pages;
+	int page_idx;
+	int i;
+
+	num_pages = amount / PAGE_SIZE;
+	page_idx = pa >> 12;
+
+	for (i = page_idx; i < page_idx + num_pages; i++)
+		mark_page_unused(i);
+
+	unmap_va_range_to_pa_range(user_page_tables, va, (va_range_sz_t)amount, pa, 0x7);
+
+	return 0;
+}
+
 /**
  * setup_page_directory_and_page_tables - Set up kernel & user page directory/tables.
  * 
@@ -108,7 +211,6 @@ static int map_va_range_to_pa_range(unsigned int page_tables_ptr[][USER_PAGE_TAB
 static void setup_page_directory_and_page_tables(void) {
 	va_range_sz_t region_length;
 	unsigned int i, page_frame;
-	int num_app_pages = 2;
 	va_t region_start;
 	unsigned int addr;
 
@@ -133,8 +235,8 @@ static void setup_page_directory_and_page_tables(void) {
 								 /*access_flags=*/0x3);
 	}
 
-	// Setup user paging structures.
-	// perhaps a TODO here is to do this dynamically.
+	// Setup user paging structures. These generally should not change across user programs.
+	// We'll set up the mapping of the program itself when the program is about to be run.
 	addr = (unsigned int) &user_page_tables[0];
 	for (i = 0; i < USER_PAGE_DIR_SIZE; i++) {
 		// Set all PDEs.
@@ -170,18 +272,6 @@ static void setup_page_directory_and_page_tables(void) {
 		page_frame = 0x100000;
 		map_va_range_to_pa_range(user_page_tables, /*va=*/(va_t)region_start, /*size=*/region_length, /*pa=*/page_frame,
 								 /*access_flags=*/0x1);
-	}
-
-	{
-		// Map user virtual address arbitrarily ->
-		//		VA: APP_VIRT_ADDR -> PAGE_ALIGN(APP_VIRT_ADDR + APP_SIZE)
-		//								maps to
-		//		PA: APP_START_PHY_ADDR -> PAGE_ALIGN(APP_START_PHY_ADDR + APP_SIZE)
-		region_length = (va_range_sz_t)(num_app_pages * PAGE_SIZE + APP_STACK_SIZE + APP_HEAP_SIZE);
-		region_start = (unsigned int)APP_START_VIRT_ADDR;
-		page_frame = (unsigned int)APP_START_PHY_ADDR;
-		map_va_range_to_pa_range(user_page_tables, /*va=*/(va_t)region_start, /*size=*/(va_range_sz_t)region_length, /*pa=*/page_frame,
-								 /*access_flags=*/0x7);
 	}
 }
 
@@ -243,7 +333,7 @@ static void show_gdt(struct gdt_entry* gdt, int num_entries) {
  * @type:  type as specifies by ia32 specs.
  * @flags: flags are specified by ia32 specs.
  */
-static void make_gdt_entry(struct gdt_entry* entry,
+void make_gdt_entry(struct gdt_entry* entry,
 					unsigned int limit,
 					unsigned int base,
 					char type,
@@ -288,25 +378,39 @@ static void setup_and_load_pm_gdt(void) {
 	/* In x86 (who knows about elsewhere) first GDT entry should be null. */
 	make_gdt_entry(&pm_gdt[0], 0x0, 0x0, 0x0, 0x0);
 	// KERNEL_CODE_SEGMENT
-	// Presently, it is very important that the c kernel code segment be
-	// the second entry (offset of 8 bytes from the start.) If you change this,
-	// make sure to also change pm_jump() in kernel_entry.asm to use the right
-	// segment selector so that CS register is updated correctly.
-	make_gdt_entry(&pm_gdt[1], 0xfffff, 0x0, 0xa, 0xc9);
+	make_gdt_entry(&pm_gdt[KERNEL_CODE_SEGMENT_IDX], 0xfffff, 0x0, 0xa, 0xc9);
 	// KERNEL_DATA_SEGMENT
-	make_gdt_entry(&pm_gdt[2], 0xfffff, 0x0, 0x2, 0xc9);
+	make_gdt_entry(&pm_gdt[KERNEL_DATA_SEGMENT_IDX], 0xfffff, 0x0, 0x2, 0xc9);
 	// USER_CODE_SEGMENT
-	make_gdt_entry(&pm_gdt[3], 0xfffff, 0x0, 0xa, 0xcf);
+	make_gdt_entry(&pm_gdt[USER_CODE_SEGMENT_IDX], 0xfffff, 0x0, 0xa, 0xcf);
 	// USER_DATA_SEGMENT
-	make_gdt_entry(&pm_gdt[4], 0xfffff, 0x0, 0x2, 0xcf);
+	make_gdt_entry(&pm_gdt[USER_DATA_SEGMENT_IDX], 0xfffff, 0x0, 0x2, 0xcf);
 
-	// Add entry for kernel task (TSS descriptor).
-	make_gdt_entry(&pm_gdt[5], sizeof(kernel_tss), (unsigned int) &kernel_tss, 0x9, 0x18);
-	// Add entry for user task (TSS descriptor).
-	make_gdt_entry(&pm_gdt[6], sizeof(user_tss), (unsigned int) &user_tss, 0x9, 0x1e);
+	// Set kernel and user TSS descriptors to zero - the task system will
+	// initialize them.
+	make_gdt_entry(&pm_gdt[KERNEL_TSS_DESCRIPTOR_IDX], 0x0, 0x0, 0x0, 0x0);
+	make_gdt_entry(&pm_gdt[USER_TSS_DESCRIPTOR_IDX], 0x0, 0x0, 0x0, 0x0);
 
 	show_gdt(pm_gdt, NUM_GDT_ENTRIES - 1);
 	load_pm_gdt();
+}
+
+/**
+ * init_system_page_bitmap - Initialize page usage bitmap.
+ */
+void init_page_usage_bitmap(void) {
+	unsigned long last_page_idx = ((unsigned long) &_bss_end) >> 12;
+	int num_pages;
+	int num_ints;
+
+	// Initaliaze bitmap to zero.
+	fill_long_buffer((unsigned long *)page_usage_bitmap, 0,  NUM_BITMAP_INTS, 0x0);
+
+	num_pages = last_page_idx;
+	num_ints = num_pages >> 5;
+
+	// Set every page up to _bss_end as being used.
+	fill_long_buffer((unsigned long *)page_usage_bitmap, 0, num_ints, 0xffffffffUL);
 }
 
 /**
@@ -331,8 +435,7 @@ void init_mm(void) {
 		print_string(" (avail="); 		print_int32(bmm[i].type); 	print_string(")\n");
 	}
 
-	kernel_mem_bitmap = ~((unsigned int) 0);
-	print_string("kernel_mem_bitmap="); print_int32(kernel_mem_bitmap); print_string("\n");
+	init_page_usage_bitmap();
 
 	print_string("_bss_start=");	print_int32((unsigned int) &_bss_start);	print_string("\n");
 	print_string("_bss_end="); 		print_int32((unsigned int) &_bss_end);		print_string("\n");
@@ -341,7 +444,6 @@ void init_mm(void) {
 	print_string("_data_start="); 	print_int32((unsigned int) &_data_start);	print_string("\n");
 	print_string("_data_end=");		print_int32((unsigned int) &_data_end);		print_string("\n");
 
-	setup_tss();
 	setup_and_load_pm_gdt();
 	setup_and_enable_paging();
 }

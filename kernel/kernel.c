@@ -14,35 +14,14 @@
 
 #include "shell/shell.h"
 
-void *APP_START_VIRT_ADDR = (void *) 0x30000000;
-void *APP_START_PHY_ADDR = (void *) 0x20000000;
-int APP_STACK_SIZE = 8192;
-int APP_HEAP_SIZE = 16384;
-int APP_SIZE = 28;
+va_t APP_START_VIRT_ADDR = 0x30000000;
+pa_t APP_START_PHY_ADDR = 0x20000000;
+va_range_sz_t APP_STACK_SIZE = 8192;
+va_range_sz_t APP_HEAP_SIZE = 16384;
+va_range_sz_t APP_SIZE = 28;
 
 static char* kernel_init_message = "Kernel initialized successfully.\n";
 static char* kernel_load_message = "Kernel loaded and running.\n";
-
-/**
- * read_app_into_memory - temporary function to help load app from disk into memory.
- */
-void read_app_into_memory(void) {
-	void *write_pos = APP_START_PHY_ADDR;
-	int app_size = APP_SIZE;
-	int amt_left = app_size;
-	int amt_read = 0;
-
-	while(amt_left) {
-		int chunk_size = amt_left > 8192 ? 8192 : amt_left;
-		int sector_offset = amt_read / 512 /* size of a sector. */;
-
-		read_from_storage_disk(2 + sector_offset, chunk_size, write_pos);
-
-		amt_left -= chunk_size;
-		write_pos += chunk_size;
-		amt_read += chunk_size;
-	}
-}
 
 /**
  * init - Initialize system components.
@@ -60,6 +39,9 @@ void init(void) {
 
 	/* Set up memory management. */
 	init_mm();
+
+	/* Set up task management. */
+	init_task_system();
 
 	/* Set up fs. */
 	init_fs();
@@ -79,8 +61,7 @@ int main(void) {
 	init();
 	print_string(kernel_init_message);
 
-	read_app_into_memory();
-	do_task_switch();
+	exec_waiting_tasks();
 
 	exec_main_shell();
 

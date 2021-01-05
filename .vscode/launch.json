@@ -9,7 +9,7 @@
       "request": "attach",
       "name": "Attach to QEMU",
       "executable": "${workspaceFolder}/kernel.elf",
-      "target": ":1234",
+      "target": ":1236",
       "remote": true,
       "cwd": "${workspaceRoot}", 
       "gdbpath": "/usr/bin/gdb",

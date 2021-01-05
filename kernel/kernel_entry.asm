@@ -55,8 +55,8 @@ USER_TASK_SEG_IDX equ 6
 USER_TASK_SEG equ 8 * USER_TASK_SEG_IDX
 user_task_selector: dw USER_TASK_SEG
 
-global switch_task
-switch_task:
+global switch_to_user_task
+switch_to_user_task:
 	call USER_TASK_SEG: 0x0
 	ret
 

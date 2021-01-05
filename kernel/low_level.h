@@ -4,8 +4,10 @@
  */
 unsigned char port_byte_in(unsigned short);
 unsigned char port_word_in(unsigned short);
+unsigned char port_long_in(unsigned short);
 void port_byte_out(unsigned short, unsigned char);
-void port_word_out(unsigned short, unsigned char);
+void port_word_out(unsigned short, unsigned short);
+void port_long_out(unsigned short, unsigned long);
 
 /**
  * Ops for reading data in from I/O ports. The underlying assembly
