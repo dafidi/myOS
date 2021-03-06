@@ -10,7 +10,7 @@
 
 #include <drivers/disk/disk.h>
 #include <drivers/keyboard/keyboard.h>
-#include <fs/fnode2.h>
+#include <fs/fnode.h>
 
 #include "shell/shell.h"
 
@@ -18,7 +18,6 @@ va_t APP_START_VIRT_ADDR = 0x30000000;
 pa_t APP_START_PHY_ADDR = 0x20000000;
 va_range_sz_t APP_STACK_SIZE = 8192;
 va_range_sz_t APP_HEAP_SIZE = 16384;
-va_range_sz_t APP_SIZE = 28;
 
 static char* kernel_init_message = "Kernel initialized successfully.\n";
 static char* kernel_load_message = "Kernel loaded and running.\n";
@@ -63,13 +62,16 @@ int main(void) {
 	init();
 	print_string(kernel_init_message);
 
-	struct file *file = find_file(&root_folder, "app.bin");
-	if (file == NULL) {
+	struct file file;
+	int status;
+
+	status = find_file(&root_folder, "app.bin", &file);
+	if (status != 0) {
 		print_string("file not found.");
 		PAUSE();
 	}
 
-	execute_binary_file(file);
+	execute_binary_file(&file);
 
 	exec_main_shell();
 

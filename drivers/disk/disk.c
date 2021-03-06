@@ -52,7 +52,7 @@ void install_disk_irq_handler(void) {
 
 /**
  * read_from_storage_disk - Read from ATA/IDE hard disk into buffer.
- * 
+ *
  * @block_address:
  * @n_bytes:
  * @buffer:
@@ -153,7 +153,11 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
 	last_read_block = block_address + num_sectors;
 	read_flush_pending = flush ? 0 : 512 - (n_bytes % 512) /* SECTOR_SIZE */;
 
+<<<<<<< HEAD
 	insw(data_port, buffer, n_bytes >> 1);
+=======
+	insw(data_port, buffer, n_bytes >> WORD_TO_BYTE_SHIFT);
+>>>>>>> Attempt at filesystem [WIP]
 	print_string("after: buffer = ["); print_string(buffer); print_string("]\n");
 
 	// SHOW_DISK_CTRL_STATUS("STATUS [after insw] STATUS:");

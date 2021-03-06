@@ -43,7 +43,7 @@ static void configure_kernel_tss(void) {
 
 /**
  * configure_user_tss - Configure hardware task structure from task_info.
- * Note: this is  strictly for user-mode tasks.
+ * Note: this is strictly for user-mode tasks.
  * 
  * @tss: hardware task structure.
  * @task: software task structure.
@@ -148,32 +148,20 @@ int clean_up_after_task(task_info *task) {
  * 
  * TODO: dynamic task waiting system.
  */
-void exec_waiting_tasks(void) {
-    // Setup task_info struct.
-    // TODO: Make this dynamic, get rid of dummy_task.
-    dummy_task.start_virt_addr = APP_START_VIRT_ADDR;
-    dummy_task.start_phy_addr = APP_START_PHY_ADDR;
-    dummy_task.mem_required = APP_SIZE;
-    dummy_task.heap_size = APP_HEAP_SIZE;
-    dummy_task.stack_size = APP_STACK_SIZE;
-    dummy_task.start_disk_sector = 2;
+void exec_waiting_tasks(void) { }
 
-    // Prepare for task switch. This involves verifying there's enough free
-    // physical memory, allocating memory for the task, and configuring
-    // virtual memory for the task.
-    prepare_for_task_switch(&dummy_task);
+void exec_task(struct task_info *task) {
+    prepare_for_task_switch(task);
 
-    // If task switch preparation was okay, we can proceed to configure
-    // hardware task params.
-    configure_user_tss(&dummy_task);
+    configure_user_tss(task);
 
-    load_task_into_ram(&dummy_task);
+    load_task_into_ram(task);
 
     print_string("attempting task switch.\n");
     switch_to_user_task();
     print_string("task switch successful.\n");
 
-    clean_up_after_task(&dummy_task);
+    clean_up_after_task(task);
 }
 
 void exec_task(struct task_info *task) {

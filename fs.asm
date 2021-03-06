@@ -23,5 +23,6 @@ times 1024 + 128  - ($ - $$) db 0
 dd 1
 dd 262144 + 3
 dd 0
-dd 8
-times 1536 - ($ - $$) db 0
+; Two more lines will be added by generate_fs.sh. They will look like this:
+; dd 0x_____ ; Adding the size of our fake file.
+; times 1536 - ($ - \$$) db 0 ; Setting 0s up to byte 1536

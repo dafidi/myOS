@@ -38,14 +38,6 @@ static void set_cursor(int offset) {
 	port_byte_out(REG_SCREEN_DATA, offset);
 }
 
-/* Copy  bytes  from  one  place  to  another. */
-void  memory_copy(char* source , char* dest , int  no_bytes) {
-	int i;
-	for (i=0; i<no_bytes; i++) {
-		*(dest + i) = *( source + i);
-	}
-}
-
 /*  Advance  the  text  cursor , scrolling  the  video  buffer  if  necessary. */
 static int handle_scrolling(int  cursor_offset) {
 	// If the  cursor  is  within  the  screen , return  it  unmodified.

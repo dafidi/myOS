@@ -32,6 +32,7 @@ struct registers {
 	unsigned int eip, cs, eflags, useresp, ss;   /* pushed by the processor automatically */ 
 }__attribute__((packed));
 
+void  memory_copy(char* source , char* dest , int  no_bytes);
 void clear_buffer(uint8_t* buffer, int n);
 void fill_byte_buffer(unsigned char *buffer, const int start_index, int num_entries, const unsigned char val);
 void fill_word_buffer(unsigned short *buffer, const int start_index, int num_entries, const unsigned short val);

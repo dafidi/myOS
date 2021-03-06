@@ -13,6 +13,7 @@
 #define PAGE_SIZE 0x1000
 #define PAGE_ADDR_MASK (~(PAGE_SIZE - 1))
 #define PAGE_ALIGN(x) ((x) & PAGE_ADDR_MASK)
+#define PAGE_ALIGN_UP(x) (PAGE_ALIGN(x) == (x) ? (x) : PAGE_ALIGN(x) + PAGE_SIZE)
 
 #define USER_PAGE_TABLE_SIZE 1024
 #define USER_PAGE_DIR_SIZE 1024

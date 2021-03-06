@@ -266,8 +266,11 @@ static void setup_page_directory_and_page_tables(void) {
 		 * We map the part of the kernel in the second portion of usable physical memory here.
 		 * We know that the kernel uses only [0x100000, _bss_end) because that is what is specified in kernel.ld :).
 		 * Should that change, this should probably change too.
+		 * We must use "PAGE_ALIGN_UP(&_bss_end)" here and not just "&_bss_end" as the latter would neglect
+		 * memory between.
+		 * [PAGE_ROUND_DOWN(&_bss_end), PAGE_ROUND_DOWN(&_bss_end) + PAGE_SIZE).
 		 */
-		region_length = (unsigned int)&_bss_end - 0x100000;
+		region_length = PAGE_ALIGN_UP((unsigned int)&_bss_end) - 0x100000;
 		region_start = 0x100000;
 		page_frame = 0x100000;
 		map_va_range_to_pa_range(user_page_tables, /*va=*/(va_t)region_start, /*size=*/region_length, /*pa=*/page_frame,

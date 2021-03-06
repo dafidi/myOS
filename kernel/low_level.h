@@ -1,3 +1,7 @@
+
+/* 1 word = 2 bytes (2**1 bytes). */
+#define WORD_TO_BYTE_SHIFT 1
+
 /**
  * Ops for reading data in from I/O ports. The underlying assembly
  * calls read data into/out of registers. 
