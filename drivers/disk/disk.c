@@ -8,8 +8,14 @@
 
 // Helpful variables.
 static char tmp[10] = "0000000";
+static char flush_buffer[512];
+static int read_flush_pending;
+static lba_t last_read_block;
 
 static unsigned char hd_ctrl_status;
+
+static enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class, lba_t block_address, int n_bytes, void* buffer, bool flush);
+static enum sys_error write_to_disk(enum disk_channel channel, enum drive_class class, lba_t block_address, int n_bytes, void* buffer);
 
 // #define LOGGING_ENABLED
 #if defined(LOGGING_ENABLED)
@@ -40,17 +46,30 @@ void init_disk(void) {
 	install_disk_irq_handler();
 }
 
-void disk_irq_handler(struct registers* r) {
-	print_string("[DISK IRQ]\n");
-}
-
 void install_disk_irq_handler(void) {
 	install_irq(14, disk_irq_handler);
 }
 
-// Read from ATA/IDE hard disk into buffer.
+/**
+ * read_from_storage_disk - Read from ATA/IDE hard disk into buffer.
+ * 
+ * @block_address:
+ * @n_bytes:
+ * @buffer:
+ */
 void read_from_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
-	read_from_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer);
+	read_from_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer, false);
+}
+
+static void flush_read_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
+	read_from_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer, true);
+}
+
+void disk_irq_handler(struct registers* r) {
+	print_string("[DISK IRQ]\n");
+
+	if (read_flush_pending)
+		flush_read_storage_disk(last_read_block, read_flush_pending, flush_buffer);
 }
 
 // Write to ATA/IDE hard disk into buffer.
@@ -58,7 +77,7 @@ void write_to_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
 	write_to_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer);
 }
 
-enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class, lba_t block_address, int n_bytes, void* buffer) {
+enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class, lba_t block_address, int n_bytes, void* buffer, bool flush) {
 	uint16_t drive_select_port;
 	uint16_t sector_count_port;
 	uint16_t lba_high_port;
@@ -74,7 +93,7 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
 	if (n_bytes <= 0)
 		return -1;
 
-	print_string("Reading from Disk...\n");
+	// print_string("Reading from Disk...\n");
 	disable_interrupts();
 	assign_ports(channel,
 							 &drive_select_port,
@@ -88,7 +107,7 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
 							 &data_port);
 
 	num_sectors = (n_bytes >> 9) + (n_bytes & 0x1ff ? 1 : 0);
-	print_string("Reading "); print_int32(num_sectors); print_string(" sectors. \n");
+	// print_string("Reading "); print_int32(num_sectors); print_string(" sectors. \n");
 
 	while((port_byte_in(status_port) & 0xc0) != 0x40) {
 		int hd_ctrl_status = port_byte_in(status_port);
@@ -104,8 +123,8 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
 	port_byte_out(lba_high_port, block_address >> 16);
 	port_byte_out(drive_select_port, (0xE0 | (class == SLAVE ? 0x10 : 0x0) | ((block_address >> 24) & 0x0f)));
 
-	SHOW_DISK_CTRL_STATUS("STATUS [before read] STATUS:");
-	SHOW_DISK_CTRL_ERROR("ERROR [before read] ERROR:");
+	// SHOW_DISK_CTRL_STATUS("STATUS [before read] STATUS:");
+	// SHOW_DISK_CTRL_ERROR("ERROR [before read] ERROR:");
 
 	while ((hd_ctrl_status & 0xc0) != 0x40) { // Loop while controller is busy nor not ready.
 		int_to_string(tmp, hd_ctrl_status, 9);
@@ -117,29 +136,30 @@ enum sys_error read_from_disk(enum disk_channel channel, enum drive_class class,
 	read_command = num_sectors > 1 ? HD_READ_MULTIPLE : HD_READ;
 	port_byte_out(command_port, read_command);
 
-	SHOW_DISK_CTRL_STATUS("STATUS [after read (1)] STATUS:");
-	SHOW_DISK_CTRL_ERROR("ERROR [after read (1)] ERROR:");
-
-	SHOW_DISK_CTRL_STATUS("STATUS [after read (2)] STATUS:");
-	SHOW_DISK_CTRL_ERROR("ERROR [after read (2)] ERROR:");
+	// SHOW_DISK_CTRL_STATUS("STATUS [after read ] STATUS:");
+	// SHOW_DISK_CTRL_ERROR("ERROR [after read ] ERROR:");
 
 	while ((hd_ctrl_status & 0xc0) != 0x40) { // Loop while controller is busy nor not ready.
 		int_to_string(tmp, hd_ctrl_status, 9);
-		print_string("HD BUSY! STATUS:"); print_string(tmp); print_string("\n");
+		// print_string("HD BUSY! STATUS:"); print_string(tmp); print_string("\n");
 		hd_ctrl_status = port_byte_in(status_port);
 	}
 
 	int_to_string(tmp, hd_ctrl_status, 9);
-	print_string("HD READY! STATUS:"); print_string(tmp); print_string("\n");
+	// print_string("HD READY! STATUS:"); print_string(tmp); print_string("\n");
 
-	// print_string("before: buffer = ["); print_string(buffer); print_string("]\n");
+	print_string("before: buffer = ["); print_string(buffer); print_string("]\n");
+
+	last_read_block = block_address + num_sectors;
+	read_flush_pending = flush ? 0 : 512 - (n_bytes % 512) /* SECTOR_SIZE */;
+
 	insw(data_port, buffer, n_bytes >> 1);
-	// print_string("after: buffer = ["); print_string(buffer); print_string("]\n");
+	print_string("after: buffer = ["); print_string(buffer); print_string("]\n");
 
-	SHOW_DISK_CTRL_STATUS("STATUS [after insw] STATUS:");
-	SHOW_DISK_CTRL_ERROR("ERROR [after insw] ERROR:");
+	// SHOW_DISK_CTRL_STATUS("STATUS [after insw] STATUS:");
+	// SHOW_DISK_CTRL_ERROR("ERROR [after insw] ERROR:");
 
-	print_string("Finished reading from disk.\n");
+	// print_string("Finished reading from disk.\n");
 	enable_interrupts();
 	return NONE;
 }

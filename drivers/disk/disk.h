@@ -73,9 +73,6 @@ void disk_irq_handler(struct registers* r);
 void read_from_storage_disk(lba_t, int, void*);
 void write_to_storage_disk(lba_t, int, void*);
 
-enum sys_error read_from_disk(enum disk_channel, enum drive_class, lba_t, int, void* buffer);
-enum sys_error write_to_disk(enum disk_channel, enum drive_class, lba_t, int, void* buffer);
-
 // CHS stuff (not used).
 struct hd_sect_params {
 	unsigned int cylinder;

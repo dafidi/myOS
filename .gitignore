@@ -21,6 +21,8 @@ pad.asm
 *.img
 *.dump
 *.elf
+*.hdd
+*.fs
 
 # The final image, just another binary.
 os-image

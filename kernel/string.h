@@ -4,6 +4,7 @@
 #include <kernel/system.h>
 
 #define STR_MESSAGE_LENGTH 256
+#define NULL ((void*) 0)
 
 void int_to_string(char* s, unsigned  int val, int n);
 

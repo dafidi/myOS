@@ -1,4 +1,5 @@
 #ifndef __TASK_H__
+#define __TASK_H__
 
 #include "mm.h"
 #include "system.h"
@@ -54,6 +55,7 @@ typedef struct task_info {
 void setup_tss(void);
 
 void exec_waiting_tasks(void);
+void exec_task(struct task_info *task);
 
 void init_task_system(void);
 

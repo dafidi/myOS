@@ -10,7 +10,7 @@
 
 #include <drivers/disk/disk.h>
 #include <drivers/keyboard/keyboard.h>
-#include <fs/fs.h>
+#include <fs/fnode2.h>
 
 #include "shell/shell.h"
 
@@ -22,6 +22,8 @@ va_range_sz_t APP_SIZE = 28;
 
 static char* kernel_init_message = "Kernel initialized successfully.\n";
 static char* kernel_load_message = "Kernel loaded and running.\n";
+
+extern struct folder root_folder;
 
 /**
  * init - Initialize system components.
@@ -61,7 +63,13 @@ int main(void) {
 	init();
 	print_string(kernel_init_message);
 
-	exec_waiting_tasks();
+	struct file *file = find_file(&root_folder, "app.bin");
+	if (file == NULL) {
+		print_string("file not found.");
+		PAUSE();
+	}
+
+	execute_binary_file(file);
 
 	exec_main_shell();
 

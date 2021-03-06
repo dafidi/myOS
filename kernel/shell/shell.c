@@ -1,11 +1,12 @@
 #include "shell.h"
 
 #include <drivers/keyboard/keyboard_map.h>
-#include <fs/fnode.h>
-#include <fs/fs.h>
+#include <fs/fnode2.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
 #include <kernel/system.h>
+
+extern struct folder root_folder;
 
 const char stub[] = ">>";
 
@@ -30,7 +31,7 @@ static void default_show_prompt(void);
 static void default_shell_init(void);
 
 struct fs_context {
-	uint32_t curr_folder_id;
+	struct folder *curr_folder;
 };
 
 struct shell {
@@ -39,8 +40,6 @@ struct shell {
 	void (*init) (void);
 	void (*show_prompt) (void);
 };
-
-static  struct folder_node* curr_folder_node;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // System-level input processing functions that can be used by any shell.
@@ -76,16 +75,16 @@ static void exec_known_cmd(int i) {
 			print_string("hi to you too!\n");
 			break;
 		case 1:
-			print_string("ls? we're getting there dw!\n");
+			print_string("ls!\n");
 			break;
 		case 2:
-			print_string("pwd? don't worry, stay steady, we'll get there.\n");
+			print_string("pwd!.\n");
 			break;
 		case 3:
-			print_string("addfile? keep grinding.\n");
+			print_string("addfile!.\n");
 			break;
 		default:
-			print_string("doni't know what that is sorry :(\n");
+			print_string("don't know what that is sorry :(\n");
 	}
 }
 
@@ -155,11 +154,11 @@ void process_cmd_input(void) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Default/Main shell stuff.
-static struct fs_context default_fs_ctx = { 
-	.curr_folder_id = 0 
+static struct fs_context current_fs_ctx = {
+	.curr_folder = &root_folder
 };
 
-static struct shell default_shell = {
+struct shell default_shell = {
 	.exec = default_exec_routine,
 	.init = default_shell_init,
 	.show_prompt = default_show_prompt
@@ -184,14 +183,11 @@ static void default_exec_routine(void) {
 }
 
 static void default_shell_init(void) {
-	default_shell.fs_ctx = default_fs_ctx;
+	default_shell.fs_ctx = current_fs_ctx;
 }
 
 static void default_show_prompt(void) {
-	curr_folder_node = get_folder_node_by_id(
-		default_shell.fs_ctx.curr_folder_id);
-
-	print_string(curr_folder_node->name);
+	print_string(current_fs_ctx.curr_folder->name);
 	print_string(stub);
 }
 

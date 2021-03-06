@@ -7,3 +7,11 @@ ATT   syntax: mov src, dest
 
 # Intel ia32 manual.
 #NP is segment-not-present exception, #GP is general-protection exception, #TS is invalid-TSS exception, and #SS is stack-fault exception.
+
+# Generic
+
+- Create 16GiB file
+fallocate -l 16G <file-name>
+
+- Copy all the bytes of fs.fs to an offset of 262144 * 512 bytes into disk.hdd.
+dd if=fs.fs of=disk.hdd obs=512 seek=262144 conv=notrunc
