@@ -1,39 +1,39 @@
 // A simple kernel.
 #include "system.h"
 
-#include "idt.h"
-#include "isrs.h"
-#include "irq.h"
+#include "interrupts.h"
 #include "mm.h"
+#include "print.h"
+#include "string.h"
 #include "task.h"
 #include "timer.h"
-#include "shell/shell.h"
-#include "string.h"
 
-#include <drivers/keyboard/keyboard.h>
-#include <drivers/screen/screen.h>
 #include <drivers/disk/disk.h>
-#include <fs/fs.h>
+#include <drivers/keyboard/keyboard.h>
+#include <fs/fnode.h>
 
-extern void enable_interrupts(void);
-extern void initialize_idt(void);
+#include "shell/shell.h"
 
-static char* kernel_load_message = "Kernel loaded and running.\n";
+va_t APP_START_VIRT_ADDR = 0x30000000;
+pa_t APP_START_PHY_ADDR = 0x20000000;
+va_range_sz_t APP_STACK_SIZE = 8192;
+va_range_sz_t APP_HEAP_SIZE = 16384;
+
 static char* kernel_init_message = "Kernel initialized successfully.\n";
-static char* long_kernel_story =
-	"============================================\n"
-	"This is the story of a little kernel\n"
-	"============================================\n";
+static char* kernel_load_message = "Kernel loaded and running.\n";
 
+extern struct folder root_folder;
+
+/**
+ * init - Initialize system components.
+ */
 void init(void) {
-	/* Set up fault handlers and interrupt handlers. */
-	init_idt();
-	install_isrs();
-	install_irqs();
+	/* Set up fault handlers and interrupt handlers */
+	/* but do not enable interrupts. */
+	init_interrupts();
 
 	/* Set up system's timer. */
-	timer_phase(DEFAULT_TIMER_FREQUENCY_HZ);
-	timer_install();
+	init_timer();
 
 	/* Set up disk. */
 	init_disk();
@@ -41,45 +41,37 @@ void init(void) {
 	/* Set up memory management. */
 	init_mm();
 
+	/* Set up task management. */
+	init_task_system();
+
 	/* Set up fs. */
 	init_fs();
 
 	/* Setup keyboard */
-	install_keyboard();
+	init_keyboard();
 
-	/* Let the fun begin. */
-	enable_interrupts();
+	/* Let the fun begin, enable interrupts. */
+	start_interrupts();
 }
 
-void *APP_START_PHY_ADDR = (void *) 0x20000000;
-void *APP_START_VIRT_ADDR = (void *) 0x30000000;
-int APP_SIZE = 28;
-
-void read_app_into_memory(void) {
-	void *write_pos = APP_START_PHY_ADDR;
-	int app_size = APP_SIZE;
-	int amt_left = app_size;
-	int amt_read = 0;
-
-	while(amt_left) {
-		int chunk_size = amt_left > 8192 ? 8192 : amt_left;
-		int sector_offset = amt_read / 512 /* size of a sector. */;
-
-		read_from_storage_disk(2 + sector_offset, chunk_size, write_pos);
-
-		amt_left -= chunk_size;
-		write_pos += chunk_size;
-		amt_read += chunk_size;
-	}
-}
-
+/**
+ * main - main kernel execution starting point.
+ */
 int main(void) {
-	print(kernel_load_message);
+	print_string(kernel_load_message);
 	init();
-	print(kernel_init_message);
+	print_string(kernel_init_message);
 
-	read_app_into_memory();
-	do_task_switch();
+	struct file file;
+	int status;
+
+	status = find_file(&root_folder, "app.bin", &file);
+	if (status != 0) {
+		print_string("file not found.");
+		PAUSE();
+	}
+
+	execute_binary_file(&file);
 
 	exec_main_shell();
 

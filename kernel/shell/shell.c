@@ -1,11 +1,12 @@
 #include "shell.h"
 
-#include <kernel/system.h>
-#include <kernel/string.h>
-#include <drivers/screen/screen.h>
 #include <drivers/keyboard/keyboard_map.h>
-#include <fs/fs.h>
 #include <fs/fnode.h>
+#include <kernel/print.h>
+#include <kernel/string.h>
+#include <kernel/system.h>
+
+extern struct folder root_folder;
 
 const char stub[] = ">>";
 
@@ -30,7 +31,7 @@ static void default_show_prompt(void);
 static void default_shell_init(void);
 
 struct fs_context {
-	uint32_t curr_folder_id;
+	struct folder *curr_folder;
 };
 
 struct shell {
@@ -40,12 +41,10 @@ struct shell {
 	void (*show_prompt) (void);
 };
 
-static  struct folder_node* curr_folder_node;
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // System-level input processing functions that can be used by any shell.
 static void exec(char* input) {
-	print("Attempting to execute: "); print(input); print("\n");
+	print_string("Attempting to execute: "); print_string(input); print_string("\n");
 	char* known_cmd;
 	int l, m;
 	int i;
@@ -65,7 +64,7 @@ static void exec(char* input) {
 	}
 
 	if (i == NUM_KNOWN_COMMANDS) {
-		print("Sorry bud, can't help with that... yet!\n");
+		print_string("Sorry bud, can't help with that... yet!\n");
 	}
 
 }
@@ -73,19 +72,19 @@ static void exec(char* input) {
 static void exec_known_cmd(int i) {
 	switch (i) {
 		case 0:
-			print("hi to you too!\n");
+			print_string("hi to you too!\n");
 			break;
 		case 1:
-			print("ls? we're getting there dw!\n");
+			print_string("ls!\n");
 			break;
 		case 2:
-			print("pwd? don't worry, stay steady, we'll get there.\n");
+			print_string("pwd!.\n");
 			break;
 		case 3:
-			print("addfile? keep grinding.\n");
+			print_string("addfile!.\n");
 			break;
 		default:
-			print("doni't know what that is sorry :(\n");
+			print_string("don't know what that is sorry :(\n");
 	}
 }
 
@@ -105,7 +104,7 @@ static void process_new_scancodes(int offset, int num_new_characters) {
 	int i;
 
 	if (offset + num_new_characters >= SHELL_CMD_INPUT_LIMIT) {
-		print("[Main Shell]:Input too large. Not processing\n");
+		print_string("[Main Shell]:Input too large. Not processing\n");
 		return;
 	}
 
@@ -119,10 +118,10 @@ static void process_new_scancodes(int offset, int num_new_characters) {
 			char_buff[0] =  ascii_char;
 			char_buff[1] = 0;
 			
-			print(char_buff);
+			print_string(char_buff);
 
 			if (ascii_char == '\n') {
-				print("you entered: ["); print(shell_ascii_buffer); print("]\n");
+				print_string("you entered: ["); print_string(shell_ascii_buffer); print_string("]\n");
 				process_cmd_input();
 				default_show_prompt();
 
@@ -137,7 +136,7 @@ static void process_new_scancodes(int offset, int num_new_characters) {
 			}
 
 			if (shell_input_counter >= SHELL_CMD_INPUT_LIMIT) {
-				print("You have entered too many characters.  Resetting prompt...\n");
+				print_string("You have entered too many characters.  Resetting prompt...\n");
 				clear_buffer((uint8_t*) shell_ascii_buffer, SHELL_CMD_INPUT_LIMIT);
 				clear_buffer((uint8_t*) shell_scancode_buffer, SHELL_CMD_INPUT_LIMIT);        
 				shell_input_counter = 0;
@@ -155,11 +154,11 @@ void process_cmd_input(void) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Default/Main shell stuff.
-static struct fs_context default_fs_ctx = { 
-	.curr_folder_id = 0 
+static struct fs_context current_fs_ctx = {
+	.curr_folder = &root_folder
 };
 
-static struct shell default_shell = {
+struct shell default_shell = {
 	.exec = default_exec_routine,
 	.init = default_shell_init,
 	.show_prompt = default_show_prompt
@@ -167,7 +166,7 @@ static struct shell default_shell = {
 
 static void default_exec_routine(void) {
 	shell_input_counter = 0;
-	print("Main shell Executing.\n");
+	print_string("Main shell Executing.\n");
 	default_show_prompt();
 	while(true) {
 		if (last_known_input_buffer_size < shell_input_counter) {
@@ -175,7 +174,7 @@ static void default_exec_routine(void) {
 													 shell_input_counter - last_known_input_buffer_size);
 			last_known_input_buffer_size = shell_input_counter;
 		} else if (last_known_input_buffer_size > shell_input_counter) {
-			print("Something has gone terribly wrong with the shell. Exiting.\n");
+			print_string("Something has gone terribly wrong with the shell. Exiting.\n");
 			break;
 		}
 	}
@@ -184,15 +183,12 @@ static void default_exec_routine(void) {
 }
 
 static void default_shell_init(void) {
-	default_shell.fs_ctx = default_fs_ctx;
+	default_shell.fs_ctx = current_fs_ctx;
 }
 
 static void default_show_prompt(void) {
-	curr_folder_node = get_folder_node_by_id(
-		default_shell.fs_ctx.curr_folder_id);
-
-	print(curr_folder_node->name);
-	print(stub);
+	print_string(current_fs_ctx.curr_folder->name);
+	print_string(stub);
 }
 
 // Executes the default/main shell.

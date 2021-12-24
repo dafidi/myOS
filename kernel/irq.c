@@ -1,7 +1,7 @@
 #include "system.h"
 #include "low_level.h"
 
-#include <drivers/screen/screen.h>
+#include "print.h"
 
 #include "irq.h"
 #include "idt.h"
@@ -29,12 +29,14 @@ void uninstall_irq(int irq) {
 }
 
 /**
- * Give the two PICs the initialise command (code 0x11).
- * This command makes the PIC wait for 3 extra "initialisation words" on the data port.
+ * Give the two PICs the initialize command (code 0x11).
+ * This command makes the PIC wait for 3 extra "initialization words" on the data port.
  * These bytes give the PIC:
  * (1) Its vector offset. (ICW2)
  * (2) Tell it how it is wired to master/slaves. (ICW3)
- * (3) Gives additional information about the environment. (ICW4) 
+ * (3) Gives additional information about the environment. (ICW4)
+ * 
+ * Perhaps a TODO here is to check for and return on errors.
  */
 void irq_remap(void) {
 	// Send init message to PICs.
@@ -82,7 +84,6 @@ void install_irqs(void) {
 	set_idt_entry(47, (unsigned) irq15, 0x08, 0x8E);  /* (idx=15, desc=unknown)  */  
 }
 
-// static char tmp[10] = "000000000";
 void irq_handler(struct registers* r) {
  void (*handler) (struct registers* r);
 

@@ -1,6 +1,7 @@
 {
   "files.associations": {
     "keyboard.h": "c",
-    "screen.h": "c"
+    "screen.h": "c",
+    "fs.h": "c"
   }
 }

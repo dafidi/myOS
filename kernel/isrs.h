@@ -36,6 +36,6 @@ extern void isr29(void);
 extern void isr30(void);
 extern void isr31(void);
 
-void install_isrs();
+void install_isrs(void);
 
 #endif // __ISRS_H__

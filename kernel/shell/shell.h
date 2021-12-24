@@ -5,7 +5,6 @@
 #define SHELL_CMD_INPUT_LIMIT 1024
 
 #include <kernel/system.h>
-#include <drivers/screen/screen.h>
 
 //  Exported variables used by keyboard driver.
 char shell_scancode_buffer[SHELL_CMD_INPUT_LIMIT];

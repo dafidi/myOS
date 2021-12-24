@@ -1,12 +1,21 @@
 #include "timer.h"
-#include "low_level.h"
 
 #include "irq.h"
-
-#include <drivers/screen/screen.h>
+#include "low_level.h"
+#include "system.h"
 
 int timer_ticks = 0;
 
+void init_timer(void) {
+	timer_phase(DEFAULT_TIMER_FREQUENCY_HZ);
+	timer_install();
+}
+
+/**
+ * timer_phase
+ *
+ * Perhaps a TODO here is to check for and return on errors.
+ */
 void timer_phase(int hz) {
 	int divisor = 1193180 / hz;
 	port_byte_out(0x43, 0x36);
@@ -16,10 +25,6 @@ void timer_phase(int hz) {
 
 void timer_handler(struct registers* r) {
 	timer_ticks++;
-
-	if(timer_ticks % DEFAULT_TIMER_FREQUENCY_HZ == 0) {
-		// print("TICK\n");
-	}
 }
 
 void timer_wait(int ticks) {

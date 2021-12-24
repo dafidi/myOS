@@ -4,57 +4,59 @@
 # 
 # This ought to be run in a Linux shell.
 
+# Stop on any error.
 set -e
-set -x
 
 cd ${HOME}/dev/myOS
 
 # Utility functions.
-get_raw_kernel_size () {
+
+# Get the size of the kernel in blocks, rounded up.
+get_kernel_size_in_blocks() {
 	kernel_size=$(stat kernel.bin | grep Size | tr -s ' ' | cut -d' ' -f3)
-	kernel_size=$(($kernel_size))
+
+	num_blocks=$((($kernel_size / 512) + 1)) 
+	echo "kernel_size=$kernel_size,num_blocks=$num_blocks."
 }
 
-get_num_blocks_needed() {
-	num_blocks=1
+# The bootloader needs to know the kernel size (number of sectors)
+# in order to be able to read the kernel into memory.
+adjust_boot_loader() {
+	# (Re-)Construct kernel.bin out of 512-byte blocks.
+	# The dd command does not actually create an output file whose size is a
+	# multiple of obs (512). So a TODO here might be to find a way to force
+	# the output file to be a multiple of 512 (or whatever sector size is relevant).
+	mv kernel.bin kernel.bin.tmp
+	dd if=kernel.bin.tmp of=kernel.bin obs=512 conv=notrunc
 
-	echo "Looking for minimum number of sectors required for entire kernel."
-	echo "Starting at num_blocks=$num_blocks"
-	while [ $((512*$num_blocks)) -le $(($kernel_size)) ]
-	do
-		num_blocks=$(($num_blocks + 1))
-	done
-	echo "Finished! Needed num_blocks=$num_blocks."
+	# Return value is in $num_blocks
+	get_kernel_size_in_blocks
+
+	# Put the right kernel size in the boot sector.
+	sed -i "s/KERNEL_SIZE_SECTORS equ .*/KERNEL_SIZE_SECTORS equ $num_blocks/" boot/boot_sect_2.asm
+
+	# Clean up
+	rm -rf kernel.bin.tmp
 }
 
-pad_kernel_to_multiple_of_sector_size() {
-	padding=$((512*$num_blocks - $kernel_size))
-	echo "Padding Kernel with $padding bytes."
+# Generate the kernel itself. This includes boot sector(s) and actual kernel.
+echo "***********************Generating Image******************************"
 
-	echo "times $padding db 0" > pad.asm
-	nasm -f bin -o padding.bin pad.asm
-
-	cat kernel.bin padding.bin > padded_kernel.bin
-	cat padded_kernel.bin > kernel.bin
-	num_blocks=$num_blocks
-}
-
-echo "***********************Generating os-image***************************"
+# We must build the kernel first - we need to know it's size so that the
+# bootloader can load the correct amount of data from disk.
 make kernel.bin
 
-# Figure out numbers of sectors to load in boot sector.
-get_raw_kernel_size
-get_num_blocks_needed
+# Adjust the bootloader to account for the kernel size.
+adjust_boot_loader
 
-# Padding is just to make the kernel size a multiple of 512 (sector size).
-pad_kernel_to_multiple_of_sector_size
+# Build the final image ❤️ (bootloader + kernel) ❤️
+make
 
-# Put the right kernel size in the boot sector.
-sed -i "s/KERNEL_SIZE_SECTORS equ .*/KERNEL_SIZE_SECTORS equ $num_blocks/" boot/boot_sect_2.asm
+echo "***********************Done generating Image*************************"
 
-make boot_sect_1.bin
-make boot_sect_2.bin
-make storage_disk.img
-make os-image
-echo "***********************Done generating os-image**********************"
+# Generate a disk containing a filesystem. The disk is called "disk.hdd".
+echo "***********************Generating disk.hdd***************************"
 
+source ${HOME}/dev/myOS/scripts/generate_fs.sh
+
+echo "***********************Done generating disk.hdd**********************"

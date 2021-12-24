@@ -72,6 +72,9 @@ show_result_loop:
 	je show_result_end
 
 	dec bp
+	mov edx, [es:di+4]
+	call print_hex_32
+	
 	mov edx, [es:di]
 	call print_hex_32
 

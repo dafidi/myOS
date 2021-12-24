@@ -4,18 +4,8 @@
  * file/folder descriptor.
  */
 
-#ifndef __FNODE_H__
-#define __FNODE_H__
-
-#define KiB (1024)
-#define MiB (1024 * KiB)
-#define GiB (1024 * MiB)
-
-#define SECTOR_SIZE_SHIFT 9
-#define INT_SIZE_SHIFT 2
-
-#define MAX_FILE_SIZE 1 << 20
-#define MAX_FILE_CHUNKS (MAX_FILE_SIZE) >> SECTOR_SIZE_SHIFT
+#ifndef __FNODE2_H__
+#define __FNODE2_H__
 
 enum folder_content_type {
     FILE,
@@ -31,7 +21,7 @@ struct file_chunk {
 struct file {
     char name[128];
     int num_chunks;
-    struct file_chunk chunks[MAX_FILE_CHUNKS];
+    struct file_chunk chunks[];
 };
 
 struct folder_content_desc {
@@ -52,6 +42,13 @@ struct folder {
     struct folder_content_desc content[];
 };
 
+#define GiB (1024 * MiB)
+#define MiB (1024 * KiB)
+#define KiB (1024)
+
+#define SECTOR_SIZE_SHIFT 9
+#define INT_SIZE_SHIFT 2
+
 struct disk_block_desc {
     unsigned short size;
     unsigned short reserved;
@@ -63,11 +60,16 @@ struct folder root_folder;
 
 enum sys_error init_fs(void);
 
-int find_file(struct folder *folder, char *file_name, struct file *file);
+// These are used where we need to dynamically provide file/folder.
+// Ideally, we'd want dynamic memory allocation instead.
+struct file buffer_file;
+struct folder buffer_folder;
+
+struct file *find_file(struct folder *folder, char *file_name);
 /**
  * find_file - XXX.
  */
-int find_folder(struct folder *folder, char *folder_name, struct folder *target_folder);
+struct folder *find_folder(struct folder *folder, char *folder_name);
 
 void execute_binary_file(struct file *file);
 
