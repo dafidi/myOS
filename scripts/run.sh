@@ -1,8 +1,11 @@
 #!/bin/bash
+#
+#  File: run.sh
+#
 # This ought to be run in a linux shell.
 
+# Stop on any error.
 set -e
-set -x
 
 cd ${HOME}/dev/myOS
 
@@ -24,11 +27,11 @@ do
 	fi
 done
 
-echo "***********************Building image***************************"
-bash -x scripts/build.sh
-echo "***********************Done building Image**********************"
+echo "*************************Building image******************************"
+bash scripts/build.sh
+echo "*************************Done building Image*************************"
 
-echo "************************Running VM******************************"
+echo "**************************Running VM*********************************"
 if [[ $norun == 0 ]]; then
 	version=$(cat /proc/version)
 	if [[ $version == *"Microsoft"* ]]; then
@@ -39,9 +42,9 @@ if [[ $norun == 0 ]]; then
 		bash -x scripts/start.sh
 	fi
 else 
-	echo "Flag \"--no-run\" passed - not running."
+	echo "Flag \"--no-run\" passed - not running VM."
 fi
-echo "**************************Done Running VM***********************"
+echo "****************************Done Running VM**************************"
 
 if [[ $noclean == 1 ]]; then
 	echo "Flag \"--no-clean\" passed - not cleaning up build files."
@@ -49,4 +52,5 @@ else
 	echo "Cleaning up build files."
 	make clean
 fi
+
 echo "Done."

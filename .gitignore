@@ -5,7 +5,7 @@ docs/random.txt
 # Experimental directory
 experimental/
 
-# What happensin sandbox stays in sandbox.
+# What happens in sandbox stays in sandbox.
 sandbox/
 
 # Build by-product.
@@ -25,4 +25,4 @@ pad.asm
 *.fs
 
 # The final image, just another binary.
-os-image
+myOS.img
