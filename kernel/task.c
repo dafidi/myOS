@@ -164,20 +164,6 @@ void exec_task(struct task_info *task) {
     clean_up_after_task(task);
 }
 
-void exec_task(struct task_info *task) {
-    prepare_for_task_switch(task);
-
-    configure_user_tss(task);
-
-    load_task_into_ram(task);
-
-    print_string("attempting task switch.\n");
-    switch_to_user_task();
-    print_string("task switch successful.\n");
-
-    clean_up_after_task(task);
-}
-
 void init_task_system(void) {
     // Set kernel and user TSS descriptors in GDT.
 	make_gdt_entry(&pm_gdt[KERNEL_TSS_DESCRIPTOR_IDX], sizeof(kernel_tss), (unsigned int) &kernel_tss, 0x9, 0x18);
