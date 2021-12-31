@@ -1,7 +1,7 @@
 #ifndef __STRING_H__
 #define __STRING_H__
 
-#include <kernel/system.h>
+#include "system.h"
 
 #define STR_MESSAGE_LENGTH 256
 #define NULL ((void*) 0)
@@ -16,8 +16,8 @@ bool strmatchn(char* s1, char* s2, int n);
 
 int strlen(char* str);
 
-void set_bit(uint8_t* addr, int nr);
-void clear_bit(uint8_t* addr, int nr);
-unsigned char get_bit(uint8_t* addr, int nr);
+void set_bit(uint8_t* addr, const int nr);
+void clear_bit(uint8_t* addr, const int nr);
+unsigned char get_bit(const uint8_t* addr, const int nr);
 
 #endif

@@ -44,9 +44,9 @@ char* exception_messages[] = {
 		/*30*/  "Reserved"
 };
 
-const char exception_message_fmt_1[] = "Fault: msg=[";
-const char exception_message_fmt_2[] = "],code=[";
-const char exception_message_fmt_3[] = "]\n";
+const char exception_message_part_1[] = "Fault: msg=[";
+const char exception_message_part_2[] = "],code=[";
+const char exception_message_part_3[] = "]\n";
 
 void install_isrs(void) {
 	set_idt_entry(0, (unsigned) isr0, 0x08, 0x8E);
@@ -89,13 +89,13 @@ void install_isrs(void) {
  * @regs: Register values pushed to the stack.
  */
 void fault_handler(struct registers* regs) {
-	// print_string(exception_message_fmt_1);
-	// print_string(exception_messages[regs->int_no]);
-	// print_string(exception_message_fmt_2);
-	// print_int32(regs->err_code);
-	// print_string(exception_message_fmt_3);
+	print_string(exception_message_part_1);
+	print_string(exception_messages[regs->int_no]);
+	print_string(exception_message_part_2);
+	print_int32(regs->err_code);
+	print_string(exception_message_part_3);
 
-	// print_registers(regs);
+	print_registers(regs);
 
 	PAUSE_ON_FAULT();
 }
