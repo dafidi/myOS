@@ -9,7 +9,7 @@
 mov [BOOT_DRIVE], dl
 
 KERNEL_OFFSET equ 0x1000
-KERNEL_SIZE_SECTORS equ 39
+KERNEL_SIZE_SECTORS equ 48
 
 mov bx, BOOTLOADER2_START_MSG
 call print_string

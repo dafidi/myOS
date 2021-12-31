@@ -50,17 +50,27 @@ int strlen(char* str) {
 	return i;
 }
 
-void set_bit(uint8_t* addr, int nr) {
-	int byte_offset = nr >> 3;
+/**
+ * @brief Set the bit at nr bits from given address to 1.
+ * 
+ * @param addr 
+ * @param nr 
+ */
+void set_bit(uint8_t* addr, const int nr) {
 	uint8_t bit_offset_mod = nr & (0x7);
-	uint8_t c = *(addr + byte_offset);
-	uint8_t sh =  0x80 >> bit_offset_mod;
- 
-	c |= (sh);
-	*(addr + byte_offset) = c;
+	uint8_t sh = 0x80 >> bit_offset_mod;
+	int byte_offset = nr >> 3;
+
+	*(addr + byte_offset) = *(addr + byte_offset) | sh;
 }
 
-void clear_bit(uint8_t* addr, int nr) {
+/**
+ * @brief Set the bit at nr bits from given address to 0.
+ * 
+ * @param addr 
+ * @param nr 
+ */
+void clear_bit(uint8_t* addr, const int nr) {
 	int byte_offset = nr >> 3;
 	uint8_t bit_offset_mod = nr & (0x7);
 	uint8_t c = *(addr + byte_offset);
@@ -70,7 +80,14 @@ void clear_bit(uint8_t* addr, int nr) {
 	*(addr + byte_offset) = c;
 }
 
-unsigned char get_bit(uint8_t* addr, int nr) {
+/**
+ * @brief Get the bit at nr bits from given address.
+ * 
+ * @param addr 
+ * @param nr 
+ * @return unsigned char 
+ */
+unsigned char get_bit(const uint8_t* addr, const int nr) {
 	int byte_offset = nr / 8;
 	uint8_t bit_offset_mod = nr % 8;
 	uint8_t sh =  0x80 >> bit_offset_mod;

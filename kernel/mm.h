@@ -10,7 +10,6 @@
 #define KERNEL_TSS_DESCRIPTOR_IDX	SYSTEM_KERNEL_TSS_DESCRIPTOR_IDX
 #define USER_TSS_DESCRIPTOR_IDX		SYSTEM_USER_TSS_DESCRIPTOR_IDX
 
-#define PAGE_SIZE 0x1000
 #define PAGE_ADDR_MASK (~(PAGE_SIZE - 1))
 #define PAGE_ALIGN(x) ((x) & PAGE_ADDR_MASK)
 #define PAGE_ALIGN_UP(x) (PAGE_ALIGN(x) == (x) ? (x) : PAGE_ALIGN(x) + PAGE_SIZE)
@@ -57,4 +56,38 @@ void make_gdt_entry(struct gdt_entry* entry,
 					/*flags format: S_DPL_P_AVL_L_DB_G*/
 					/*bits:         1_2___1_1___1_1__1*/
 					char flags);
+
+#define MAX_ORDER_SHIFT 3
+#define MAX_ORDER (1 << MAX_ORDER_SHIFT)
+#define MAX_ORDER_ZONE_SIZE_BYTES (SYSTEM_RAM_BYTES >> MAX_ORDER_SHIFT)
+#define MAX_ORDER_ZONE_PAGES ((MAX_ORDER_ZONE_SIZE_BYTES) >> PAGE_SIZE_SHIFT)
+
+enum mem_block_state {
+	FREE,
+	USED
+};
+
+struct mem_block {
+	enum mem_block_state state;
+	struct mem_block *next;
+	uint8_t order;
+	uint8_t trueorder; /* A block may be split in 2, halving its order. 	*/
+					   /* trueorder lets us know, when freeing the			*/
+					   /* block, whether to merge this block with it's		*/
+					   /* buddy. This merging/coalescing may occur			*/
+					   /* recursively. Never, ever write/change trueorder	*/
+	pa_t addr;
+};
+
+struct order_zone {
+	struct mem_block *free_list;	/* List of mem_blocks.					*/
+	struct mem_block *used_list;	/* List of mem_blocks.					*/
+	uint8_t order;					/* Power-of-2 indicator or size of the 	*/
+									/* blocks in this region. The blocks 	*/
+									/* have size PAGE_SIZE * 2**order.		*/
+	uint32_t num_blocks;
+	uint32_t free;
+	uint32_t used;
+};
+
 #endif // __MM_H__
