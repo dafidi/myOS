@@ -71,17 +71,20 @@ struct mem_block {
 	enum mem_block_state state;
 	struct mem_block *next;
 	uint8_t order;
-	uint8_t trueorder; /* A block may be split in 2, halving its order. 	*/
-					   /* trueorder lets us know, when freeing the			*/
-					   /* block, whether to merge this block with it's		*/
-					   /* buddy. This merging/coalescing may occur			*/
-					   /* recursively. Never, ever write/change trueorder	*/
+	uint8_t trueorder; /* A block may be split in 2, decrementing its
+						  order by 1. trueorder lets us know to merge this block
+						  with its buddy when it is being freed. This
+						  merging/coalescing may occur recursively. Never,
+						  ever write/change trueorder, except when splitting
+						  a block into 2 produces a "new" block object. Its
+						  trueorder is inherited from the parent block.		*/
 	pa_t addr;
 };
 
 struct order_zone {
 	struct mem_block *free_list;	/* List of mem_blocks.					*/
 	struct mem_block *used_list;	/* List of mem_blocks.					*/
+	pa_t phy_mem_start;
 	uint8_t order;					/* Power-of-2 indicator or size of the 	*/
 									/* blocks in this region. The blocks 	*/
 									/* have size PAGE_SIZE * 2**order.		*/
