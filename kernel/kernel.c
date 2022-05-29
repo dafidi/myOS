@@ -46,7 +46,7 @@ void init(void) {
 
 	/* Set up fs. */
 	init_fs();
-
+	
 	/* Setup keyboard */
 	init_keyboard();
 
@@ -64,6 +64,7 @@ int main(void) {
 	init();
 	print_string(kernel_init_message);
 
+	/*
 	struct file file;
 	int status;
 
@@ -74,7 +75,12 @@ int main(void) {
 	}
 
 	execute_binary_file(&file);
+	*/
+	mem_test();
+	exec_main_shell();
+}
 
+void mem_test(void) {
 	/* Memory allocation tests!
 	
 		The 'auxillary' zone is memory we allocate to store data to facilitate
@@ -91,15 +97,15 @@ int main(void) {
 	 * Test 1:
 	 * 
 	 * Simple alloc and free, no auxillary zone necessary.
-	 * The empty comments are tomake it easy to comment out the test.
+	 * The empty comments are to make it easy to comment out the test.
 	 */
 	/**/
 	{
 		test_zone_order = 7;
 		test_zone = &order_zones[test_zone_order];
 
-		struct mem_block *block = zone_alloc(test_zone);
-		zone_free(test_zone, block);
+		struct mem_block *block = zone_alloc(test_zone_order);
+		zone_free(block);
 	}
 	/**/
 
@@ -131,14 +137,14 @@ int main(void) {
 		print_string("\n");
 
 		auxillary_zone = &order_zones[auxillary_zone_order];
-		auxillary_block = zone_alloc(auxillary_zone);
+		auxillary_block = zone_alloc(auxillary_zone_order);
 		auxillary_storage_region = auxillary_block->addr;
 
 		to_alloc = test_zone->num_blocks;
 		// Exhaust the zone - allocate all its blocks.
 		print_string("alloced:");
 		for (int i = 0; i < to_alloc; i++) {
-			struct mem_block *tmp_block = zone_alloc(test_zone);
+			struct mem_block *tmp_block = zone_alloc(test_zone_order);
 
 			// Let's not print everthing; zone's have thousands of blocks.
 			if (i > to_alloc - 8) {
@@ -153,7 +159,7 @@ int main(void) {
 
 		// We have allocated all the blocks in the highest order zone. It has no zone
 		// it can borrow from, so the allocation should fail.
-		struct mem_block *failed_alloc_block = zone_alloc(test_zone);
+		struct mem_block *failed_alloc_block = zone_alloc(test_zone_order);
 		if (!failed_alloc_block)
 			print_string("allocation failed, [success]\n");
 		else
@@ -169,10 +175,10 @@ int main(void) {
 				print_string((i < to_alloc - 1 ? "," : ""));
 			}
 
-			zone_free(test_zone, tmp_block);
+			zone_free(tmp_block);
 		}
 		print_string("\n");
-		zone_free(auxillary_zone, auxillary_block);
+		zone_free(auxillary_block);
 	}
 	/**/
 	/* END OF TEST 2. */
@@ -197,20 +203,20 @@ skip_test2:
 
 		if (auxillary_zone_order >= MAX_ORDER) {
 			print_string("Skipping test, no zone big enough.");
-			goto skip_test;
+			goto skip_test3;
 		}
 		print_string("auxillary_zone_order=");
 		print_int32(auxillary_zone_order);
 		print_string("\n");
 
 		auxillary_zone = &order_zones[auxillary_zone_order];
-		auxillary_block = zone_alloc(auxillary_zone);
+		auxillary_block = zone_alloc(auxillary_zone_order);
 		auxillary_storage_region = auxillary_block->addr;
 
 		to_alloc = test_zone->num_blocks;
-		print_string("alloced:");
+		print_string("alloced: ");
 		for (int i = 0; i < to_alloc; i++) {
-			struct mem_block *tmp_block = zone_alloc(test_zone);
+			struct mem_block *tmp_block = zone_alloc(test_zone_order);
 
 			// Let's not print everthing; zone's have thousands of blocks.
 			if (i > to_alloc - 8) {
@@ -222,14 +228,14 @@ skip_test2:
 		}
 		print_string("\n");
 
-		struct mem_block *test_block = zone_alloc(test_zone);
+		struct mem_block *test_block = zone_alloc(test_zone_order);
 		if (test_block)
 			print_string("allocation passed, [success]\n");
 		else
 			print_string("allocation failed, [failure]\n");
-		zone_free(test_zone, test_block);
+		zone_free(test_block);
 
-		print_string("freed:");
+		print_string("freed: ");
 		for (int i = 0; i < to_alloc; i++) {
 			struct mem_block *tmp_block = auxillary_storage_region[i];
 
@@ -239,13 +245,13 @@ skip_test2:
 				print_string((i < to_alloc - 1 ? "," : ""));
 			}
 
-			zone_free(test_zone, tmp_block);
+			zone_free(tmp_block);
 		}
 		print_string("\n");
-		zone_free(auxillary_zone, auxillary_block);
+		zone_free(auxillary_block);
 	}
 	/* END OF TEST 3. */
 
-skip_test:
-	exec_main_shell();
+skip_test3:
+	return;
 }

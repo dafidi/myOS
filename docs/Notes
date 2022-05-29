@@ -1,5 +1,6 @@
 # Qemu
 To close qemu from the terminal, you can use `ctrl+a c` ;).
+To open qemu console in vscode `esc+2`.
 
 # Assembly
 Intel syntax: mov dest, src

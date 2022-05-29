@@ -4,6 +4,9 @@
 #include <kernel/system.h>
 #include <kernel/error.h>
 
+#define SECTOR_SIZE_SHIFT 9
+#define SECTOR_SIZE (1 << SECTOR_SIZE_SHIFT)
+
 #define HD_PORT_DATA_PRIMARY        0x1f0
 #define HD_PORT_ERROR_PRIMARY       0x1f1
 #define HD_PORT_SECT_COUNT_PRIMARY  0x1f2
@@ -66,24 +69,22 @@ enum drive_class {
 	SLAVE
 };
 
+struct ata_port_config {
+	uint16_t drive_select_port;
+	uint16_t sector_count_port;
+	uint16_t lba_high_port;
+	uint16_t lba_low_port;
+	uint16_t lba_mid_port;
+	uint16_t command_port;
+	uint16_t status_port;
+	uint16_t error_port;
+	uint16_t data_port;
+}__attribute__((packed));
+
 void init_disk(void);
-void install_disk_irq_handler(void);
-void disk_irq_handler(struct registers* r);
 
 void read_from_storage_disk(lba_t, int, void*);
 void write_to_storage_disk(lba_t, int, void*);
 
-// CHS stuff (not used).
-struct hd_sect_params {
-	unsigned int cylinder;
-	unsigned int head;
-	unsigned int sector;
-};
-
-void lba_to_hd_sect_params(unsigned int, struct hd_sect_params*);
-
-#define HD_PORT_SECT_NUM_PRIMARY    0x1f3
-#define HD_PORT_CYL_LOW_PRIMARY     0x1f4
-#define HD_PORT_CYL_HIGH_PRIMARY    0x1f5
 
 #endif /* __DISK_H__ */

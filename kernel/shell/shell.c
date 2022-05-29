@@ -8,7 +8,7 @@
 
 extern struct folder root_folder;
 
-const char stub[] = ">>";
+const char stub[] = "$ ";
 
 char shell_ascii_buffer[SHELL_CMD_INPUT_LIMIT];
 static char* known_commands[NUM_KNOWN_COMMANDS] = {
@@ -31,7 +31,7 @@ static void default_show_prompt(void);
 static void default_shell_init(void);
 
 struct fs_context {
-	struct folder *curr_folder;
+	struct dir_entry *curr_dir;
 };
 
 struct shell {
@@ -153,9 +153,10 @@ void process_cmd_input(void) {
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+extern struct dir_entry root_dir_entry;
 // Default/Main shell stuff.
 static struct fs_context current_fs_ctx = {
-	.curr_folder = &root_folder
+	.curr_dir = &root_dir_entry
 };
 
 struct shell default_shell = {
@@ -187,7 +188,7 @@ static void default_shell_init(void) {
 }
 
 static void default_show_prompt(void) {
-	print_string(current_fs_ctx.curr_folder->name);
+	print_string(current_fs_ctx.curr_dir->name);
 	print_string(stub);
 }
 

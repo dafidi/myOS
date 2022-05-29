@@ -1,8 +1,3 @@
-/**
- * In this filesystem design, disk sectors are "atomic", i.e.
- * used to store only one thing whether it's file content or
- * file/folder descriptor.
- */
 
 #ifndef __FNODE_H__
 #define __FNODE_H__
@@ -11,64 +6,55 @@
 #define MiB (1024 * KiB)
 #define GiB (1024 * MiB)
 
-#define SECTOR_SIZE_SHIFT 9
 #define INT_SIZE_SHIFT 2
 
 #define MAX_FILE_SIZE 1 << 20
-#define MAX_FILE_CHUNKS (MAX_FILE_SIZE) >> SECTOR_SIZE_SHIFT
+#define MAX_FILE_CHUNKS ((MAX_FILE_SIZE) >> SECTOR_SIZE_SHIFT)
 
-enum folder_content_type {
+enum fnode_type {
     FILE,
     FOLDER
 };
 
-struct file_chunk {
-    int block;
-    int offset;
-    int len;
+typedef uint32_t fblock_index_t;
+
+// This is the first piece of data in a directory fnode's content.
+// So every directory fnode has a size of at least sizeof(struct dir_info).
+struct dir_info {
+    uint32_t num_entries;
 };
 
-struct file {
-    char name[128];
-    int num_chunks;
-    struct file_chunk chunks[MAX_FILE_CHUNKS];
-};
+struct fnode {
+    uint32_t size;                  // The size of the file or folder.
+    enum fnode_type type;           // FILE or FOLDER.
+    uint8_t reserved[60];
+    fblock_index_t sector_indexes[15];     // TODO: Treat 13 and 14 as singly and doubly indirect respectively.
+                                           // For now, singly indirect only -> MAX_FILE_SIZE=7689. (not too bad.)
+}__attribute__((packed));
 
-struct folder_content_desc {
-    int block;
-    int offset;
-    int len;
-    enum folder_content_type type;
-};
+struct fnode_location_t {
+    uint32_t fnode_table_index;     // Index into the global array of fnodes.
+    uint32_t fnode_sector_index;    // fnode index of file or folder.
+    uint16_t fnode_sector_offset;   // Byte offset within the containing sector where the fnode for this file exists.
+}__attribute__((packed)); // sizeof: 4 + 4 + 2 = 10
 
-struct master_record {
-    char name[128];
-    struct folder_content_desc root_folder_desc;
-};
+struct dir_entry {
+    char name[128];                     // Name of file or folder.
+    uint32_t size;                      // Size of file or folder.
+    enum fnode_type type;               // FILE or FOLDER.
+    struct fnode_location_t fnode_location;   // fnode fnode_location descriptor.
+ }__attribute__((packed)); // sizeof = 128 + 4 + 4 + 10 = 146
 
-struct folder {
-    char name[128];
-    int num_contents;
-    struct folder_content_desc content[];
-};
+struct fs_master_record {
+    struct fnode_location_t root_dir_fnode_location;  // Index or block containing fnode of root folder.
+    uint32_t fnode_bitmap_start_sector;
+    uint32_t fnode_bitmap_size;
+    uint32_t fnode_table_start_sector;
+    uint32_t sector_bitmap_start_sector;
+    uint32_t sector_bitmap_size;
+    uint32_t data_blocks_start_sector;
+}__attribute__((packed));
 
-struct disk_block_desc {
-    unsigned short size;
-    unsigned short reserved;
-};
-
-struct folder_content_desc root_folder_desc;
-struct master_record __master_record;
-struct folder root_folder;
-
-enum sys_error init_fs(void);
-
-int find_file(struct folder *folder, char *file_name, struct file *file);
-/**
- * find_file - XXX.
- */
-int find_folder(struct folder *folder, char *folder_name, struct folder *target_folder);
-
-void execute_binary_file(struct file *file);
+void init_fs(void);
 
 #endif

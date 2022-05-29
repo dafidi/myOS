@@ -93,4 +93,7 @@ struct order_zone {
 	uint32_t used;
 };
 
+struct mem_block *zone_alloc(const int order);
+void zone_free(struct mem_block *block);
+
 #endif // __MM_H__

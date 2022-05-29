@@ -783,7 +783,7 @@ static void zone_collect(struct order_zone *zone, struct mem_block *block) {
  * @param zone 
  * @return struct mem_block* 
  */
-struct mem_block *zone_alloc(struct order_zone *zone) {
+struct mem_block *__zone_alloc(struct order_zone *zone) {
 	struct mem_block *block = NULL;
 	/**
 	 * Algorithm:
@@ -832,6 +832,12 @@ done:
 	return block;
 }
 
+struct mem_block *zone_alloc(const int order) {
+	struct order_zone *zone = &order_zones[order];
+
+	return __zone_alloc(zone);
+}
+
 /**
  * @brief Free a block from a zone.
  * 
@@ -839,7 +845,7 @@ done:
  * @param block
  * @return struct mem_block* 
  */
-void zone_free(struct order_zone *zone, struct mem_block *block) {
+void __zone_free(struct order_zone *zone, struct mem_block *block) {
 	struct mem_block *buddy;
 	/**
 	 * Algorithm:
@@ -883,6 +889,12 @@ void zone_free(struct order_zone *zone, struct mem_block *block) {
 		nhoz = &order_zones[nho];
 		zone_collect(nhoz, block);
 	}
+}
+
+void zone_free(struct mem_block *block) {
+	struct order_zone *zone = &order_zones[block->order];
+
+	__zone_free(zone, block);
 }
 
 /**

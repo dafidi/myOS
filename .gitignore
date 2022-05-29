@@ -23,6 +23,4 @@ pad.asm
 *.elf
 *.hdd
 *.fs
-
-# The final image, just another binary.
-myOS.img
+*.log

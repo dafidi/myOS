@@ -81,7 +81,7 @@ void port_long_out(unsigned short port, unsigned long data) {
  * @port: I/O port to be read from, the insb instruction expects the port
  * to be specified in EDX so we put it in there.
  * @buf: The physical address  of the buffer into which data should be read
- * insb expect it to be in EDI. It is put into ES:EDI.
+ * insb expects it to be in EDI. It is put into ES:EDI.
  * @nr: The number of words intended to be read. This directly translates
  * to the number of times the insb instruction will be executed by rep
  * which expects this to be specified in ECX.
@@ -145,7 +145,7 @@ void outsb(unsigned short port, void *buf, int nr) {
  * which expects this to be specified in ECX.
  */
 void outsw(unsigned short port, void *buf, int nr) {
-	asm volatile("cld\n\trep outsw\n\t"::"d"(port), "S"(buf), "c"(nr));
+	asm volatile("cld\n\trep outsw"::"d"(port), "S"(buf), "c"(nr));
 }
 
 /**
