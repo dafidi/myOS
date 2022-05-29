@@ -5,7 +5,7 @@
 #include <kernel/string.h>
 #include <kernel/mm.h>
 
-#include "fnode.h"
+#include "filesystem.h"
 
 struct fs_master_record master_record;
 

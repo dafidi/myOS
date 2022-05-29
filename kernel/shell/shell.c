@@ -1,7 +1,7 @@
 #include "shell.h"
 
 #include <drivers/keyboard/keyboard_map.h>
-#include <fs/fnode.h>
+#include <fs/filesystem.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
 #include <kernel/system.h>

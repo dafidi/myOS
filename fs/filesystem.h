@@ -1,6 +1,8 @@
 
-#ifndef __FNODE_H__
-#define __FNODE_H__
+#ifndef __FILESYSTEM_H__
+#define __FILESYSTEM_H__
+
+#include <kernel/system.h>
 
 #define KiB (1024)
 #define MiB (1024 * KiB)

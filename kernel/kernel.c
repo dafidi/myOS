@@ -10,7 +10,7 @@
 
 #include <drivers/disk/disk.h>
 #include <drivers/keyboard/keyboard.h>
-#include <fs/fnode.h>
+#include <fs/filesystem.h>
 
 #include "shell/shell.h"
 
