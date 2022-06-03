@@ -57,10 +57,9 @@ void make_gdt_entry(struct gdt_entry* entry,
 					/*bits:         1_2___1_1___1_1__1*/
 					char flags);
 
-#define MAX_ORDER_SHIFT 3
-#define MAX_ORDER (1 << MAX_ORDER_SHIFT)
-#define MAX_ORDER_ZONE_SIZE_BYTES (SYSTEM_RAM_BYTES >> MAX_ORDER_SHIFT)
-#define MAX_ORDER_ZONE_PAGES ((MAX_ORDER_ZONE_SIZE_BYTES) >> PAGE_SIZE_SHIFT)
+#define MAX_ORDER 7
+#define DEFAULT_PAGES_PER_ZONE ((SYSTEM_NUM_PAGES) / (MAX_ORDER + 1))
+#define ORDER_SIZE(s) (1 << (PAGE_SIZE_SHIFT + (s)))
 
 enum mem_block_state {
 	FREE,

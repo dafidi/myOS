@@ -28,17 +28,11 @@ uint8_t *fnode_bitmap;
 uint8_t *sector_bitmap;
 
 struct mem_block *read_dir_content(const struct fnode *dir_fnode) {
-    int buffer_size_power = 0, buffer_size = PAGE_SIZE, buffer_top = 0;
-    int amt_read = 0, fnode_sector_idx = 0;
+    int buffer_top = 0, amt_read = 0, fnode_sector_idx = 0;
     struct mem_block *block;
     uint8_t *buffer;
 
-    while (dir_fnode->size > buffer_size) {
-        buffer_size_power += 1;
-        buffer_size = 1 << (PAGE_SIZE_SHIFT + buffer_size_power);
-    }
-
-    block = zone_alloc(buffer_size_power);
+    block = zone_alloc(dir_fnode->size);
     buffer = (uint8_t *)block->addr;
 
     while (amt_read < dir_fnode->size) {
@@ -76,15 +70,10 @@ void show_dir_content(const struct fnode *dir_fnode) {
 }
 
 struct mem_block *get_fnode(struct dir_entry *entry) {
-    int buffer_size_power = 0, buffer_size = PAGE_SIZE;
     uint8_t sector_buffer[SECTOR_SIZE];
     struct mem_block *block;
 
-    while (entry->size > buffer_size) {
-        buffer_size_power += 1;
-        buffer_size = 1 << (PAGE_SIZE_SHIFT + buffer_size_power);
-    }
-    block = zone_alloc(buffer_size_power);
+    block = zone_alloc(entry->size);
 
     // Read fnode in from disk.
     read_from_storage_disk(entry->fnode_location.fnode_sector_index, SECTOR_SIZE, &sector_buffer);

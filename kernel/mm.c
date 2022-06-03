@@ -57,6 +57,15 @@ unsigned int user_page_directory[USER_PAGE_DIR_SIZE]__attribute__((aligned(0x100
 static unsigned int user_page_tables[USER_PAGE_DIR_SIZE][USER_PAGE_TABLE_SIZE]__attribute__((aligned(0x1000)));
 
 /**
+ * An array of lists of mem_blocks. Each list of mem_blocks contains
+ * mem_blocks of the same order. I.e. order_zones[i] is a list
+ * of mem_blocks of size 2^i.
+ * 
+ * "MAX_ORDER + 1" because we want to be able to say "order_zones[MAX_ORDER]".
+ */
+struct order_zone order_zones[MAX_ORDER + 1];
+struct mem_block mem_block_pool[SYSTEM_NUM_PAGES];
+/**
  * map_va_range_to_pa_range - Map a contiguos block of virtual memory to a contiguous block of
  * physical memory.
  * 
@@ -412,68 +421,6 @@ void init_page_usage_bitmap(void) {
 }
 
 /**
- * An array of lists of mem_blocks. Each list of mem_blocks contains
- * mem_blocks of the same order. I.e. order_zones[i] is a list
- * of mem_blocks of size 2^i.
- */
-struct order_zone order_zones[MAX_ORDER];
-struct mem_block mem_block_pool[SYSTEM_NUM_PAGES];
-
-void static print_order_zone(const struct order_zone *const zone) {
-	const int num_block_pages = 1 << (zone->order);
-
-	print_string("Zone: "); 			print_int32(zone->order);
-	print_string(" mem_block addr: ");	print_int32(zone->free_list);
-	print_string(" blocks: ");			print_int32(zone->num_blocks);
-	print_string(" pages_per_block: ");	print_int32(num_block_pages);
-	print_string(" total_size: ");		print_int32(num_block_pages * PAGE_SIZE * zone->num_blocks);
-	print_string(" addr: ");			print_int32(zone->phy_mem_start);
-	print_string("\n");
-}
-
-/**
- * @brief Initialize the order_zone structure for a given order.
- * 
- * @param order 
- * @param phy_mem_start: Physical address where the zone starts.
- * @param zone_size: Size of the zone in bytes.
- */
-void init_order_zone(const uint8_t order, const pa_t phy_mem_start, const pa_range_sz_t zone_size) {
-	const int num_blocks = zone_size >> (PAGE_SIZE_SHIFT + order);
-	struct order_zone *const zone = &order_zones[order];
-	int block_index = 0, mem_block_pool_index = 0;
-	const int num_block_pages = 1 << order;
-
-	/* Initialize the zone. */
-	zone->free_list = &mem_block_pool[order * MAX_ORDER_ZONE_PAGES];
-	zone->num_blocks = num_blocks;
-	zone->used_list = NULL;
-	zone->used = 0;
-	zone->free = 0;
-	zone->order = order;
-	zone->phy_mem_start = phy_mem_start;
-
-	/**
-	 * To index zone->free_list, we must skip num_block_pages pages as
-	 * each block spans that many pages. This makes finding a block's buddy and
-	 * its corresponding physical address straightforward (see
-	 * get_block_buddy()).
-	 */
-	for (; block_index < num_blocks; block_index += 1, mem_block_pool_index += num_block_pages) {
-		zone->free_list[mem_block_pool_index].addr = phy_mem_start + (num_block_pages * PAGE_SIZE * block_index);
-		zone->free_list[mem_block_pool_index].next = &zone->free_list[mem_block_pool_index + num_block_pages];
-		zone->free_list[mem_block_pool_index].order = order;
-		zone->free_list[mem_block_pool_index].trueorder = order;
-		zone->free_list[mem_block_pool_index].state = FREE;
-		zone->free++;
-	}
-
-	zone->free_list[mem_block_pool_index - num_block_pages].next = NULL;
-	/* It's nice to see the initialized zone's description. */
-	print_order_zone(zone);
-}
-
-/**
  * @brief Add block to the end of zone's used_list.
  * 
  * @param zone 
@@ -725,7 +672,7 @@ static uint32_t zone_borrow(struct order_zone *zone,
 		uint8_t nho = zone->order + 1;
 		struct order_zone *nhoz;
 		
-		if (nho >= MAX_ORDER)
+		if (nho > MAX_ORDER)
 			return -1;
 
 		// Get the zone from which we'll request blocks;
@@ -815,7 +762,7 @@ struct mem_block *__zone_alloc(struct order_zone *zone) {
 		uint8_t nho;
 
 		nho = zone->order + 1;
-		if (nho >= MAX_ORDER)
+		if (nho > MAX_ORDER)
 			goto done;
 	
 		nhoz = &order_zones[nho];
@@ -832,10 +779,16 @@ done:
 	return block;
 }
 
-struct mem_block *zone_alloc(const int order) {
-	struct order_zone *zone = &order_zones[order];
+struct mem_block *zone_alloc(const int amt) {
+	int order = 0;
 
-	return __zone_alloc(zone);
+	while (amt > ORDER_SIZE(order))
+        order += 1;
+
+	if (order > MAX_ORDER)
+		return NULL;
+
+	return __zone_alloc(&order_zones[order]);
 }
 
 /**
@@ -897,6 +850,61 @@ void zone_free(struct mem_block *block) {
 	__zone_free(zone, block);
 }
 
+void static print_order_zone(const struct order_zone *const zone) {
+	const int num_block_pages = 1 << (zone->order);
+
+	print_string("Zone: "); 			print_int32(zone->order);
+	print_string(" free_list: ");	print_int32(zone->free_list);
+	print_string(" free_list->next: ");	print_int32(zone->free_list->next);
+	print_string(" blocks: ");			print_int32(zone->num_blocks);
+	print_string(" pages_per_block: ");	print_int32(num_block_pages);
+	print_string(" total_size: ");		print_int32(num_block_pages * PAGE_SIZE * zone->num_blocks);
+	print_string(" addr: ");			print_int32(zone->phy_mem_start);
+	print_string("\n");
+}
+
+/**
+ * @brief Initialize the order_zone structure for a given order.
+ * 
+ * @param order 
+ * @param phy_mem_start: Physical address where the zone starts.
+ * @param zone_size: Size of the zone in bytes.
+ */
+void init_order_zone(const uint8_t order, const pa_t phy_mem_start, const pa_range_sz_t zone_size) {
+	const int num_blocks = zone_size >> (PAGE_SIZE_SHIFT + order);
+	struct order_zone *const zone = &order_zones[order];
+	int block_index = 0, mem_block_pool_index = 0;
+	const int num_block_pages = 1 << order;
+
+	/* Initialize the zone. */
+	zone->free_list = &mem_block_pool[order * DEFAULT_PAGES_PER_ZONE];
+	zone->num_blocks = num_blocks;
+	zone->used_list = NULL;
+	zone->used = 0;
+	zone->free = 0;
+	zone->order = order;
+	zone->phy_mem_start = phy_mem_start;
+
+	/**
+	 * To index zone->free_list, we must skip num_block_pages mem_blocks as
+	 * each block spans that many pages. This makes finding a block's buddy and
+	 * its corresponding physical address straightforward (see
+	 * get_block_buddy()).
+	 */
+	for (; block_index < num_blocks; block_index += 1, mem_block_pool_index += num_block_pages) {
+		zone->free_list[mem_block_pool_index].addr = phy_mem_start + (num_block_pages * PAGE_SIZE * block_index);
+		zone->free_list[mem_block_pool_index].next = &zone->free_list[mem_block_pool_index + num_block_pages];
+		zone->free_list[mem_block_pool_index].order = order;
+		zone->free_list[mem_block_pool_index].trueorder = order;
+		zone->free_list[mem_block_pool_index].state = FREE;
+		zone->free++;
+	}
+
+	zone->free_list[mem_block_pool_index - num_block_pages].next = NULL;
+	/* It's nice to see the initialized zone's description. */
+	print_order_zone(zone);
+}
+
 /**
  * @brief Setup page allocator.
  */
@@ -921,11 +929,11 @@ static void setup_zone_alloc_free(void) {
 	/* fewer entries (mem_blocks) in chains with larger mem_blocks.		   */
 	/* Let's call the regions of memory divided into a given order an	   */
 	/* "order zone."													   */
-	const pa_range_sz_t order_zone_size = (dynamic_memory_size >> MAX_ORDER_SHIFT);
+	const pa_range_sz_t order_zone_size = dynamic_memory_size / (MAX_ORDER + 1);
 	pa_t start_addr = dynamic_memory_start;
 	pa_range_sz_t size = order_zone_size;
 
-	for (int i = 0; i < MAX_ORDER; i++, start_addr += size)
+	for (int i = 0; i <= MAX_ORDER; i++, start_addr += size)
 		init_order_zone(/*order=*/i,
 						/*phy_mem_start=*/start_addr,
 						/*zone_size=*/size);
