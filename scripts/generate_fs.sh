@@ -54,9 +54,7 @@ calculate_filesystem_configuration() {
     FILESYSTEM_SETTINGS[NUMBER_OF_FNODES]=$((FILESYSTEM_SETTINGS[TOTAL_DISK_SIZE] / FILESYSTEM_SETTINGS[SECTOR_SIZE]))
     FILESYSTEM_SETTINGS[FNODE_TABLE_SIZE_IN_SECTORS]=$((FILESYSTEM_SETTINGS[NUMBER_OF_FNODES] / FILESYSTEM_SETTINGS[FNODES_PER_SECTOR]))
     FILESYSTEM_SETTINGS[FNODE_TABLE_SIZE]=$((FILESYSTEM_SETTINGS[FNODE_TABLE_SIZE_IN_SECTORS] * FILESYSTEM_SETTINGS[SECTOR_SIZE]))
-    # This is a mistake. It should be NUMBER_OF_FNODES / BITS_PER_BYTE but we'll leave it in place
-    # for now so we can keep using already build binaries/files/etc.
-    FILESYSTEM_SETTINGS[FNODE_BITMAP_SIZE]=$((FILESYSTEM_SETTINGS[FNODE_TABLE_SIZE] / FILESYSTEM_SETTINGS[BITS_PER_BYTE]))
+    FILESYSTEM_SETTINGS[FNODE_BITMAP_SIZE]=$((FILESYSTEM_SETTINGS[NUMBER_OF_FNODES] / FILESYSTEM_SETTINGS[BITS_PER_BYTE]))
     FILESYSTEM_SETTINGS[FNODE_BITMAP_SIZE_IN_SECTORS]=$((FILESYSTEM_SETTINGS[FNODE_BITMAP_SIZE] / FILESYSTEM_SETTINGS[SECTOR_SIZE]))
 
     FILESYSTEM_SETTINGS[FILESYSTEM_METADATA_SIZE]=$((FILESYSTEM_SETTINGS[MASTER_RECORD_SIZE] + FILESYSTEM_SETTINGS[FNODE_BITMAP_SIZE] + FILESYSTEM_SETTINGS[SECTOR_BITMAP_SIZE] + FILESYSTEM_SETTINGS[FNODE_TABLE_SIZE]))
@@ -84,6 +82,14 @@ build_metadata_component() {
     if [ ! -f $component_bin ]
     then
         time nasm -f bin -o ${component_bin} ${metadata_file}
+    else
+        metadata_bin_size=`stat ${component_bin} | awk '/Size/{ print $2 }'`
+        if [[ ${metadata_component} != "fnode_table" && ${metadata_bin_size} != ${component_size} ]]
+        then
+            print "Have mismatch on component ${metadata_component}: actual(${metadata_file_size}) != expected(${component_size})."
+            print "Attempting to build."
+            time nasm -f bin -o ${component_bin} ${metadata_file}
+        fi
     fi
 
     metadata_bin_size=`stat ${component_bin} | awk '/Size/{ print $2 }'`

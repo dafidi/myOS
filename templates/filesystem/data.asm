@@ -2,20 +2,21 @@
 ;                           |+++++++++++++|                         ;
 ;                           | data blocks |                         ;
 ;                           |+++++++++++++|                         ;
+FNODE_TABLE_START_SECTOR equ 16385
 dd 2                   ; root dir_info.num_entries                  ;
 db "app.bin"           ; root dir_entry.name                        ;
 times 128 - 7 db 0     ; root dir_entry.name                        ;
 dd APP_BIN_SIZE        ; root dir_entry.size                        ;
 dd 0                   ; root dir_entry.type                        ;
 dd 1                   ; root dir_entry.fnode_table_index           ;
-dd 0                   ; root dir_entry.fnode_sector_index          ;
+dd FNODE_TABLE_START_SECTOR                   ; root dir_entry.fnode_sector_index          ;
 dw 128                 ; root dir_entry.fnode_sector_offset         ;
 db "app2.bin"          ; root dir_entry.name                        ;
 times 128 - 8 db 0     ; root dir_entry.name                        ;
 dd APP_BIN_SIZE        ; root dir_entry.size                        ;
 dd 0                   ; root dir_entry.type                        ;
 dd 2                   ; root dir_entry.fnode_table_index           ;
-dd 0                   ; root dir_entry.fnode_sector_index          ;
+dd FNODE_TABLE_START_SECTOR                   ; root dir_entry.fnode_sector_index          ;
 dw 256                 ; root dir_entry.fnode_sector_offset         ;
 times 512 - 296 db 0                                                ;
 ;-------------------------------------------------------------------;

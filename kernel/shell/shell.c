@@ -2,14 +2,14 @@
 
 #include <drivers/keyboard/keyboard_map.h>
 #include <fs/filesystem.h>
+#include <kernel/mm.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
 #include <kernel/system.h>
 
 extern struct folder root_folder;
 
-const char stub[] = "$ ";
-
+const char stub[3] = "$ ";
 char shell_ascii_buffer[SHELL_CMD_INPUT_LIMIT];
 static char* known_commands[NUM_KNOWN_COMMANDS] = {
 	"hi",
@@ -19,27 +19,28 @@ static char* known_commands[NUM_KNOWN_COMMANDS] = {
 };
 static int last_known_input_buffer_size = 0;
 
+extern struct dir_entry root_dir_entry;
+// Default/Main shell stuff.
+static struct fs_context current_fs_ctx = {
+		.curr_dir = &root_dir_entry
+};
+
+static void default_exec_routine(void);
+static void default_show_prompt(void);
+static void default_shell_init(void);
+
+struct shell default_shell = {
+	.exec = default_exec_routine,
+	.init = default_shell_init,
+	.show_prompt = default_show_prompt
+};
+
 static void exec(char* input);
 static void exec_known_cmd(int i);
 void exec_main_shell(void);
 
 static void process_new_scancodes(int offset, int num_new_characters);
 static void process_cmd_input(void);
-
-static void default_exec_routine(void);
-static void default_show_prompt(void);
-static void default_shell_init(void);
-
-struct fs_context {
-	struct dir_entry *curr_dir;
-};
-
-struct shell {
-	struct fs_context fs_ctx;
-	void (*exec) (void);
-	void (*init) (void);
-	void (*show_prompt) (void);
-};
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // System-level input processing functions that can be used by any shell.
@@ -74,12 +75,19 @@ static void exec_known_cmd(int i) {
 		case 0:
 			print_string("hi to you too!\n");
 			break;
-		case 1:
-			print_string("ls!\n");
+		case 1: {
+			struct mem_block *block = get_fnode(current_fs_ctx.curr_dir);
+
+			show_dir_content((struct fnode *)block->addr);
+			zone_free(block);
 			break;
-		case 2:
-			print_string("pwd!.\n");
+		}
+		case 2: {
+			print_string("The current directory is: [");
+			print_string(current_fs_ctx.curr_dir->name);
+			print_string("].\n");
 			break;
+		}
 		case 3:
 			print_string("addfile!.\n");
 			break;
@@ -109,15 +117,15 @@ static void process_new_scancodes(int offset, int num_new_characters) {
 	}
 
 	for (i = 0; i < num_new_characters; i++) {
-		 scancode = shell_scancode_buffer[offset + i];
-		
+		scancode = shell_scancode_buffer[offset + i];
+
 		if (scancode & 0x80) {
 			/* TODO: Handle key release actions. */
 		} else if (scancode) {
 			ascii_char = US_KEYBOARD_MAP[scancode];
 			char_buff[0] =  ascii_char;
 			char_buff[1] = 0;
-			
+
 			print_string(char_buff);
 
 			if (ascii_char == '\n') {
@@ -138,12 +146,11 @@ static void process_new_scancodes(int offset, int num_new_characters) {
 			if (shell_input_counter >= SHELL_CMD_INPUT_LIMIT) {
 				print_string("You have entered too many characters.  Resetting prompt...\n");
 				clear_buffer((uint8_t*) shell_ascii_buffer, SHELL_CMD_INPUT_LIMIT);
-				clear_buffer((uint8_t*) shell_scancode_buffer, SHELL_CMD_INPUT_LIMIT);        
+				clear_buffer((uint8_t*) shell_scancode_buffer, SHELL_CMD_INPUT_LIMIT);
 				shell_input_counter = 0;
 				last_known_input_buffer_size = 0;
 				default_show_prompt();
 			}
-			
 		}
 	}
 }
@@ -153,17 +160,10 @@ void process_cmd_input(void) {
 }
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-extern struct dir_entry root_dir_entry;
-// Default/Main shell stuff.
-static struct fs_context current_fs_ctx = {
-	.curr_dir = &root_dir_entry
-};
-
-struct shell default_shell = {
-	.exec = default_exec_routine,
-	.init = default_shell_init,
-	.show_prompt = default_show_prompt
-};
+static void default_show_prompt(void) {
+	print_string(current_fs_ctx.curr_dir->name);
+	print_string(stub);
+}
 
 static void default_exec_routine(void) {
 	shell_input_counter = 0;
@@ -185,11 +185,6 @@ static void default_exec_routine(void) {
 
 static void default_shell_init(void) {
 	default_shell.fs_ctx = current_fs_ctx;
-}
-
-static void default_show_prompt(void) {
-	print_string(current_fs_ctx.curr_dir->name);
-	print_string(stub);
 }
 
 // Executes the default/main shell.

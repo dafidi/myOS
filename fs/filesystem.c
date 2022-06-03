@@ -75,20 +75,54 @@ void show_dir_content(const struct fnode *dir_fnode) {
     zone_free(block);
 }
 
-/**
- * @brief Set the nth bit on disk counting from the first bit in sector s.
- * 
- **/
-void set_disk_bit(uint32_t n, uint32_t s) {
-    int sector_offset = (n / 8/* bits_per_byte */) / SECTOR_SIZE;
-    int bit_offset = n % (SECTOR_SIZE * 8/*bits_per_byte*/);
+struct mem_block *get_fnode(struct dir_entry *entry) {
+    int buffer_size_power = 0, buffer_size = PAGE_SIZE;
     uint8_t sector_buffer[SECTOR_SIZE];
+    struct mem_block *block;
 
-    read_from_storage_disk(s + sector_offset, SECTOR_SIZE, sector_buffer);
+    while (entry->size > buffer_size) {
+        buffer_size_power += 1;
+        buffer_size = 1 << (PAGE_SIZE_SHIFT + buffer_size_power);
+    }
+    block = zone_alloc(buffer_size_power);
 
-    set_bit(sector_buffer, bit_offset);
+    // Read fnode in from disk.
+    read_from_storage_disk(entry->fnode_location.fnode_sector_index, SECTOR_SIZE, &sector_buffer);
 
-    write_to_storage_disk(s + sector_offset, SECTOR_SIZE, sector_buffer);
+    memory_copy(&sector_buffer[root_dir_entry.fnode_location.fnode_sector_offset], block->addr, sizeof(struct fnode));
+    return block;
+}
+
+/**
+ * @brief Set num_bits bits within a disk sector.
+ * 
+ * @param start_bit
+ * @param num_bits
+ * @param start_sector
+ */
+void set_sector_bits(uint32_t start_bit, uint64_t num_bits, uint32_t start_sector) {
+    const int BITS_PER_SECTOR = 8 * SECTOR_SIZE;
+    uint8_t sector_buffer[SECTOR_SIZE];
+    int sector_offset, bit_offset;
+    int bits_to_do = num_bits;
+
+    sector_offset = start_bit / BITS_PER_SECTOR;
+    bit_offset = start_bit % BITS_PER_SECTOR;
+
+    while (bits_to_do) {
+        int batchsize = ((bit_offset + bits_to_do) > BITS_PER_SECTOR)
+                        ? BITS_PER_SECTOR - bit_offset
+                        : bits_to_do;
+        bits_to_do -= batchsize;
+
+        read_from_storage_disk(start_sector + sector_offset, SECTOR_SIZE, sector_buffer);
+        while (batchsize--)
+            set_bit(sector_buffer, bit_offset++);
+        write_to_storage_disk(start_sector + sector_offset++, SECTOR_SIZE, sector_buffer);
+
+        // If we move on to the next sector, we want to start at the first (0th) bit in that sector.
+        bit_offset = 0;
+    }
 }
 
 /**
@@ -97,8 +131,8 @@ void set_disk_bit(uint32_t n, uint32_t s) {
  * TODO: when we're reading the structures into memory, this will be as simple as:
  * set_bit(fnode_bitmap, n) but for now, we have to work only on-disk.
  */
-void fnode_bitmap_set(int n) {
-    set_disk_bit(n, master_record.fnode_bitmap_start_sector);
+void fnode_bitmap_set(uint32_t start_bit, uint64_t num_bits) {
+    set_sector_bits(start_bit, num_bits, master_record.fnode_bitmap_start_sector);
 }
 
 /**
@@ -107,8 +141,8 @@ void fnode_bitmap_set(int n) {
  * TODO: when we're reading the structures into memory, this will be as simple as:
  * set_bit(fnode_bitmap, n) but for now, we have to work only on disk.
  */
-void sector_bitmap_set(int n) {
-    set_disk_bit(n, master_record.sector_bitmap_start_sector);
+void sector_bitmap_set(uint32_t start_bit, uint64_t num_bits) {
+    set_sector_bits(start_bit, num_bits, master_record.sector_bitmap_start_sector);
 }
 
 void record_fnode_sector_bits(const struct fnode *_fnode) {
@@ -118,7 +152,7 @@ void record_fnode_sector_bits(const struct fnode *_fnode) {
         bytes_tracked += ((_fnode->size - bytes_tracked) >= SECTOR_SIZE)
                         ? SECTOR_SIZE
                         : _fnode->size - bytes_tracked;
-        sector_bitmap_set(_fnode->sector_indexes[sector_index++]);
+        sector_bitmap_set(_fnode->sector_indexes[sector_index++], 1);
     }
 }
 
@@ -146,7 +180,7 @@ void __init_usage_bits(const struct fnode *_fnode) {
         int sector_index = 0;
 
         // Mark the fnode used by this entry in the fnode bitmap.
-        fnode_bitmap_set(dir_entry->fnode_location.fnode_table_index);
+        fnode_bitmap_set(dir_entry->fnode_location.fnode_table_index, 1);
         
         // Read in the sector containing the fnode for this dir_entry.
         read_from_storage_disk(dir_entry->fnode_location.fnode_sector_index, SECTOR_SIZE, &sector_buffer);
@@ -168,7 +202,7 @@ void init_fnode_bits(void) {
     record_fnode_sector_bits(&root_fnode);
 
     // Mark in the fnode table the fnode used by the root fnode.
-    fnode_bitmap_set(root_dir_entry.fnode_location.fnode_table_index);
+    fnode_bitmap_set(root_dir_entry.fnode_location.fnode_table_index, 1);
 
     // Do similar for the root directory's children.
     __init_usage_bits(&root_fnode);
@@ -179,50 +213,58 @@ void init_fnode_bits(void) {
  * 
  */
 void init_usage_bits(void) {
-    int num_bits;
+    uint32_t start_bit;
+    uint64_t num_bits;
 
     // Set the sector_bitmap bits occupied by master_record.
-    sector_bitmap_set(0);
-    print_string("m_r done,");
+    num_bits = 1;
+    start_bit = 0;
+    sector_bitmap_set(start_bit, num_bits);
 
     // Set sector_bitmap bits occupied by fnode_bitmap.
     num_bits = master_record.fnode_bitmap_size / SECTOR_SIZE;
-    for (int i = 0; i < num_bits; i++)
-        sector_bitmap_set(master_record.fnode_bitmap_start_sector + i);
-    print_string("f_b done,");
+    start_bit = master_record.fnode_bitmap_start_sector;
+    sector_bitmap_set(start_bit, num_bits);
 
     // Set sector_bitmap bits occupieed by sector_bitmap.
     num_bits = master_record.sector_bitmap_size / SECTOR_SIZE;
-    for (int i = 0; i < num_bits; i++)
-        sector_bitmap_set(master_record.sector_bitmap_start_sector + i);
-    print_string("s_b done,");
+    start_bit = master_record.sector_bitmap_start_sector;
+    sector_bitmap_set(start_bit, num_bits);
 
     // Set sector_bitmap bits occupied by fnode_table.
-    num_bits = ((master_record.fnode_bitmap_size * 8) * sizeof(struct fnode)) / SECTOR_SIZE;
-    for (int i = 0; i < num_bits; i++)
-        sector_bitmap_set(master_record.fnode_table_start_sector + i);
-    print_string("f_t done,");
+    // Brief explanation of this calculation:
+    //      - number_of_fnodes = bits_per_byte * fnode_bitmap_size_bytes (Since 1 bit -> 1 fnode,
+    //          but ideally we should have a better way - this is something of a hack.)
+    //      - size_of_fnode_table = number_of_fnodes  x  sizeof (struct fnode)
+    //      - sectors_occupied by fnode_table = size_of_fnode_table / SECTOR_SIZE.
+    num_bits = ((8 * (uint64_t) master_record.fnode_bitmap_size) * sizeof(struct fnode)) / SECTOR_SIZE;
+    start_bit = master_record.fnode_table_start_sector;
+    sector_bitmap_set(start_bit, num_bits);
 
     // Set fnode_bitmap bits occupied by actual files and folders.
     init_fnode_bits();
     print_string("d_b done\n");
 }
 
-void init_fs(void) {
-    uint8_t sector_buffer[SECTOR_SIZE];
-    char *root_dir_content;
-    int num_entries = 0;
+void init_root_fnode(void) {
+    struct mem_block *block;
 
-    // Read in the master record from disk.
-    read_from_storage_disk(0, sizeof(struct fs_master_record), &master_record);
     root_dir_entry.fnode_location = master_record.root_dir_fnode_location;
-
-    // Read root fnode in from disk.
-    read_from_storage_disk(root_dir_entry.fnode_location.fnode_sector_index, SECTOR_SIZE, &sector_buffer);
-    root_fnode = *((struct fnode *)&sector_buffer[root_dir_entry.fnode_location.fnode_sector_offset]);
+    block = get_fnode(&root_dir_entry);
+    root_fnode = *((struct fnode *) block->addr);
     root_dir_entry.size = root_fnode.size;
 
-    show_dir_content(&root_fnode);
+    zone_free(block);
+}
+
+void init_master_record(void) {
+    read_from_storage_disk(0, sizeof(struct fs_master_record), &master_record);
+}
+
+void init_fs(void) {
+    init_master_record();
+
+    init_root_fnode();
 
     init_usage_bits();
 }

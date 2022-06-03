@@ -23,8 +23,6 @@ number_of_sectors_spanned_by_fnode_table:
 fnode_table_size:
     number_of_sectors_spanned_by_fnode_table * sector_size = 2^23 * 512 = 2**32 (LOL since we don't have this much RAM, we'll always read this from disk.)
 fnode_bitmap_size:
-    # This should be number_of_fnodes (not fnode_table_size)
-    # but too much has been done using this so we'll leave it for now.
-    fnode_table_size / 8 = 2^32 / 8 = 2^29
+    number_of_fnodes / 8 = 2^25 / 8 = 2^22
 number_of_sectors_spanned_by_fnode_bitmap:
     fnode_bit_map_size / sector_size = 2^29 / 512 = 2^20
