@@ -27,6 +27,7 @@ enum GDT_ENTRY_IDX {
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
+typedef long long unsigned int uint64_t;
 
 struct registers {
 	unsigned int gs, fs, es, ds;      /* pushed the segs last */
