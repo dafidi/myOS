@@ -65,6 +65,9 @@ static unsigned int user_page_tables[USER_PAGE_DIR_SIZE][USER_PAGE_TABLE_SIZE]__
  */
 struct order_zone order_zones[MAX_ORDER + 1];
 struct mem_block mem_block_pool[SYSTEM_NUM_PAGES];
+
+struct memory_object_cache memory_object_caches[MEMORY_OBJECT_ORDER_RANGE + 1]; // +1 is for  NULL-termination
+
 /**
  * map_va_range_to_pa_range - Map a contiguos block of virtual memory to a contiguous block of
  * physical memory.
@@ -508,7 +511,7 @@ static void zone_remove_used(struct order_zone* zone, struct mem_block *block) {
 	struct mem_block *predecessor;
 		
 	if (!zone->used_list) {
-		print_string("The zone's used_list is empty yet we are tring to free block=.");
+		print_string("The zone's used_list is empty yet we are tring to free block=");
 		print_int32(block); print_string(", which is BAD.\n");
 		return;
 	}
@@ -604,7 +607,7 @@ static struct mem_block *get_block_buddy(struct order_zone *zone, struct mem_blo
 	  that if a block is at an odd index from the start of the pool, it must
 	  be the RHS of the pair of buddies, so its buddy would be on the left,
 	  requiring subtraction here.
-	  Also, 1^zone->order is added or subtracted because a block's buddy is that
+	  Also, 2^zone->order is added or subtracted because a block's buddy is that
 	  many blocks away from it.
 	*/
 	if (block_pool_index & 0x1)
@@ -713,12 +716,8 @@ static void zone_collect(struct order_zone *zone, struct mem_block *block) {
 		if (buddy->state == USED) {
 			zone_append_free(zone, block);
 		} else {
-			uint8_t nho = zone->order + 1;
-			struct order_zone *nhoz;
-
 			zone_remove_free(zone, buddy);
 			// Tell NHOZ to add this block.
-			nhoz = &order_zones[nho];
 			zone_collect(nhoz, block);
 		}
 	}
@@ -753,7 +752,6 @@ struct mem_block *__zone_alloc(struct order_zone *zone) {
 		block = zone->free_list;
 		zone_remove_free(zone, block);
 		zone_append_used(zone, block);
-		
 	} else {
 		// Try to get 2 blocks from the next higher order zone (NHOZ).
 		struct mem_block *borrowed_block, *borrowed_block_buddy;
@@ -943,6 +941,228 @@ static void setup_zone_alloc_free(void) {
 }
 
 /**
+ * @brief Insert new object at the head of free list.
+ *
+ * @param cache
+ * @param new_mo
+ */
+static void object_prepend_free(struct memory_object_cache *cache, struct memory_object *new_mo) {
+	new_mo->header.next = cache->free_objects;
+	cache->free_objects = new_mo;
+	cache->free++;
+}
+
+/**
+ * @brief Insert new object at the head of used list.
+ *
+ * @param cache
+ * @param new_mo
+ */
+static void object_prepend_used(struct memory_object_cache *cache, struct memory_object *new_mo) {
+	new_mo->header.next = cache->used_objects;
+	cache->used_objects = new_mo;
+	cache->used++;
+}
+
+/**
+ * @brief Extract object at the head of free list. For removal
+ * from the free list, this is okay as any free object would work
+ * - so just do the simple thing and take the first one.
+ *
+ * @param cache
+ * @return struct memory_object*
+ */
+static struct memory_object *object_remove_free(struct memory_object_cache *cache) {
+	struct memory_object *mo = cache->free_objects;
+
+	if (!mo)
+		return NULL;
+
+	cache->free_objects = cache->free_objects->header.next;
+	cache->free--;
+
+	mo->header.next = NULL;
+
+	return mo;
+}
+
+/**
+ * @brief Extract object from the list of used objects. Here, unlike with the free list,
+ * we are extracting a specific object so we need to traverse the list.
+ *
+ * @param cache
+ * @param addr
+ * @return struct memory_object*
+ */
+static struct memory_object *object_remove_used(struct memory_object_cache *cache, uint8_t *addr) {
+	struct memory_object *mo = cache->used_objects;
+	struct memory_object *prev_mo;
+	uint8_t *mo_addr;
+
+	if (!mo)
+		return NULL;
+
+	mo_addr = (uint8_t *)(cache->used_objects) + sizeof(struct memory_object_header);
+	if (mo_addr == addr) {
+		cache->used_objects = cache->used_objects->header.next;
+		cache->used--;
+
+		mo->header.next = NULL;
+
+		return mo;
+	}
+
+	prev_mo = mo;
+	mo = prev_mo->header.next;
+	mo_addr = (uint8_t *)(mo) + sizeof(struct memory_object_header);
+	while (mo && mo_addr != addr) {
+		prev_mo = mo;
+		mo = mo->header.next;
+		mo_addr = (uint8_t *)(mo) + sizeof(struct memory_object_header);
+	}
+
+	if (!mo) {
+		print_string("cache-"); print_int32(cache->order);
+		print_string(" has no mo for addr="); print_int32(addr);
+		print_string("\n");
+		return NULL;
+	}
+
+	prev_mo->header.next = mo->header.next;
+	cache->used--;
+
+	mo->header.next = NULL;
+
+	return mo;
+}
+
+/**
+ * @brief Allocate a free object from a given cache.
+ *
+ * @param cache
+ * @return uint8_t*
+ */
+static uint8_t *__object_alloc(struct memory_object_cache* cache) {
+	struct memory_object* mo;
+
+	if (!cache->free_objects)
+		return NULL;
+
+	mo = object_remove_free(cache);
+	if (!mo)
+		return NULL;
+
+	object_prepend_used(cache, mo);
+	return (uint8_t *)(mo) + sizeof(struct memory_object_header);
+}
+
+/**
+ * @brief Allocate a memory object of size greater than or equal to sz.
+ *
+ * @param sz
+ * @return uint8_t*
+ */
+uint8_t *object_alloc(int sz) {
+	struct memory_object_cache *cache;
+	int order = MIN_MEMORY_OBJECT_ORDER;
+
+	while ((1 << order) < sz)
+		order++;
+
+	if (order > MAX_MEMORY_OBJECT_ORDER)
+		return NULL;
+
+	cache = &memory_object_caches[order - MIN_MEMORY_OBJECT_ORDER];
+
+	return __object_alloc(cache);
+}
+
+/**
+ * @brief Get the header for a memory object. The header immediately precedes
+ * the body/actual object and contains metadata about the allocated object.
+ *
+ * @param addr
+ * @return struct memory_object_header*
+ */
+static struct memory_object_header *get_header(uint8_t *addr) {
+	struct memory_object_header *moh = addr - sizeof(struct memory_object_header);
+
+	return moh;
+}
+
+/**
+ * @brief Free a previously-allocated memory object.
+ *
+ * @param addr
+ */
+void object_free(uint8_t *addr) {
+	struct memory_object_cache *cache;
+	struct memory_object_header *moh;
+	struct memory_object *mo;
+
+	moh = get_header(addr);
+	cache = &memory_object_caches[moh->order - MIN_MEMORY_OBJECT_ORDER];
+
+	mo = object_remove_used(cache, addr);
+	if (!mo)
+		return;
+
+	object_prepend_free(cache, mo);
+}
+
+void init_memory_object(struct memory_object *object, const int order, const int size, struct memory_object *next_obj) {
+	object->header.order = order;
+	object->header.size = size;
+	object->header.next = next_obj;
+}
+
+void memory_object_cache_init(struct memory_object_cache *cache, int order) {
+	struct mem_block *object_block = __zone_alloc(&order_zones[MAX_ORDER - 2]);
+	int object_block_size = ORDER_SIZE(object_block->order);
+	int init_object_count = 0, consumed = 0, skip_size;
+	uint8_t *header_addr, *next_header_addr;
+
+	skip_size = sizeof(struct memory_object_header) + 1 << order;
+
+	if (!object_block || skip_size > object_block_size)
+		return;
+
+	header_addr = NULL;
+	next_header_addr = object_block->addr;
+
+	cache->free_objects = (struct memory_object *) next_header_addr;
+	cache->object_block_ptr = object_block;
+	cache->object_size = 1 << order;
+	cache->used_objects = NULL;
+	cache->order = order;
+	cache->free = 0;
+	cache->used = 0;
+
+	do {
+		header_addr = next_header_addr;
+		next_header_addr = header_addr + skip_size;
+
+		init_memory_object((struct memory_object*)header_addr, cache->order, cache->object_size, next_header_addr);
+		cache->free++;
+
+		init_object_count++;
+		consumed += skip_size;
+	} while (consumed + skip_size < object_block_size);
+
+	((struct memory_object *)header_addr)->header.next = NULL;
+}
+
+static void setup_memory_object_caches(void) {
+	int order;
+
+	for (int i = 0; i <= MEMORY_OBJECT_ORDER_RANGE; i++) {
+		order = i + MIN_MEMORY_OBJECT_ORDER;
+
+		memory_object_cache_init(&memory_object_caches[i], order);
+	}
+}
+
+/**
  * @brief Configure segmentation and paging related business and
  * print a bunch of stuff that might be useful to see (although we can probably
  * get all the same information via gdb so maybe not so useful).
@@ -977,4 +1197,7 @@ void init_mm(void) {
 
 	/* Set up structures for dynamic memory allocation and de-allocation. */
 	setup_zone_alloc_free();
+
+	/* Set up structures for dynamic allocation of small memory sizes. */
+	setup_memory_object_caches();
 }

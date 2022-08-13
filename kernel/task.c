@@ -123,7 +123,11 @@ int prepare_for_task_switch(task_info *task) {
     
     if (reserve_and_map_user_memory(task->start_virt_addr, task->start_phy_addr, requested_memory) != 0)
         return -1;
-    
+
+    configure_user_tss(task);
+
+    load_task_into_ram(task);
+
     return 0;
 }
 
@@ -151,11 +155,8 @@ int clean_up_after_task(task_info *task) {
 void exec_waiting_tasks(void) { }
 
 void exec_task(struct task_info *task) {
-    prepare_for_task_switch(task);
-
-    configure_user_tss(task);
-
-    load_task_into_ram(task);
+    if (prepare_for_task_switch(task))
+        return;
 
     print_string("attempting task switch.\n");
     switch_to_user_task();

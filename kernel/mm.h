@@ -17,6 +17,22 @@
 #define USER_PAGE_TABLE_SIZE 1024
 #define USER_PAGE_DIR_SIZE 1024
 
+// Zone level stuff
+#define MAX_ORDER 7
+#define DEFAULT_PAGES_PER_ZONE ((SYSTEM_NUM_PAGES) / (MAX_ORDER + 1))
+#define ORDER_SIZE(s) (1 << (PAGE_SIZE_SHIFT + (s)))
+
+// Memory object stuff
+#define MIN_MEMORY_OBJECT_ORDER 5
+#define MAX_MEMORY_OBJECT_ORDER 11
+#define MEMORY_OBJECT_ORDER_RANGE MAX_MEMORY_OBJECT_ORDER - MIN_MEMORY_OBJECT_ORDER
+
+typedef unsigned int pte_t;
+typedef unsigned long long va_t;
+typedef unsigned long long va_range_sz_t;
+typedef unsigned long pa_t;
+typedef unsigned long pa_range_sz_t;
+
 struct bios_mem_map {
 	unsigned long long base;
 	unsigned long long length;
@@ -37,29 +53,6 @@ struct gdt_info {
 	unsigned short len;
 	unsigned long addr;
 }__attribute__((packed));
-
-typedef unsigned int pte_t;
-typedef unsigned long long va_t;
-typedef unsigned long long va_range_sz_t;
-typedef unsigned long pa_t;
-typedef unsigned long pa_range_sz_t;
-
-void init_mm(void);
-
-unsigned int get_available_memory(void);
-int reserve_and_map_user_memory(va_t va, unsigned int pa, unsigned int amount);
-int unreserve_and_unmap_user_memory(va_t va, pa_t pa, unsigned int amount);
-void make_gdt_entry(struct gdt_entry* entry,
-					unsigned int limit,
-					unsigned int base,
-					char type,
-					/*flags format: S_DPL_P_AVL_L_DB_G*/
-					/*bits:         1_2___1_1___1_1__1*/
-					char flags);
-
-#define MAX_ORDER 7
-#define DEFAULT_PAGES_PER_ZONE ((SYSTEM_NUM_PAGES) / (MAX_ORDER + 1))
-#define ORDER_SIZE(s) (1 << (PAGE_SIZE_SHIFT + (s)))
 
 enum mem_block_state {
 	FREE,
@@ -92,7 +85,43 @@ struct order_zone {
 	uint32_t used;
 };
 
+struct memory_object_header {
+	struct memory_object *next;
+	int order;
+	int size;
+}__attribute__((packed));
+
+struct memory_object {
+	struct memory_object_header header;
+};
+
+struct memory_object_cache {
+	struct memory_block *object_block_ptr;
+	struct memory_object *free_objects;
+	struct memory_object *used_objects;
+	uint16_t object_size;
+	int order;
+	int free;
+	int used;
+};
+
+void make_gdt_entry(struct gdt_entry* entry,
+					unsigned int limit,
+					unsigned int base,
+					char type,
+					/*flags format: S_DPL_P_AVL_L_DB_G*/
+					/*bits:         1_2___1_1___1_1__1*/
+					char flags);
+unsigned int get_available_memory(void);
+int reserve_and_map_user_memory(va_t va, unsigned int pa, unsigned int amount);
+int unreserve_and_unmap_user_memory(va_t va, pa_t pa, unsigned int amount);
+
 struct mem_block *zone_alloc(const int order);
 void zone_free(struct mem_block *block);
+
+uint8_t* object_alloc(int amt);
+void object_free(uint8_t *va);
+
+void init_mm(void);
 
 #endif // __MM_H__
