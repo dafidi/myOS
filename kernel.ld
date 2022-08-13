@@ -1,7 +1,7 @@
 
 SECTIONS
 {
-	. = 0x1000;
+	. = 0x8400;
 	.text : {
 		_text_start = ( ADDR(.text) );
 		*(.text);

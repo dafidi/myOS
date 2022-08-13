@@ -1122,7 +1122,7 @@ void memory_object_cache_init(struct memory_object_cache *cache, int order) {
 	int init_object_count = 0, consumed = 0, skip_size;
 	uint8_t *header_addr, *next_header_addr;
 
-	skip_size = sizeof(struct memory_object_header) + 1 << order;
+	skip_size = sizeof(struct memory_object_header) + (1 << order);
 
 	if (!object_block || skip_size > object_block_size)
 		return;

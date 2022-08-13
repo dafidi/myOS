@@ -96,7 +96,7 @@ struct memory_object {
 };
 
 struct memory_object_cache {
-	struct memory_block *object_block_ptr;
+	struct mem_block *object_block_ptr;
 	struct memory_object *free_objects;
 	struct memory_object *used_objects;
 	uint16_t object_size;

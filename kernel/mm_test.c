@@ -3,7 +3,7 @@
 
 extern struct order_zone order_zones[];
 
-struct order_zone *get_auxillary_zone(struct order_zone *test_zone) {
+static struct order_zone *get_auxillary_zone(struct order_zone *test_zone) {
 	int auxillary_storage_needed = test_zone->num_blocks * sizeof(struct mem_block *);
 	int auxillary_zone_order = 0;
 
@@ -24,19 +24,35 @@ struct order_zone *get_auxillary_zone(struct order_zone *test_zone) {
 	return &order_zones[auxillary_zone_order];
 }
 
-bool mem_object_test(void) {
+static bool alloc_free(int n) {
     bool failed = false;
+    uint8_t *mem;
 
-    uint8_t *mem = object_alloc(8);
+    mem = object_alloc(n);
     if (!mem)
         failed = true;
 
     object_free(mem);
+    return failed;
+}
+
+static bool mem_object_test(void) {
+    bool failed = false;
+
+    for (int i = MIN_MEMORY_OBJECT_ORDER; i <= MAX_MEMORY_OBJECT_ORDER; i++) {
+        bool res = alloc_free(i);
+
+        failed |= res;
+
+        if (res) {
+            print_string("a/f failed, n="); print_int32(i); print_string("\n");
+        }
+    }
 
     return failed;
 }
 
-bool mem_zone_test(void) {
+static bool mem_zone_test(void) {
 	/* Memory allocation tests!
 	
 		The 'auxillary' zone is memory we allocate to store data to facilitate
@@ -190,7 +206,6 @@ skip_test2:
 skip_test3:
 	return failed;
 }
-
 
 void mem_test(void) {
     bool zone_result, object_result;
