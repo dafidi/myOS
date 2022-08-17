@@ -27,25 +27,19 @@ uint8_t *fnode_table;
 uint8_t *fnode_bitmap;
 uint8_t *sector_bitmap;
 
-struct mem_block *read_dir_content(const struct fnode *dir_fnode) {
+int read_dir_content(const struct fnode *dir_fnode, uint8_t *buffer) {
     int buffer_top = 0, amt_read = 0, fnode_sector_idx = 0;
-    struct mem_block *block;
-    uint8_t *buffer;
-
-    block = zone_alloc(dir_fnode->size);
-    buffer = (uint8_t *)block->addr;
 
     while (amt_read < dir_fnode->size) {
         int bytes_to_read = ((dir_fnode->size - amt_read) >= SECTOR_SIZE) ? SECTOR_SIZE : (dir_fnode->size - amt_read);
         
-        read_from_storage_disk(dir_fnode->sector_indexes[fnode_sector_idx], bytes_to_read, &buffer[buffer_top]);
+        read_from_storage_disk(dir_fnode->sector_indexes[fnode_sector_idx++], bytes_to_read, &buffer[buffer_top]);
 
         buffer_top += bytes_to_read;
         amt_read += bytes_to_read;
-        fnode_sector_idx++;
     }
 
-    return block;
+    return amt_read;
 }
 
 void print_dir_entry(const struct dir_entry *dir_entry) {
@@ -53,33 +47,26 @@ void print_dir_entry(const struct dir_entry *dir_entry) {
 }
 
 void show_dir_content(const struct fnode *dir_fnode) {
+    struct dir_entry *dir_entry;
     struct dir_info *dir_info;
-    uint8_t *dir_raw_content;
     struct mem_block *block;
-    int num_entries;
+    uint8_t *buffer;
 
-    block = read_dir_content(dir_fnode);
-    dir_raw_content = (uint8_t*) block->addr;
-    dir_info = (struct dir_info*) dir_raw_content;
+    buffer = object_alloc(dir_fnode->size);
+    if (read_dir_content(dir_fnode, buffer) < 0 )
+        return;
 
-    struct dir_entry *dir_entry = dir_raw_content + sizeof(struct dir_info);
-    for (num_entries = 0; num_entries < dir_info->num_entries; num_entries++, dir_entry++) {
-        print_string("("); print_int32(num_entries); print_string(") "); print_dir_entry(dir_entry);
+    dir_info = (struct dir_info*) buffer;
+    dir_entry = (struct dir_entry *) (buffer + sizeof(struct dir_info));
+    for (int i = 0; i < dir_info->num_entries; i++, dir_entry++) {
+        print_string("("); print_int32(i); print_string(") "); print_dir_entry(dir_entry);
     }
-    zone_free(block);
+    object_free(buffer);
 }
 
-struct mem_block *get_fnode(struct dir_entry *entry) {
-    uint8_t sector_buffer[SECTOR_SIZE];
-    struct mem_block *block;
-
-    block = zone_alloc(entry->size);
-
+int get_fnode(struct dir_entry *entry, struct fnode* fnode_ptr) {
     // Read fnode in from disk.
-    read_from_storage_disk(entry->fnode_location.fnode_sector_index, SECTOR_SIZE, &sector_buffer);
-
-    memory_copy(&sector_buffer[root_dir_entry.fnode_location.fnode_sector_offset], block->addr, sizeof(struct fnode));
-    return block;
+    return read_from_storage_disk(entry->fnode_location.fnode_sector_index, sizeof(struct fnode), (uint8_t *)fnode_ptr);
 }
 
 /**
@@ -154,16 +141,14 @@ void record_fnode_sector_bits(const struct fnode *_fnode) {
 void __init_usage_bits(const struct fnode *_fnode) {
     struct dir_entry *dir_entry;
     struct dir_info *dir_info;
-    uint8_t *dir_raw_content;
-    struct mem_block *block;
-    int num_entries;
+    uint8_t *buffer;
 
-    block = read_dir_content(_fnode);
-    dir_raw_content = (uint8_t*) block->addr;
-    dir_info = (struct dir_info*) dir_raw_content;
+    buffer = object_alloc(_fnode->size);
+    read_dir_content(_fnode, buffer);
 
-    dir_entry = dir_raw_content + sizeof(struct dir_info);
-    for (num_entries = 0; num_entries < dir_info->num_entries; num_entries++, dir_entry++) {
+    dir_info = (struct dir_info*) buffer;
+    dir_entry = buffer + sizeof(struct dir_info);
+    for (int i = 0; i < dir_info->num_entries; i++, dir_entry++) {
         char sector_buffer[SECTOR_SIZE];
         struct fnode *__fnode;
         int sector_index = 0;
@@ -183,7 +168,7 @@ void __init_usage_bits(const struct fnode *_fnode) {
             __init_usage_bits(__fnode);
     }
 
-    zone_free(block);
+    object_free(buffer);
 }
 
 void init_fnode_bits(void) {
@@ -236,14 +221,12 @@ void init_usage_bits(void) {
 }
 
 void init_root_fnode(void) {
-    struct mem_block *block;
-
     root_dir_entry.fnode_location = master_record.root_dir_fnode_location;
-    block = get_fnode(&root_dir_entry);
-    root_fnode = *((struct fnode *) block->addr);
+    if (get_fnode(&root_dir_entry, &root_fnode)) {
+        print_string("Error getting root_fnode.");
+        return;
+    }
     root_dir_entry.size = root_fnode.size;
-
-    zone_free(block);
 }
 
 void init_master_record(void) {

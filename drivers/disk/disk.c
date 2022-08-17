@@ -175,8 +175,8 @@ static enum sys_error __write_to_disk(enum disk_channel channel, enum drive_clas
  * @n_bytes:
  * @buffer:
  */
-void write_to_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
-	__write_to_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer);
+int write_to_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
+	return __write_to_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer);
 }
 
 /**
@@ -189,8 +189,8 @@ void write_to_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
  * @n_bytes:
  * @buffer:
  */
-void read_from_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
-	__read_from_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer);
+int read_from_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
+	return __read_from_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer);
 }
 
 static inline void disk_irq_handler(struct registers* r) {

@@ -42,32 +42,27 @@ void exec_main_shell(void);
 static void process_new_scancodes(int offset, int num_new_characters);
 static void process_cmd_input(void);
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// System-level input processing functions that can be used by any shell.
 static void exec(char* input) {
+	int i, l, m;
+
 	print_string("Attempting to execute: "); print_string(input); print_string("\n");
-	char* known_cmd;
-	int l, m;
-	int i;
 
-	for (known_cmd = known_commands[0], i = 0; i < NUM_KNOWN_COMMANDS; i++, known_cmd = known_commands[i]) {
-		l = strlen(known_cmd);
-		m = strlen(input);
+	m = strlen(input);
+	for (i = 0; i < NUM_KNOWN_COMMANDS; i++) {
+		l = strlen(known_commands[i]);
 
-		if (l != m) {
+		if (l != m)
 			continue;
-		}
 
-		if (strmatchn(known_cmd, input, l)) {
-			exec_known_cmd(i);
+		if (strmatchn(known_commands[i], input, l))
 			break;
-		}
 	}
 
-	if (i == NUM_KNOWN_COMMANDS) {
+	if (i == NUM_KNOWN_COMMANDS)
 		print_string("Sorry bud, can't help with that... yet!\n");
-	}
 
+	if (i < NUM_KNOWN_COMMANDS)
+		exec_known_cmd(i);
 }
 
 static void exec_known_cmd(int i) {
@@ -76,10 +71,14 @@ static void exec_known_cmd(int i) {
 			print_string("hi to you too!\n");
 			break;
 		case 1: {
-			struct mem_block *block = get_fnode(current_fs_ctx.curr_dir);
+			struct fnode fnode;
 
-			show_dir_content((struct fnode *)block->addr);
-			zone_free(block);
+			if (get_fnode(current_fs_ctx.curr_dir, &fnode)) {
+				print_string("Failed to get fnode for ["); print_string(current_fs_ctx.curr_dir->name); print_string("]\n");
+				return;
+			}
+
+			show_dir_content(&fnode);
 			break;
 		}
 		case 2: {

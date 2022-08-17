@@ -83,8 +83,8 @@ struct ata_port_config {
 
 void init_disk(void);
 
-void read_from_storage_disk(lba_t, int, void*);
-void write_to_storage_disk(lba_t, int, void*);
+int read_from_storage_disk(lba_t, int, void*);
+int write_to_storage_disk(lba_t, int, void*);
 
 
 #endif /* __DISK_H__ */
