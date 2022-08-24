@@ -3,7 +3,7 @@
 ;                   | fnode_table |
 ;                   |-------------|
 DATA_BLOCKS_START_SECTOR equ 0x804001
-dd 296                                  ; root fnode.size
+dd 424                                  ; root fnode.size
 dd 1                                    ; root fnode.type
 times 60 db 0                           ; root fnode.reserved
 dd DATA_BLOCKS_START_SECTOR             ; root sector_indexes[0]

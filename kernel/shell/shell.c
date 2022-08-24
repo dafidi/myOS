@@ -15,14 +15,16 @@ static char* known_commands[NUM_KNOWN_COMMANDS] = {
 	"hi",
 	"ls",
 	"pwd",
-	"addfile"
+	"newf"
 };
 static int last_known_input_buffer_size = 0;
 
+extern struct fnode root_fnode;
 extern struct dir_entry root_dir_entry;
+
 // Default/Main shell stuff.
 static struct fs_context current_fs_ctx = {
-		.curr_dir = &root_dir_entry
+		.curr_dir_fnode = &root_fnode,
 };
 
 static void default_exec_routine(void);
@@ -58,8 +60,8 @@ static void exec(char* input) {
 			break;
 	}
 
-	if (i == NUM_KNOWN_COMMANDS)
-		print_string("Sorry bud, can't help with that... yet!\n");
+	if (i >= NUM_KNOWN_COMMANDS)
+		print_string("Sorry, can't help with that... yet!\n");
 
 	if (i < NUM_KNOWN_COMMANDS)
 		exec_known_cmd(i);
@@ -71,25 +73,45 @@ static void exec_known_cmd(int i) {
 			print_string("hi to you too!\n");
 			break;
 		case 1: {
-			struct fnode fnode;
+			struct dir_info dir_info;
 
-			if (get_fnode(current_fs_ctx.curr_dir, &fnode)) {
-				print_string("Failed to get fnode for ["); print_string(current_fs_ctx.curr_dir->name); print_string("]\n");
+			if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
+				print_string("Failed to get dir_info for [fnode=");
+				print_int32(current_fs_ctx.curr_dir_fnode);
+				print_string("]\n");
 				return;
 			}
 
-			show_dir_content(&fnode);
+			show_dir_content(current_fs_ctx.curr_dir_fnode);
 			break;
 		}
 		case 2: {
+			struct dir_info dir_info;
+
+			if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
+				print_string("Failed to get dir_info for [fnode=");
+				print_int32(current_fs_ctx.curr_dir_fnode);
+				print_string("]\n");
+				return;
+			}
 			print_string("The current directory is: [");
-			print_string(current_fs_ctx.curr_dir->name);
+			print_string(dir_info.name);
 			print_string("].\n");
 			break;
 		}
-		case 3:
-			print_string("addfile!.\n");
+		case 3: {
+			char text[] = "Bien Venue!";
+			struct new_file_info info = {
+				.name = "new_file",
+				.file_size = strlen(text),
+				.file_content = text
+			};
+
+			print_string("One new file coming right up!\n");
+			if (create_file(&current_fs_ctx, &info))
+				print_string("Umm maybe next time. :( Losiento.\n");
 			break;
+		}
 		default:
 			print_string("don't know what that is sorry :(\n");
 	}
@@ -160,7 +182,16 @@ void process_cmd_input(void) {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 static void default_show_prompt(void) {
-	print_string(current_fs_ctx.curr_dir->name);
+	struct dir_info dir_info;
+
+	if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
+		print_string("Failed to get dir_info for [fnode=");
+		print_int32(current_fs_ctx.curr_dir_fnode);
+		print_string("]\n");
+		return;
+	}
+
+	print_string(dir_info.name);
 	print_string(stub);
 }
 
@@ -171,7 +202,7 @@ static void default_exec_routine(void) {
 	while(true) {
 		if (last_known_input_buffer_size < shell_input_counter) {
 			process_new_scancodes(last_known_input_buffer_size,
-													 shell_input_counter - last_known_input_buffer_size);
+								  shell_input_counter - last_known_input_buffer_size);
 			last_known_input_buffer_size = shell_input_counter;
 		} else if (last_known_input_buffer_size > shell_input_counter) {
 			print_string("Something has gone terribly wrong with the shell. Exiting.\n");
@@ -183,6 +214,8 @@ static void default_exec_routine(void) {
 }
 
 static void default_shell_init(void) {
+	current_fs_ctx.curr_dir_fnode_location = root_dir_entry.fnode_location;
+
 	default_shell.fs_ctx = current_fs_ctx;
 }
 

@@ -6,8 +6,10 @@
 #include <kernel/print.h>
 #include <kernel/string.h>
 
+#define FLUSH_BUFFER_SIZE SECTOR_SIZE
+
 static long long unsigned int interrupt_count = 0;
-static char flush_buffer[512];
+static char flush_buffer[FLUSH_BUFFER_SIZE];
 
 #define SHOW_REGISTER8(config, name) {								   \
 	uint8_t name ## _val = port_byte_in(config->name ## _port);					   \
@@ -121,24 +123,45 @@ static enum sys_error __read_from_disk(enum disk_channel channel, enum drive_cla
 	// where a previous "incomplete" read left off.
 	if (flush)
 		insw(config.data_port, flush_buffer, flush >> WORD_TO_BYTE_SHIFT);
-		
+
 	enable_interrupts();
 	return NONE;
 }
 
-static enum sys_error __write_to_disk(enum disk_channel channel, enum drive_class class, lba_t block_address, int n_bytes, void *buffer) {
+/**
+ * @brief Write n_sectors sectors to disk.
+ * The finest granularity of disk writes supported by this driver
+ * is at the sector level.
+ *
+ * There are 2 main reasons for this:
+ *
+ * 1. Writes of less than a sector leave the device in a state which
+ * can sometimes cause issues with both subsequent reads and writes.
+ *
+ * 2. There appears to be an issue writing bytes (outsb) to the data
+ * port/register - it simply doesn't work. So instead write words
+ * (outsb).
+ *
+ * It might be worth experimenting with outsl which would be more
+ * efficient theoretically, but I don't want to spend the time finding
+ * out that there is some outsl quirk for this specific port/register in
+ * this specific device like there appears to be with outsb.
+ *
+ * @param channel
+ * @param block_address
+ * @param n_sectors
+ * @param buffer
+ * @return enum sys_error
+ */
+static enum sys_error __write_to_disk(enum disk_channel channel, enum drive_class class, lba_t block_address, int n_sectors, void *buffer) {
 	struct ata_port_config config;
-	int n_sectors;
-	int command;
+	int command, flush;
 
-	if (n_bytes <= 0)
+	if (n_sectors < 0)
 		return -1;
-
 
 	disable_interrupts();
 	assign_ata_ports(channel, &config);
-
-	n_sectors = (n_bytes >> 9) + (n_bytes & 0x1ff ? 1 : 0);
 
 	port_byte_out(config.drive_select_port, (class == SLAVE ? 0xF0 : 0xE0) | ((block_address >> 24) & 0x0F));
 	for (int i = 0; i < 14; i++)
@@ -160,7 +183,8 @@ static enum sys_error __write_to_disk(enum disk_channel channel, enum drive_clas
 
 	__poll_status_register(&config);
 
-	outsw(config.data_port, buffer, n_bytes >> 1);
+	outsw(config.data_port, buffer, (n_sectors * SECTOR_SIZE) >> WORD_TO_BYTE_SHIFT);
+
 	enable_interrupts();
 	return NONE;
 }
@@ -176,7 +200,26 @@ static enum sys_error __write_to_disk(enum disk_channel channel, enum drive_clas
  * @buffer:
  */
 int write_to_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
-	return __write_to_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer);
+	int full_sectors = n_bytes / SECTOR_SIZE;
+	int rem = n_bytes % SECTOR_SIZE;
+	int error = 0;
+
+	if (full_sectors)
+		error = __write_to_disk(PRIMARY, SLAVE, block_address, full_sectors, buffer);
+
+	if (rem) {
+		int final_write_block_idx = block_address + full_sectors;
+
+		clear_buffer(flush_buffer, FLUSH_BUFFER_SIZE);
+
+		read_from_storage_disk(final_write_block_idx, SECTOR_SIZE, flush_buffer);
+
+		memory_copy((char *)buffer + full_sectors * SECTOR_SIZE, flush_buffer, rem);
+
+		error = __write_to_disk(PRIMARY, SLAVE, final_write_block_idx, 1, flush_buffer) | error;
+	}
+
+	return error;
 }
 
 /**

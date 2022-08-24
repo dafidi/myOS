@@ -4,5 +4,8 @@
     "screen.h": "c",
     "fs.h": "c",
     "print.h": "c"
-  }
+  },
+  "C_Cpp.default.includePath": [
+    "${workspaceFolder}"
+  ]
 }
