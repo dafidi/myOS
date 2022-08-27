@@ -24,7 +24,7 @@ static char *kernel_load_message = "Kernel loaded and running.\n";
 
 extern struct folder root_folder;
 
-extern mem_test(void);
+extern system_test(void);
 
 /**
  * init - Initialize system components.
@@ -78,6 +78,6 @@ int main(void) {
 
 	execute_binary_file(&file);
 	*/
-	mem_test();
+	system_test();
 	exec_main_shell();
 }

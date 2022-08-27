@@ -1,7 +1,10 @@
 #include "mm.h"
+#include <fs/filesystem.h>
 #include "string.h"
 
 extern struct order_zone order_zones[];
+
+extern struct fs_master_record master_record;
 
 static struct order_zone *get_auxillary_zone(struct order_zone *test_zone) {
 	int auxillary_storage_needed = test_zone->num_blocks * sizeof(struct mem_block *);
@@ -207,7 +210,7 @@ skip_test3:
 	return failed;
 }
 
-void mem_test(void) {
+static void mem_test(void) {
     bool zone_result, object_result;
 
     zone_result = mem_zone_test();
@@ -215,4 +218,60 @@ void mem_test(void) {
     
     print_string("Zone test: "); print_string(zone_result ? "failed" : "passed"); print_string(".\n");
     print_string("Object test: "); print_string(object_result ? "failed" : "passed"); print_string(".\n");
+}
+
+
+/**
+ * @brief This test verifies reads from disks.
+ * 
+ * For each zone/order, read in bytes [0, ORDER_SIZE(order)) from the bitmap.
+ * The bitmap is initialized with 8404996 sectors used - so 8404996 bit are set,
+ * corresponding to 1050624 bytes which are all 0xff.
+ * The largest zone allocates 524288 bytes so we can expect it to contain al 0xff
+ * if the read works properly.
+ * If we implement the ability to allocate larger blocks, we'll need to update
+ * this test.
+ * 
+ */
+void disk_test(void) {
+
+	print_string("sector_bitmap size="); print_int32(master_record.sector_bitmap_size);
+	print_string("\n");
+
+	for (int i = 0; i <= 5; i++) {
+		int first_err_pos = -1, last_err_pos = -1;
+		int block_size, err_count = 0;
+		struct mem_block *block;
+		uint8_t *buffer;
+
+		block_size = ORDER_SIZE(i);
+		block = zone_alloc(block_size);
+		buffer = (uint8_t *) block->addr;
+
+		read_from_storage_disk(master_record.sector_bitmap_start_sector, block_size, buffer);
+
+		for (int j = 0; j < block_size; j++) {
+			if (buffer[j] != 0xff) {
+				if (err_count == 0 )
+					first_err_pos = j;
+				err_count++;
+				last_err_pos = j;
+			}
+		}
+
+		print_string("Zone ");  print_int32(i);
+		print_string(" size="); print_int32(block_size);
+		print_string(" first: "); print_int32(first_err_pos);
+		print_string(" last: "); print_int32(last_err_pos);
+		print_string(" errors="); print_int32(err_count);
+		print_string("\n");
+
+		zone_free(block);
+	}
+}
+
+void system_test(void) {
+	mem_test();
+
+	disk_test();
 }

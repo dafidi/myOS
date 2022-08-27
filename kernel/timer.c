@@ -4,7 +4,7 @@
 #include "low_level.h"
 #include "system.h"
 
-int timer_ticks = 0;
+static int timer_ticks = 0;
 
 void init_timer(void) {
 	timer_phase(DEFAULT_TIMER_FREQUENCY_HZ);
@@ -35,4 +35,8 @@ void timer_wait(int ticks) {
 
 void timer_install(void) {
 	install_irq(0, timer_handler);
+}
+
+int mark_time(void) {
+	return timer_ticks;
 }

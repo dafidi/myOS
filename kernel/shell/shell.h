@@ -1,7 +1,7 @@
 #ifndef __SHELL_H__
 #define __SHELL_H__
 
-#define NUM_KNOWN_COMMANDS 4
+#define NUM_KNOWN_COMMANDS 6
 #define SHELL_CMD_INPUT_LIMIT 1024
 
 #include <kernel/system.h>

@@ -1,13 +1,17 @@
 #include "shell.h"
 
 #include <drivers/keyboard/keyboard_map.h>
+#include <drivers/disk/disk.h>
 #include <fs/filesystem.h>
 #include <kernel/mm.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
 #include <kernel/system.h>
 
-extern struct folder root_folder;
+extern struct fnode root_fnode;
+extern struct dir_entry root_dir_entry;
+
+extern void disk_test(void);
 
 const char stub[3] = "$ ";
 char shell_ascii_buffer[SHELL_CMD_INPUT_LIMIT];
@@ -15,12 +19,11 @@ static char* known_commands[NUM_KNOWN_COMMANDS] = {
 	"hi",
 	"ls",
 	"pwd",
-	"newf"
+	"newf",
+	"disk-test",
+	"disk-id"
 };
 static int last_known_input_buffer_size = 0;
-
-extern struct fnode root_fnode;
-extern struct dir_entry root_dir_entry;
 
 // Default/Main shell stuff.
 static struct fs_context current_fs_ctx = {
@@ -112,6 +115,18 @@ static void exec_known_cmd(int i) {
 				print_string("Umm maybe next time. :( Losiento.\n");
 			break;
 		}
+		case 4: {
+			print_string("Running disk_test.\n");
+
+			disk_test();
+			break;
+		}
+		case 5: {
+			print_string("Running \"IDENTIFY DEVICE\" ATA command.\n");
+			identify_device();
+
+			break;
+		}
 		default:
 			print_string("don't know what that is sorry :(\n");
 	}
@@ -184,6 +199,7 @@ void process_cmd_input(void) {
 static void default_show_prompt(void) {
 	struct dir_info dir_info;
 
+	clear_buffer(&dir_info, sizeof(struct dir_info));
 	if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
 		print_string("Failed to get dir_info for [fnode=");
 		print_int32(current_fs_ctx.curr_dir_fnode);

@@ -11,6 +11,8 @@
 static long long unsigned int interrupt_count = 0;
 static char flush_buffer[FLUSH_BUFFER_SIZE];
 
+static struct identify_device_data device_data;
+
 #define SHOW_REGISTER8(config, name) {								   \
 	uint8_t name ## _val = port_byte_in(config->name ## _port);					   \
 	print_string(#name); print_string(": "); print_int32(name ## _val); print_string("\n");\
@@ -70,19 +72,28 @@ static void assign_ata_ports(enum disk_channel channel, struct ata_port_config *
 	}
 }
 
-static enum sys_error __read_from_disk(enum disk_channel channel, enum drive_class class, lba_t block_address, int n_bytes, void* buffer) {
-	struct ata_port_config config;
-	uint8_t n_sectors;
-	uint8_t command;
-	int flush;
+static enum sys_error __read_sectors_from_disk(struct ata_port_config *config, int n_sectors, uint8_t* buffer) {
+	// Do we need this? According to https://wiki.osdev.org/ATA_PIO_Mode#Hardware, we do.
+	// "When a driver issues a PIO read or write command, it needs to wait
+	//  until the drive is ready before transferring data."
+	__poll_status_register(config);
 
-	if (n_bytes <= 0)
+	insw(config->data_port, buffer, ((n_sectors * SECTOR_SIZE) >> WORD_TO_BYTE_SHIFT));
+
+	return NONE;
+}
+
+static enum sys_error __read_from_disk(enum disk_channel channel, enum drive_class class, lba_t block_address, int n_sectors, uint8_t* buffer) {
+	int to_read = n_sectors, sectors_read = 0;
+	struct ata_port_config config;
+	enum sys_error err = NONE;
+	uint8_t command;
+
+	if (n_sectors <= 0)
 		return -1;
 
 	disable_interrupts();
 	assign_ata_ports(channel, &config);
-
-	n_sectors = (n_bytes >> 9) + (n_bytes & 0x1ff ? 1 : 0);
 
 	// According to https://wiki.osdev.org/ATA_PIO_Mode#Hardware, we need to
 	// select the correct driver first before reading from the status register.
@@ -109,23 +120,20 @@ static enum sys_error __read_from_disk(enum disk_channel channel, enum drive_cla
 	command = n_sectors > 1 ? HD_READ_MULTIPLE : HD_READ;
 	port_byte_out(config.command_port, command);
 
-	// Do we need this? According to https://wiki.osdev.org/ATA_PIO_Mode#Hardware, we do.
-	// "When a driver issues a PIO read or write command, it needs to wait
-	//  until the drive is ready before transferring data."
-	__poll_status_register(&config);
+	while (to_read) {
+		int drq_sectors = to_read > device_data.CURRENT_DRQ_DATA_BLOCK ? device_data.CURRENT_DRQ_DATA_BLOCK : to_read;
 
-	flush = SECTOR_SIZE - (n_bytes % SECTOR_SIZE) /* SECTOR_SIZE */;
+		err = __read_sectors_from_disk(&config, drq_sectors, buffer + sectors_read * SECTOR_SIZE);
+		if (err)
+			return err;
 
-	insw(config.data_port, buffer, (n_bytes >> WORD_TO_BYTE_SHIFT) + (n_bytes & 0x1 ? 1 : 0));
-	// From experience, we have to read the entirety of all the sectors we indicate
-	// to the sector count port. Until we do this, writes to registers won't work
-	// and the device will try to fulfill subsequent read commands starting from
-	// where a previous "incomplete" read left off.
-	if (flush)
-		insw(config.data_port, flush_buffer, flush >> WORD_TO_BYTE_SHIFT);
+		to_read -= drq_sectors;
+		sectors_read += drq_sectors;
+	}
 
 	enable_interrupts();
-	return NONE;
+
+	return err;
 }
 
 /**
@@ -183,6 +191,7 @@ static enum sys_error __write_to_disk(enum disk_channel channel, enum drive_clas
 
 	__poll_status_register(&config);
 
+	// TODO: osdev warns against using rep outsw for multi-sector writes.
 	outsw(config.data_port, buffer, (n_sectors * SECTOR_SIZE) >> WORD_TO_BYTE_SHIFT);
 
 	enable_interrupts();
@@ -233,7 +242,50 @@ int write_to_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
  * @buffer:
  */
 int read_from_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
-	return __read_from_disk(PRIMARY, SLAVE, block_address, n_bytes, buffer);
+	int full_sectors = n_bytes / SECTOR_SIZE;
+	int rem = n_bytes % SECTOR_SIZE;
+	int error = 0;
+
+	if (full_sectors)
+		error = __read_from_disk(PRIMARY, SLAVE, block_address, full_sectors, buffer);
+
+	if (!error && rem) {
+		clear_buffer(flush_buffer, FLUSH_BUFFER_SIZE);
+
+		error = __read_from_disk(PRIMARY, SLAVE, block_address + full_sectors, 1, flush_buffer);
+
+		memory_copy(flush_buffer, buffer + full_sectors * SECTOR_SIZE, rem);
+	}
+
+	return error;
+}
+
+static display_device_data(void) {
+	print_string("MAX_DRQ_DATA_BLOCK="); print_int32(device_data.MAX_DRQ_DATA_BLOCK);
+	print_string("\nword47_reserved="); print_int32(device_data.word47_reserved);
+	print_string("\nCURRENT_DRQ_DATA_BLOCK="); print_int32(device_data.CURRENT_DRQ_DATA_BLOCK);
+	print_string("\nword59_byte1="); print_int32(device_data.word59_byte1); print_string("\n");
+}
+
+void identify_device(void) {
+	uint8_t command = HD_IDENTIFY_DEVICE;
+	struct ata_port_config config;
+
+	assign_ata_ports(SLAVE, &config);
+
+	clear_buffer(&device_data, sizeof(struct identify_device_data));
+
+	disable_interrupts();
+
+	port_byte_out(HD_PORT_DRV_HEAD_PRIMARY, 0x10);
+
+	port_byte_out(HD_PORT_COMMAND_PRIMARY, command);
+
+	insw(HD_PORT_DATA_PRIMARY, &device_data, 256);
+
+	display_device_data();
+
+	enable_interrupts();
 }
 
 static inline void disk_irq_handler(struct registers* r) {
@@ -251,4 +303,6 @@ static void install_disk_irq_handler(void) {
  */
 void init_disk(void) {
 	install_disk_irq_handler();
+
+	identify_device();
 }

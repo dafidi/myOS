@@ -13,12 +13,43 @@ S/N|Feature Name     |Description                                 |Status      |
 3  |Processes        |Execute/dispatch simple x86 32-bit binaries.|In progress |E.g. a simple hello_word.asm.                            |
 
 ### Minors
-S/N|Task                                         |Description                                                                            |Status |
----|---------------------------------------------|---------------------------------------------------------------------------------------|-------|
-1  |Write new file content to disk (create_file).|The metadata accounting is done but the actual file is not written to disk.            |Done   |
-2  |Make query_free_sectors more efficient.      |This currently takes like 1.5 seconds which is egregiously unacceptable.               |Pending|
-3  |Fill in error handling paths in create_file. |Effort put into error-handling in this project on the whole adds value.                |Done   |
-4  |Have object_alloc support allocations > 2k.  |Currently, allocs > 2k have to zone_alloc'd, we should raise the max object_alloc size.|Pending|
-5  |Write changes to fnode_table content to disk |                                                                                       |Done   |
-6  |Simplify shell code - it's too complicated   |It's way too unecessarily and irritatingly complicated.                                |Pending|
-7  |
+<ol>
+<li>
+<b>Write new file content to disk (create_file). (DONE)</b>
+
+The metadata accounting is done but the actual file is not written to disk.
+</li>
+<li>
+<b>Make query_free_sectors more efficient. (PENDING)</b>
+
+This currently takes like 1.5 seconds which is egregiously bad.
+</li>
+<li>
+<b>Fill in error handling paths in create_file. (DONE)</b>
+
+Effort put into error-handling in this project on.
+</li>
+<li>
+<b>Have object_alloc support allocations > 2k. (PENDING)</b>
+
+Currently, allocs > 2k have to be zone_alloc'd.</li>
+<li>
+<b>Write changes to fnode_table content to disk. (DONE)</b>
+
+</li>
+<li>
+<b>Simplify shell code - it's too complicated. (PENDING)</b>
+
+It's way too unecessarily and irritating and wrong.
+</li>
+<li>
+<b>Support > 8k disk reads. (DONE)</b>
+
+Gracefully handle DRQ data block max of 16 for read requests greater than 8k.
+</li>
+<li>
+<b> Update dir_entry for curr_dir on create_file. (PENDING)</b>
+
+A new file in a directory increases the directory's size, the dir_entry pointing to this directory in the parent directory should be update accordingly
+</li>
+</ol>

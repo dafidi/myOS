@@ -116,7 +116,7 @@ unsigned int get_available_memory(void);
 int reserve_and_map_user_memory(va_t va, unsigned int pa, unsigned int amount);
 int unreserve_and_unmap_user_memory(va_t va, pa_t pa, unsigned int amount);
 
-struct mem_block *zone_alloc(const int order);
+struct mem_block *zone_alloc(const int amt);
 void zone_free(struct mem_block *block);
 
 uint8_t* object_alloc(int amt);

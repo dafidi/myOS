@@ -3,6 +3,8 @@
 #include <kernel/print.h>
 #include <kernel/task.h>
 #include <kernel/string.h>
+#include <kernel/system.h>
+#include <kernel/timer.h>
 #include <kernel/mm.h>
 
 #include "filesystem.h"
@@ -112,7 +114,7 @@ int add_dir_entry(struct fnode_location_t *dir_fnode_location, struct fnode *dir
 
     // Keep a backup of the dir_info sector in case we have to abandon the change(s).
     dir_info_buffer_backup = object_alloc(SECTOR_SIZE);
-    memory_copy(sector_buffer, SECTOR_SIZE, dir_info_buffer_backup);
+    memory_copy(sector_buffer, dir_info_buffer_backup, SECTOR_SIZE);
 
     dir_info->num_entries++;
     if (write_to_storage_disk(dir_fnode->sector_indexes[0], SECTOR_SIZE, sector_buffer)) {
@@ -213,54 +215,55 @@ void unsave_fnode(struct fnode_location_t location) {
 
 int query_free_fnodes(int num_fnodes, struct fnode_location_t *fnode_indexes) {
     int visit_count = 0, free_count = 0, fnode_bitmap_current_sector_offset = 0;
-    int fnode_bitmap_start_sector = master_record.fnode_bitmap_start_sector;
-    int fnode_total = master_record.fnode_bitmap_size * BITS_PER_BYTE;
+    const int fnode_bitmap_start_sector = master_record.fnode_bitmap_start_sector;
+    const int fnode_total = master_record.fnode_bitmap_size * BITS_PER_BYTE;
     const int fnodes_per_sector = SECTOR_SIZE / sizeof(struct fnode);
-    const int bits_per_sector = SECTOR_SIZE * BITS_PER_BYTE;
-    uint8_t *sector_buffer = object_alloc(SECTOR_SIZE);
+    const int block_size = ORDER_SIZE(5);
+    const int bits_per_block = block_size * BITS_PER_BYTE;
+    const int sector_skip = block_size / SECTOR_SIZE;
+    struct mem_block *block = zone_alloc(block_size);
+    uint8_t *block_buffer = (uint8_t*) block->addr;
     int error = 0;
 
-    if (!sector_buffer) {
-        print_string("Failed to allocate memory while querying fnodes.\n");
+    block = zone_alloc(block_size);
+    if (!block) {
+        print_string("Failed to allocate block while querying fnodes.\n");
         error = -1;
         goto exit_with_alloc;
     }
+    block_buffer = (uint8_t*) block->addr;
 
-    while (visit_count < fnode_total) {
+    while (visit_count < fnode_total && free_count != num_fnodes) {
+        int idx = fnode_bitmap_start_sector + fnode_bitmap_current_sector_offset;
 
-        if (read_from_storage_disk(fnode_bitmap_start_sector + fnode_bitmap_current_sector_offset, SECTOR_SIZE, sector_buffer)) {
-            print_string("Failed to read sector ");
-            print_int32(fnode_bitmap_start_sector + fnode_bitmap_current_sector_offset);
-            print_string(" containing fnode_bitmap.\n");
-            error = -1;
+        if (read_from_storage_disk(idx, block_size, block_buffer)) {
+            print_string("Read failed in fnode search!\n");
             goto exit_reset_bitmap;
+            return -1;
         }
 
-        for (int i = 0; i < bits_per_sector; i++) {
-            if (!get_bit(sector_buffer, i)) {
-                int offset_within_sector, bit_offset;
+        for (int i = 0; i < bits_per_block; i++, visit_count++) {
+            int offset_within_sector, bit_offset, fnode_sector_index;
 
-                bit_offset = fnode_bitmap_current_sector_offset * SECTOR_SIZE * BITS_PER_BYTE + i;
-                offset_within_sector = (i % fnodes_per_sector) * sizeof(struct fnode);
+            if (get_bit(block_buffer, i))
+                continue;
 
-                fnode_bitmap_set(bit_offset, 1);
-                fnode_indexes[free_count++] = (struct fnode_location_t) {
-                                                .fnode_table_index = bit_offset,
-                                                .fnode_sector_index = master_record.fnode_table_start_sector + bit_offset / fnodes_per_sector,
-                                                .offset_within_sector = offset_within_sector
-                                              };
-            }
+            bit_offset = fnode_bitmap_current_sector_offset * SECTOR_SIZE * BITS_PER_BYTE + i;
+            fnode_sector_index = master_record.fnode_table_start_sector + bit_offset / fnodes_per_sector;
+            offset_within_sector = (i % fnodes_per_sector) * sizeof(struct fnode);
 
-            visit_count++;
+            fnode_bitmap_set(bit_offset, 1);
+            fnode_indexes[free_count++] = (struct fnode_location_t) {
+                                            .fnode_table_index = bit_offset,
+                                            .fnode_sector_index = fnode_sector_index,
+                                            .offset_within_sector = offset_within_sector
+                                          };
 
             if (free_count == num_fnodes)
                 break;
         }
 
-        if (free_count == num_fnodes)
-            break;
-
-        fnode_bitmap_current_sector_offset++;
+        fnode_bitmap_current_sector_offset += sector_skip;
     }
 
     if (free_count == num_fnodes)
@@ -274,52 +277,52 @@ exit_reset_bitmap:
     }
 
 exit_with_alloc:
-    object_free(sector_buffer);
+    zone_free(block);
 
     return error;
 }
 
 int query_free_sectors(int num_sectors, int *sector_indexes) {
+    const int sector_bitmap_start_sector = master_record.sector_bitmap_start_sector;
     int visit_count = 0, free_count = 0, sector_bitmap_current_sector_offset = 0;
-    int sector_bitmap_start_sector = master_record.sector_bitmap_start_sector;
-    int sector_total = master_record.sector_bitmap_size * BITS_PER_BYTE;
-    const int bits_per_sector = SECTOR_SIZE * BITS_PER_BYTE;
-    uint8_t *sector_buffer = object_alloc(SECTOR_SIZE);
+    const int sector_total = master_record.sector_bitmap_size * BITS_PER_BYTE;
+    const int block_size = ORDER_SIZE(5);
+    struct mem_block *block = zone_alloc(block_size);
+    const int bits_per_block = block_size * BITS_PER_BYTE;
+    const int sector_skip = block_size / SECTOR_SIZE;
+    uint8_t *block_buffer;
     int error = 0;
 
-    if (!sector_buffer) {
-        print_string("Unable to allocate buffer for sector query.\n");
+    if (!block) {
+        print_string("Unable to allocate block for sector query.\n");
+        error = -1;
         goto exit_with_alloc;
     }
+    block_buffer = (uint8_t *) block->addr;
 
-    while (visit_count < sector_total) {
+    while (visit_count < sector_total && free_count != num_sectors) {
+        int idx = sector_bitmap_start_sector + sector_bitmap_current_sector_offset;
 
-        if (read_from_storage_disk(sector_bitmap_start_sector + sector_bitmap_current_sector_offset, SECTOR_SIZE, sector_buffer)) {
-            print_string("Failed to read sector ");
-            print_int32(sector_bitmap_start_sector + sector_bitmap_current_sector_offset);
-            print_string(" containing sector_bitmap.\n");
+        if (read_from_storage_disk(idx, block_size, block_buffer)) {
+            print_string("Failed read in sector search!\n");
             error = -1;
             goto exit_bitmap_reset;
         }
 
-        for (int i = 0; i < bits_per_sector; i++) {
-            if (!get_bit(sector_buffer, i)) {
-                int bit_index = sector_bitmap_current_sector_offset * SECTOR_SIZE * BITS_PER_BYTE + i;
+        for (int i = 0; i < bits_per_block; i++, visit_count++) {
+            int bit_index = sector_bitmap_current_sector_offset * SECTOR_SIZE * BITS_PER_BYTE + i;
 
-                sector_bitmap_set(bit_index, 1);
-                sector_indexes[free_count++] = bit_index;
-            }
+            if (get_bit(block_buffer, i))
+                continue;
 
-            visit_count++;
+            sector_bitmap_set(bit_index, 1);
+            sector_indexes[free_count++] = bit_index;
 
             if (free_count == num_sectors)
                 break;
         }
 
-        if (free_count == num_sectors)
-            break;
-
-        sector_bitmap_current_sector_offset++;
+        sector_bitmap_current_sector_offset += sector_skip;
     }
 
     if (free_count == num_sectors)
@@ -333,7 +336,7 @@ exit_bitmap_reset:
     }
 
 exit_with_alloc:
-    object_free(sector_buffer);
+    zone_free(block);
 
     return error;
 }
@@ -350,6 +353,7 @@ int create_file(struct fs_context *ctx, struct new_file_info *file_info) {
     struct fnode_location_t new_fnode_location;
     struct dir_entry new_dir_entry;
     struct fnode new_fnode;
+    int time, err;
 
     while ((sz_sectors << SECTOR_SIZE_SHIFT) < sz)
         sz_sectors++;
@@ -357,10 +361,14 @@ int create_file(struct fs_context *ctx, struct new_file_info *file_info) {
     if (sz_sectors > MAX_FILE_CHUNKS)
         return -1; // Unsupported file size.
 
-    if (query_free_sectors(sz_sectors, sector_indexes_buffer))
+    time_op(query_free_sectors(sz_sectors, sector_indexes_buffer), time, err);
+    print_string("query_free_sectors took "); print_int32(time); print_string(" ticks.\n");
+    if (err)
         return -1; // Not enough disk space.
 
-    if (query_free_fnodes(1, &new_fnode_location))
+    time_op(query_free_fnodes(1, &new_fnode_location), time, err);
+    print_string("query_free_fnodes took "); print_int32(time); print_string(" ticks.\n");
+    if (err)
         goto free_sectors; // Not enough fnodes.
 
     new_fnode.size = sz;
