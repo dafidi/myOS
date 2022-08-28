@@ -283,15 +283,14 @@ exit_with_alloc:
 }
 
 int query_free_sectors(int num_sectors, int *sector_indexes) {
-    const int sector_bitmap_start_sector = master_record.sector_bitmap_start_sector;
-    int visit_count = 0, free_count = 0, sector_bitmap_current_sector_offset = 0;
+    int bitmap_sector = (master_record.data_blocks_start_sector / BITS_PER_BYTE) >> SECTOR_SIZE_SHIFT;
     const int sector_total = master_record.sector_bitmap_size * BITS_PER_BYTE;
     const int block_size = ORDER_SIZE(5);
     struct mem_block *block = zone_alloc(block_size);
     const int bits_per_block = block_size * BITS_PER_BYTE;
     const int sector_skip = block_size / SECTOR_SIZE;
+    int error = 0, visit_count = 0, free_count = 0;
     uint8_t *block_buffer;
-    int error = 0;
 
     if (!block) {
         print_string("Unable to allocate block for sector query.\n");
@@ -301,7 +300,7 @@ int query_free_sectors(int num_sectors, int *sector_indexes) {
     block_buffer = (uint8_t *) block->addr;
 
     while (visit_count < sector_total && free_count != num_sectors) {
-        int idx = sector_bitmap_start_sector + sector_bitmap_current_sector_offset;
+        int idx = master_record.sector_bitmap_start_sector + bitmap_sector;
 
         if (read_from_storage_disk(idx, block_size, block_buffer)) {
             print_string("Failed read in sector search!\n");
@@ -310,7 +309,7 @@ int query_free_sectors(int num_sectors, int *sector_indexes) {
         }
 
         for (int i = 0; i < bits_per_block; i++, visit_count++) {
-            int bit_index = sector_bitmap_current_sector_offset * SECTOR_SIZE * BITS_PER_BYTE + i;
+            int bit_index = bitmap_sector * SECTOR_SIZE * BITS_PER_BYTE + i;
 
             if (get_bit(block_buffer, i))
                 continue;
@@ -322,7 +321,7 @@ int query_free_sectors(int num_sectors, int *sector_indexes) {
                 break;
         }
 
-        sector_bitmap_current_sector_offset += sector_skip;
+        bitmap_sector += sector_skip;
     }
 
     if (free_count == num_sectors)

@@ -163,3 +163,11 @@ void outsw(unsigned short port, void *buf, int nr) {
 void outsl(unsigned short port, void *buf, int nr) {
 	asm volatile("cld\n\trep outsl\n\t"::"d"(port), "S"(buf), "c"(nr));
 }
+
+int bit_scan_forward(unsigned int val) {
+	int idx;
+
+	asm volatile("bsf %1, %%edx": "=d" (idx) : "m" (val));
+
+	return idx;
+}

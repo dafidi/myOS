@@ -23,3 +23,5 @@ void insl(unsigned short port, void *buf, int nr);
 void outsb(unsigned short port, void *buf, int nr);
 void outsw(unsigned short port, void *buf, int nr);
 void outsl(unsigned short port, void *buf, int nr);
+
+int bit_scan_forward(unsigned char *ptr);
