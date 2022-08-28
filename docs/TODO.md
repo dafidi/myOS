@@ -20,7 +20,7 @@ S/N|Feature Name     |Description                                 |Status      |
 The metadata accounting is done but the actual file is not written to disk.
 </li>
 <li>
-<b>Make query_free_sectors more efficient. (PENDING)</b>
+<b>Make query_free_sectors more efficient. (DONE)</b>
 
 This currently takes like 1.5 seconds which is egregiously bad.
 </li>
@@ -38,7 +38,7 @@ Currently, allocs > 2k have to be zone_alloc'd.</li>
 
 </li>
 <li>
-<b>Simplify shell code - it's too complicated. (PENDING)</b>
+<b>Simplify shell code - it's too complicated. (DONE)</b>
 
 It's way too unecessarily and irritating and wrong.
 </li>

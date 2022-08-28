@@ -13,8 +13,13 @@ extern struct dir_entry root_dir_entry;
 
 extern void disk_test(void);
 
-const char stub[3] = "$ ";
-char shell_ascii_buffer[SHELL_CMD_INPUT_LIMIT];
+volatile int shell_input_counter_ = 0;
+static int last_processed_pos_ = 0;
+static int ascii_buffer_head_ = 0;
+bool processing_input_ = false;
+
+static char shell_ascii_buffer[SHELL_CMD_INPUT_LIMIT];
+char shell_scancode_buffer[SHELL_CMD_INPUT_LIMIT];
 static char* known_commands[NUM_KNOWN_COMMANDS] = {
 	"hi",
 	"ls",
@@ -23,55 +28,14 @@ static char* known_commands[NUM_KNOWN_COMMANDS] = {
 	"disk-test",
 	"disk-id"
 };
-static int last_known_input_buffer_size = 0;
+static const char stub[3] = "$ ";
 
-// Default/Main shell stuff.
 static struct fs_context current_fs_ctx = {
-		.curr_dir_fnode = &root_fnode,
+	.curr_dir_fnode = &root_fnode,
 };
 
-static void default_exec_routine(void);
-static void default_show_prompt(void);
-static void default_shell_init(void);
-
-struct shell default_shell = {
-	.exec = default_exec_routine,
-	.init = default_shell_init,
-	.show_prompt = default_show_prompt
-};
-
-static void exec(char* input);
-static void exec_known_cmd(int i);
-void exec_main_shell(void);
-
-static void process_new_scancodes(int offset, int num_new_characters);
-static void process_cmd_input(void);
-
-static void exec(char* input) {
-	int i, l, m;
-
-	print_string("Attempting to execute: "); print_string(input); print_string("\n");
-
-	m = strlen(input);
-	for (i = 0; i < NUM_KNOWN_COMMANDS; i++) {
-		l = strlen(known_commands[i]);
-
-		if (l != m)
-			continue;
-
-		if (strmatchn(known_commands[i], input, l))
-			break;
-	}
-
-	if (i >= NUM_KNOWN_COMMANDS)
-		print_string("Sorry, can't help with that... yet!\n");
-
-	if (i < NUM_KNOWN_COMMANDS)
-		exec_known_cmd(i);
-}
-
-static void exec_known_cmd(int i) {
-	switch (i) {
+static void exec_known_cmd(const int cmd) {
+	switch (cmd) {
 		case 0:
 			print_string("hi to you too!\n");
 			break;
@@ -117,8 +81,8 @@ static void exec_known_cmd(int i) {
 		}
 		case 4: {
 			print_string("Running disk_test.\n");
-
 			disk_test();
+
 			break;
 		}
 		case 5: {
@@ -132,71 +96,85 @@ static void exec_known_cmd(int i) {
 	}
 }
 
-static void init_shell(struct shell* shell) {
-	shell->init();
+static void exec(char* input) {
+	int i, l, m;
+
+	print_string("Attempting to execute: "); print_string(input); print_string("\n");
+
+	m = strlen(input);
+	for (i = 0; i < NUM_KNOWN_COMMANDS; i++) {
+		l = strlen(known_commands[i]);
+
+		if (l != m)
+			continue;
+
+		if (strmatchn(known_commands[i], input, l))
+			break;
+	}
+
+	if (i >= NUM_KNOWN_COMMANDS)
+		print_string("Sorry, can't help with that... yet!\n");
+
+	if (i < NUM_KNOWN_COMMANDS)
+		exec_known_cmd(i);
 }
 
-static void exec_shell(struct shell* shell) {
-	shell->exec();
+void reset_shell_counters(void) {
+	shell_input_counter_ = 0;
+	last_processed_pos_ = 0;
+	ascii_buffer_head_ = 0;
 }
 
-static char char_buff[2] = { '\0', '\0' };
-static uint8_t scancode;
-static char ascii_char;
-
-static void process_new_scancodes(int offset, int num_new_characters) {
-	int i;
+static bool process_new_scancodes(const int offset, const int num_new_characters) {
+	bool reshow_prompt = false;
 
 	if (offset + num_new_characters >= SHELL_CMD_INPUT_LIMIT) {
-		print_string("[Main Shell]:Input too large. Not processing\n");
+		print_string("[Main Shell]: Input too large. Not processing\n");
+		reset_shell_counters();
 		return;
 	}
 
-	for (i = 0; i < num_new_characters; i++) {
-		scancode = shell_scancode_buffer[offset + i];
+	for (int i = 0; i < num_new_characters; i++) {
+		uint8_t scancode = shell_scancode_buffer[offset + i];
 
-		if (scancode & 0x80) {
-			/* TODO: Handle key release actions. */
-		} else if (scancode) {
-			ascii_char = US_KEYBOARD_MAP[scancode];
-			char_buff[0] =  ascii_char;
-			char_buff[1] = 0;
+		if (scancode & 0x80)
+			continue;
+
+		if (scancode) {
+			char ascii_char = US_KEYBOARD_MAP[scancode];
+			char char_buff[2] = { ascii_char, '\0' };
 
 			print_string(char_buff);
 
 			if (ascii_char == '\n') {
-				print_string("you entered: ["); print_string(shell_ascii_buffer); print_string("]\n");
-				process_cmd_input();
-				default_show_prompt();
+				processing_input_ = true;
+				shell_ascii_buffer[ascii_buffer_head_++] = 0;
 
-				clear_buffer((uint8_t*)shell_ascii_buffer, SHELL_CMD_INPUT_LIMIT);
-				clear_buffer((uint8_t*)shell_scancode_buffer, SHELL_CMD_INPUT_LIMIT);
-				shell_input_counter = 0;
-				last_known_input_buffer_size = 0;
-				continue;
+				print_string("you entered: [");
+				print_string(shell_ascii_buffer);
+				print_string("]\n");
+
+				exec(shell_ascii_buffer);
+
+				reset_shell_counters();
+
+				reshow_prompt = true;
+				processing_input_ = false;
+
+				// Characters entered after '\n' are considered invalid and
+				// ignored until the prompt is showing again.
+				break;
 			} else {
-				shell_ascii_buffer[offset + i] = ascii_char;
-				// shell_input_counter++;
-			}
-
-			if (shell_input_counter >= SHELL_CMD_INPUT_LIMIT) {
-				print_string("You have entered too many characters.  Resetting prompt...\n");
-				clear_buffer((uint8_t*) shell_ascii_buffer, SHELL_CMD_INPUT_LIMIT);
-				clear_buffer((uint8_t*) shell_scancode_buffer, SHELL_CMD_INPUT_LIMIT);
-				shell_input_counter = 0;
-				last_known_input_buffer_size = 0;
-				default_show_prompt();
+				shell_ascii_buffer[ascii_buffer_head_++] = ascii_char;
 			}
 		}
 	}
+
+	last_processed_pos_ = offset + num_new_characters;
+	return reshow_prompt;
 }
 
-void process_cmd_input(void) {
-	exec(shell_ascii_buffer);
-}
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-static void default_show_prompt(void) {
+static void show_prompt(void) {
 	struct dir_info dir_info;
 
 	clear_buffer(&dir_info, sizeof(struct dir_info));
@@ -211,32 +189,37 @@ static void default_show_prompt(void) {
 	print_string(stub);
 }
 
-static void default_exec_routine(void) {
-	shell_input_counter = 0;
+void main_shell_init(void) {
+	current_fs_ctx.curr_dir_fnode_location = root_dir_entry.fnode_location;
+}
+
+void main_shell_run(void) {
+	bool prompt = true;
+
 	print_string("Main shell Executing.\n");
-	default_show_prompt();
+	shell_input_counter_ = 0;
+
 	while(true) {
-		if (last_known_input_buffer_size < shell_input_counter) {
-			process_new_scancodes(last_known_input_buffer_size,
-								  shell_input_counter - last_known_input_buffer_size);
-			last_known_input_buffer_size = shell_input_counter;
-		} else if (last_known_input_buffer_size > shell_input_counter) {
-			print_string("Something has gone terribly wrong with the shell. Exiting.\n");
-			break;
-		}
+		int head = shell_input_counter_, tail = last_processed_pos_;
+
+		// Show shell prompt, "<directory name>$".
+		if (prompt)
+			show_prompt();
+
+		// Wait for input from keyboard.
+		while (tail == head)
+			head = shell_input_counter_;
+
+		prompt = process_new_scancodes(tail, head - tail);
 	}
 
-	while(true);
+	print_string("We should never reach here. Going into infinite loop.\n");
+
+	PAUSE();
 }
 
-static void default_shell_init(void) {
-	current_fs_ctx.curr_dir_fnode_location = root_dir_entry.fnode_location;
-
-	default_shell.fs_ctx = current_fs_ctx;
-}
-
-// Executes the default/main shell.
 void exec_main_shell(void) {
-	init_shell(&default_shell);
-	exec_shell(&default_shell);
+	main_shell_init();
+
+	main_shell_run();
 }
