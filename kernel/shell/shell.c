@@ -14,10 +14,12 @@ extern struct dir_entry root_dir_entry;
 extern void disk_test(void);
 
 volatile int shell_input_counter_ = 0;
-static int last_processed_pos_ = 0;
+volatile int last_processed_pos_ = 0;
+static int last_executed_pos_ = 0;
 static int ascii_buffer_head_ = 0;
 bool processing_input_ = false;
 
+static char execution_bounce_buffer[SHELL_CMD_INPUT_LIMIT];
 static char shell_ascii_buffer[SHELL_CMD_INPUT_LIMIT];
 char shell_scancode_buffer[SHELL_CMD_INPUT_LIMIT];
 static char* known_commands[NUM_KNOWN_COMMANDS] = {
@@ -36,70 +38,70 @@ static struct fs_context current_fs_ctx = {
 
 static void exec_known_cmd(const int cmd) {
 	switch (cmd) {
-		case 0:
-			print_string("hi to you too!\n");
-			break;
-		case 1: {
-			struct dir_info dir_info;
+	case 0:
+		print_string("hi to you too!\n");
+		break;
+	case 1: {
+		struct dir_info dir_info;
 
-			if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
-				print_string("Failed to get dir_info for [fnode=");
-				print_int32(current_fs_ctx.curr_dir_fnode);
-				print_string("]\n");
-				return;
-			}
-
-			show_dir_content(current_fs_ctx.curr_dir_fnode);
-			break;
+		if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
+			print_string("Failed to get dir_info for [fnode=");
+			print_int32(current_fs_ctx.curr_dir_fnode);
+			print_string("]\n");
+			return;
 		}
-		case 2: {
-			struct dir_info dir_info;
 
-			if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
-				print_string("Failed to get dir_info for [fnode=");
-				print_int32(current_fs_ctx.curr_dir_fnode);
-				print_string("]\n");
-				return;
-			}
-			print_string("The current directory is: [");
-			print_string(dir_info.name);
-			print_string("].\n");
-			break;
-		}
-		case 3: {
-			char text[] = "Bien Venue!";
-			struct new_file_info info = {
-				.name = "new_file",
-				.file_size = strlen(text),
-				.file_content = text
-			};
+		show_dir_content(current_fs_ctx.curr_dir_fnode);
+		break;
+	}
+	case 2: {
+		struct dir_info dir_info;
 
-			print_string("One new file coming right up!\n");
-			if (create_file(&current_fs_ctx, &info))
-				print_string("Umm maybe next time. :( Losiento.\n");
-			break;
+		if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
+			print_string("Failed to get dir_info for [fnode=");
+			print_int32(current_fs_ctx.curr_dir_fnode);
+			print_string("]\n");
+			return;
 		}
-		case 4: {
-			print_string("Running disk_test.\n");
-			disk_test();
+		print_string("The current directory is: [");
+		print_string(dir_info.name);
+		print_string("].\n");
+		break;
+	}
+	case 3: {
+		char text[] = "Bien Venue!";
+		struct new_file_info info = {
+			.name = "new_file",
+			.file_size = strlen(text),
+			.file_content = text
+		};
 
-			break;
-		}
-		case 5: {
-			print_string("Running \"IDENTIFY DEVICE\" ATA command.\n");
-			identify_device();
+		print_string("One new file coming right up!\n");
+		if (create_file(&current_fs_ctx, &info))
+			print_string("Umm maybe next time. :( Losiento.\n");
+		break;
+	}
+	case 4: {
+		print_string("Running disk_test.\n");
+		disk_test();
 
 			break;
-		}
-		default:
-			print_string("don't know what that is sorry :(\n");
+	}
+	case 5: {
+		print_string("Running \"IDENTIFY DEVICE\" ATA command.\n");
+		identify_device();
+
+		break;
+	}
+	default:
+		print_string("don't know what that is sorry :(\n");
 	}
 }
 
 static void exec(char* input) {
 	int i, l, m;
 
-	print_string("Attempting to execute: "); print_string(input); print_string("\n");
+	print_string("Attempting to execute: ["); print_string(input); print_string("]\n");
 
 	m = strlen(input);
 	for (i = 0; i < NUM_KNOWN_COMMANDS; i++) {
@@ -122,55 +124,51 @@ static void exec(char* input) {
 void reset_shell_counters(void) {
 	shell_input_counter_ = 0;
 	last_processed_pos_ = 0;
+	last_executed_pos_ = 0;
 	ascii_buffer_head_ = 0;
 }
 
 static bool process_new_scancodes(const int offset, const int num_new_characters) {
 	bool reshow_prompt = false;
 
-	if (offset + num_new_characters >= SHELL_CMD_INPUT_LIMIT) {
-		print_string("[Main Shell]: Input too large. Not processing\n");
-		reset_shell_counters();
-		return;
-	}
-
-	for (int i = 0; i < num_new_characters; i++) {
+	for (int i = 0; i < num_new_characters; i++, last_processed_pos_++) {
 		uint8_t scancode = shell_scancode_buffer[offset + i];
+		char ascii_char = US_KEYBOARD_MAP[scancode];
+		char char_buff[2] = { ascii_char, '\0' };
 
-		if (scancode & 0x80)
+		if ((scancode & 0x80) || !scancode)
 			continue;
 
-		if (scancode) {
-			char ascii_char = US_KEYBOARD_MAP[scancode];
-			char char_buff[2] = { ascii_char, '\0' };
+		print_string(char_buff);
 
-			print_string(char_buff);
+		if (ascii_char == '\n') {
+			int e, p;
 
-			if (ascii_char == '\n') {
-				processing_input_ = true;
-				shell_ascii_buffer[ascii_buffer_head_++] = 0;
+			reshow_prompt = true;
+			if (last_executed_pos_ == ascii_buffer_head_)
+				continue;
 
-				print_string("you entered: [");
-				print_string(shell_ascii_buffer);
-				print_string("]\n");
+			e = last_executed_pos_ % SHELL_CMD_INPUT_LIMIT;
+			p = ascii_buffer_head_ % SHELL_CMD_INPUT_LIMIT;
 
-				exec(shell_ascii_buffer);
-
-				reset_shell_counters();
-
-				reshow_prompt = true;
-				processing_input_ = false;
-
-				// Characters entered after '\n' are considered invalid and
-				// ignored until the prompt is showing again.
-				break;
+			if (e < p) {
+				memory_copy(&shell_ascii_buffer[e], execution_bounce_buffer, p - e);
 			} else {
-				shell_ascii_buffer[ascii_buffer_head_++] = ascii_char;
+				memory_copy(&shell_ascii_buffer[e], execution_bounce_buffer, SHELL_CMD_INPUT_LIMIT - e);
+				memory_copy(&shell_ascii_buffer[0], &execution_bounce_buffer[e], p);
 			}
+
+			exec(execution_bounce_buffer);
+
+			clear_buffer(execution_bounce_buffer, SHELL_CMD_INPUT_LIMIT);
+			last_executed_pos_ = ascii_buffer_head_;
+		} else {
+			int write_pos = ascii_buffer_head_++ % SHELL_CMD_INPUT_LIMIT;
+
+			shell_ascii_buffer[write_pos] = ascii_char;
 		}
 	}
 
-	last_processed_pos_ = offset + num_new_characters;
 	return reshow_prompt;
 }
 
@@ -200,7 +198,8 @@ void main_shell_run(void) {
 	shell_input_counter_ = 0;
 
 	while(true) {
-		int head = shell_input_counter_, tail = last_processed_pos_;
+		int head = shell_input_counter_ % SHELL_CMD_INPUT_LIMIT;
+		int tail = last_processed_pos_ % SHELL_CMD_INPUT_LIMIT;
 
 		// Show shell prompt, "<directory name>$".
 		if (prompt)
@@ -208,7 +207,7 @@ void main_shell_run(void) {
 
 		// Wait for input from keyboard.
 		while (tail == head)
-			head = shell_input_counter_;
+			head = shell_input_counter_  % SHELL_CMD_INPUT_LIMIT;
 
 		prompt = process_new_scancodes(tail, head - tail);
 	}

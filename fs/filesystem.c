@@ -30,7 +30,7 @@ uint8_t *fnode_bitmap;
 uint8_t *sector_bitmap;
 
 int add_dir_entry(struct fnode_location_t *dir_fnode_location, struct fnode *dir_fnode, struct dir_entry *new_entry) {
-    uint8_t *sector_buffer, *sector_buffer_backup, *dir_info_buffer_backup;
+    uint8_t *sector_buffer, *sector_buffer_backup, *dir_info_buffer_backup = NULL;
     int last_sector_idx, used_in_last_sector, space_in_last_sector;
     int maybe_new_sector_index, error = 0;
     struct dir_info *dir_info;
@@ -54,7 +54,7 @@ int add_dir_entry(struct fnode_location_t *dir_fnode_location, struct fnode *dir
         error = -1;
         goto exit;
     }
-    sector_buffer_backup = object_alloc(2* SECTOR_SIZE);
+    sector_buffer_backup = object_alloc(2 * SECTOR_SIZE);
     if (!sector_buffer_backup) {
         print_string("Buffer alloc for backup failed while add_dir_entry.\n");
         error = -1;
@@ -131,12 +131,11 @@ size_inc:
         goto undo_dir_info_sector_change;
     }
 
-    goto exit;
+    goto exit_with_alloc;
 
 undo_dir_info_sector_change:
     dir_fnode->size -= sizeof(struct dir_entry);
     write_to_storage_disk(dir_fnode->sector_indexes[0], SECTOR_SIZE, dir_info_buffer_backup);
-    object_free(dir_info_buffer_backup);
 
 undo_new_sector_change:
     // When undoing the change to a new sector, we don't need to bother about
@@ -153,6 +152,8 @@ free_sector:
 exit_with_alloc:
     object_free(sector_buffer);
     object_free(sector_buffer_backup);
+    if (dir_info_buffer_backup)
+        object_free(dir_info_buffer_backup);
 
 exit:
     return error;
@@ -449,13 +450,15 @@ void show_dir_content(const struct fnode *dir_fnode) {
 }
 
 int get_fnode(struct dir_entry *entry, struct fnode* fnode_ptr) {
-    uint8_t buffer = object_alloc(SECTOR_SIZE);
+    uint8_t *buffer = object_alloc(SECTOR_SIZE);
 
     // Read fnode in from disk.
     if (read_from_storage_disk(entry->fnode_location.fnode_sector_index, sizeof(struct fnode), buffer))
         return -1;
 
     *fnode_ptr = (struct fnode)(*(struct fnode*)(buffer + entry->fnode_location.offset_within_sector));
+
+    object_free(buffer);
 
     return 0;
 }
