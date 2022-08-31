@@ -11,7 +11,7 @@ mov [BOOT_DRIVE], dl
 ; The bootloader(s) occupy RAM from 0x7c00 to 0x83ff.
 ; Let's load the kernel right after the bootloader.
 KERNEL_OFFSET equ 0x8400
-KERNEL_SIZE_SECTORS equ 68
+KERNEL_SIZE_SECTORS equ 71
 
 mov bx, BOOTLOADER2_START_MSG
 call print_string

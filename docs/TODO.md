@@ -48,7 +48,7 @@ It's way too unecessarily and irritating and wrong.
 Gracefully handle DRQ data block max of 16 for read requests greater than 8k.
 </li>
 <li>
-<b> Update dir_entry for curr_dir on create_file. (PENDING)</b>
+<b> Update dir_entry for curr_dir on create_file. (OBSOLETE)</b>
 
 A new file in a directory increases the directory's size, the dir_entry pointing to this directory in the parent directory should be update accordingly
 </li>

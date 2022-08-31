@@ -31,9 +31,10 @@ struct dir_info {
 };
 
 struct fnode {
+    uint32_t id;                    // Filesystem-wide id number for this file/folder.
     uint32_t size;                  // The size of the file or folder.
     enum fnode_type type;           // FILE or FOLDER.
-    uint8_t reserved[60];
+    uint8_t reserved[56];
     fblock_index_t sector_indexes[15];     // TODO: Treat 13 and 14 as singly and doubly indirect respectively.
                                            // For now, singly indirect only -> MAX_FILE_SIZE=7689. (not too bad.)
 }__attribute__((packed));
@@ -47,7 +48,7 @@ struct fnode_location_t {
 
 struct dir_entry {
     char name[MAX_FILENAME_LENGTH + 1]; // Name of file or folder.
-    uint32_t size;                      // Size of file or folder.
+    uint32_t size;                      // Size of file or folder - Obsolete, do not use.
     enum fnode_type type;               // FILE or FOLDER.
     struct fnode_location_t fnode_location;   // fnode fnode_location descriptor.
  }__attribute__((packed)); // sizeof = 128 + 4 + 4 + 10 = 146
@@ -62,10 +63,16 @@ struct fs_master_record {
     uint32_t data_blocks_start_sector;
 }__attribute__((packed));
 
-struct new_file_info {
+struct file_creation_info {
     char name[MAX_FILENAME_LENGTH];
     uint8_t *file_content;
     int file_size;
+};
+
+struct folder_creation_info {
+    char name[MAX_FILENAME_LENGTH];
+    uint8_t *data;
+    int size;
 };
 
 struct fs_context {
@@ -73,7 +80,7 @@ struct fs_context {
 	struct fnode_location_t curr_dir_fnode_location;
 };
 
-int create_file(struct fs_context *ctx, struct new_file_info *file_info);
+int create_file(struct fs_context *ctx, struct file_creation_info *file_info);
 
 void init_fs(void);
 

@@ -8,6 +8,8 @@
 #include <kernel/string.h>
 #include <kernel/system.h>
 
+#define NUM_KNOWN_COMMANDS 7
+
 extern struct fnode root_fnode;
 extern struct dir_entry root_dir_entry;
 
@@ -26,7 +28,8 @@ static char* known_commands[NUM_KNOWN_COMMANDS] = {
 	"hi",
 	"ls",
 	"pwd",
-	"newf",
+	"newfi",
+	"newfo",
 	"disk-test",
 	"disk-id"
 };
@@ -70,7 +73,7 @@ static void exec_known_cmd(const int cmd) {
 	}
 	case 3: {
 		char text[] = "Bien Venue!";
-		struct new_file_info info = {
+		struct file_creation_info info = {
 			.name = "new_file",
 			.file_size = strlen(text),
 			.file_content = text
@@ -78,16 +81,26 @@ static void exec_known_cmd(const int cmd) {
 
 		print_string("One new file coming right up!\n");
 		if (create_file(&current_fs_ctx, &info))
-			print_string("Umm maybe next time. :( Losiento.\n");
+			print_string("Sorry, file creation failed.\n");
 		break;
 	}
 	case 4: {
+		struct folder_creation_info info = {
+			.name = "new_folder",
+		};
+
+		print_string("One new folder coming up!\n");
+		if (create_folder(&current_fs_ctx, &info))
+			print_string("Sorry, folder creation failed.\n");
+		break;
+	}
+	case 5: {
 		print_string("Running disk_test.\n");
 		disk_test();
 
-			break;
+		break;
 	}
-	case 5: {
+	case 6: {
 		print_string("Running \"IDENTIFY DEVICE\" ATA command.\n");
 		identify_device();
 
@@ -197,7 +210,7 @@ void main_shell_run(void) {
 	print_string("Main shell Executing.\n");
 	shell_input_counter_ = 0;
 
-	while(true) {
+	while (true) {
 		int head = shell_input_counter_ % SHELL_CMD_INPUT_LIMIT;
 		int tail = last_processed_pos_ % SHELL_CMD_INPUT_LIMIT;
 

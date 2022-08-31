@@ -29,6 +29,9 @@ uint8_t *fnode_table;
 uint8_t *fnode_bitmap;
 uint8_t *sector_bitmap;
 
+// On init, we set this to the max fnode ID seen among pre-existing files + 1.
+uint32_t NEXT_FNODE_ID = 0;
+
 int add_dir_entry(struct fnode_location_t *dir_fnode_location, struct fnode *dir_fnode, struct dir_entry *new_entry) {
     uint8_t *sector_buffer, *sector_buffer_backup, *dir_info_buffer_backup = NULL;
     int last_sector_idx, used_in_last_sector, space_in_last_sector;
@@ -159,10 +162,34 @@ exit:
     return error;
 }
 
-int save_file(struct fnode *fnode, struct new_file_info *file_info) {
+int save_file(struct fnode *fnode, struct file_creation_info *file_info) {
     int error = 0, written = 0, to_write, sectors_written = 0;
     uint8_t *data = file_info->file_content;
     const int sz = file_info->file_size;
+
+    // Write to disk one sector at a time because fnode->sector_indexes
+    // might not be contiguous.
+    while (written < sz) {
+        int idx = fnode->sector_indexes[sectors_written];
+
+        to_write = (sz - written) < SECTOR_SIZE ? (sz - written) : SECTOR_SIZE;
+        if (write_to_storage_disk(idx, to_write, data)) {
+            print_string("Failed to write file content to disk.\n");
+            return -1;
+        }
+
+        sectors_written++;
+        written += to_write;
+        data += written;
+    }
+
+    return error;
+}
+
+int save_folder(struct fnode *fnode, struct folder_creation_info *folder_info) {
+    int error = 0, written = 0, to_write, sectors_written = 0;
+    const int sz = folder_info->size;
+    uint8_t *data = folder_info->data;
 
     // Write to disk one sector at a time because fnode->sector_indexes
     // might not be contiguous.
@@ -190,6 +217,7 @@ int save_fnode(struct fnode_location_t *location, struct fnode *fnode) {
     sector_buffer = object_alloc(SECTOR_SIZE);
     if (!sector_buffer)
        return -1;
+    clear_buffer(sector_buffer, SECTOR_SIZE);
 
     if (read_from_storage_disk(location->fnode_sector_index, SECTOR_SIZE, sector_buffer)) {
         print_string("Failed to read sector where new fnode should be written.\n");
@@ -341,7 +369,7 @@ exit_with_alloc:
     return error;
 }
 
-int create_file(struct fs_context *ctx, struct new_file_info *file_info) {
+int create_file(struct fs_context *ctx, struct file_creation_info *file_info) {
     struct fnode_location_t ctx_location = ctx->curr_dir_fnode_location;
     struct fnode *parent_fnode = ctx->curr_dir_fnode;
     int sz = file_info->file_size, sz_sectors = 1;
@@ -361,6 +389,11 @@ int create_file(struct fs_context *ctx, struct new_file_info *file_info) {
     if (sz_sectors > MAX_FILE_CHUNKS)
         return -1; // Unsupported file size.
 
+    // Not really necesary, but just to avoid saving garbage from the stack.
+    clear_buffer(&new_fnode, sizeof(struct fnode));
+    clear_buffer(&new_dir_entry, sizeof(struct dir_entry));
+    clear_buffer(&new_fnode_location, sizeof(struct fnode_location_t));
+
     time_op(query_free_sectors(sz_sectors, sector_indexes_buffer), time, err);
     print_string("query_free_sectors took "); print_int32(time); print_string(" ticks.\n");
     if (err)
@@ -372,7 +405,8 @@ int create_file(struct fs_context *ctx, struct new_file_info *file_info) {
         goto free_sectors; // Not enough fnodes.
 
     new_fnode.size = sz;
-    new_fnode.type= FILE;
+    new_fnode.type = FILE;
+    new_fnode.id = NEXT_FNODE_ID++;
     for (int i = 0; i < sz_sectors; i++)
         new_fnode.sector_indexes[i] = sector_indexes_buffer[i];
 
@@ -383,8 +417,90 @@ int create_file(struct fs_context *ctx, struct new_file_info *file_info) {
         goto unsave_new_fnode;
 
     memory_copy(file_info->name, new_dir_entry.name, MAX_FILENAME_LENGTH);
-    new_dir_entry.size = sz;
+    new_dir_entry.size = sz; // Unnecessary as size field is obsolete but leave for now.
     new_dir_entry.type = FILE;
+    new_dir_entry.fnode_location = new_fnode_location;
+
+    if (add_dir_entry(&ctx_location, parent_fnode, &new_dir_entry))
+        goto unsave_new_fnode;
+
+    return 0;
+
+    // It's not really necessary to unsave a new fnode. We only need to mark the
+    // bit free in the fnode bitmap.
+unsave_new_fnode:
+    unsave_fnode(new_fnode_location);
+
+free_fnode:
+    fnode_bitmap_unset(new_fnode_location.fnode_table_index, 1);
+
+free_sectors:
+    for (int i = 0; i < sz_sectors; i++)
+        sector_bitmap_unset(sector_indexes_buffer[i], 1);
+
+    return -1;
+}
+
+int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_info) {
+    struct fnode_location_t ctx_location = ctx->curr_dir_fnode_location;
+    int sz = sizeof(struct dir_entry), sz_sectors = 1;
+    struct fnode *parent_fnode = ctx->curr_dir_fnode;
+    struct dir_info *new_dir_info;
+    // TODO: We're allocating this on the stack because it'll probably be greater
+    // than 2k which is that max dynamic object allocation allows, when we dynamic
+    // allocation supports greater than 2k, we should use than instead of this
+    // stack-allocation.
+    int sector_indexes_buffer[MAX_FILE_CHUNKS];
+    struct fnode_location_t new_fnode_location;
+    struct dir_entry new_dir_entry;
+    struct fnode new_fnode;
+    int time, err;
+
+    while ((sz_sectors << SECTOR_SIZE_SHIFT) < sz)
+        sz_sectors++;
+
+    if (sz_sectors > MAX_FILE_CHUNKS)
+        return -1; // Unsupported file size.
+
+    // Not really necesary, but just to avoid saving garbage from the stack.
+    clear_buffer(&new_fnode, sizeof(struct fnode));
+    clear_buffer(&new_dir_entry, sizeof(struct dir_entry));
+    clear_buffer(&new_fnode_location, sizeof(struct fnode_location_t));
+
+    time_op(query_free_sectors(sz_sectors, sector_indexes_buffer), time, err);
+    print_string("query_free_sectors took "); print_int32(time); print_string(" ticks.\n");
+    if (err)
+        return -1; // Not enough disk space.
+
+    time_op(query_free_fnodes(1, &new_fnode_location), time, err);
+    print_string("query_free_fnodes took "); print_int32(time); print_string(" ticks.\n");
+    if (err)
+        goto free_sectors; // Not enough fnodes.
+
+    new_fnode.size = sz;
+    new_fnode.type = FOLDER;
+    new_fnode.id = NEXT_FNODE_ID++;
+    for (int i = 0; i < sz_sectors; i++)
+        new_fnode.sector_indexes[i] = sector_indexes_buffer[i];
+
+    if (save_fnode(&new_fnode_location, &new_fnode))
+        goto free_fnode;
+
+    // This is kinda funny, but I believe it is the correct thing to do.
+    folder_info->data = object_alloc(sizeof(struct dir_info));
+    folder_info->size = sizeof(struct dir_info);
+    new_dir_info = (struct dir_info*) folder_info->data;
+    // Put the folder's name into it's dir_info field.
+    memory_copy(folder_info->name, &new_dir_info->name, MAX_FILENAME_LENGTH);
+    // Put the folder's num_entries (0 since it's a new folder) into it's dir_info field.
+    new_dir_info->num_entries = 0;
+    if (save_folder(&new_fnode, folder_info))
+        goto unsave_new_fnode;
+    object_free(folder_info->data);
+
+    memory_copy(folder_info->name, new_dir_entry.name, MAX_FILENAME_LENGTH);
+    new_dir_entry.size = sz; // Unnecessary as size field is obsolete but leave for now.
+    new_dir_entry.type = FOLDER;
     new_dir_entry.fnode_location = new_fnode_location;
 
     if (add_dir_entry(&ctx_location, parent_fnode, &new_dir_entry))
@@ -436,13 +552,25 @@ void show_dir_content(const struct fnode *dir_fnode) {
 
     buffer = object_alloc(dir_fnode->size);
     if (read_dir_content(dir_fnode, buffer) < 0) {
-        print_string("Unable to show dir content.\n");
+        print_string("Unable to read dir content.\n");
         return;
     }
 
     dir_info = (struct dir_info*) buffer;
     dir_entry = (struct dir_entry *) (buffer + sizeof(struct dir_info));
     for (int i = 0; i < dir_info->num_entries; i++, dir_entry++) {
+        switch (dir_entry->type)
+        {
+        case FILE:
+            print_string("fi ");
+            break;
+        case FOLDER:
+            print_string("fo ");
+            break;
+        default:
+            print_string("unknown-type ");
+            break;
+        }
         print_string("("); print_int32(i); print_string(") "); print_dir_entry(dir_entry);
     }
 
@@ -552,6 +680,9 @@ void __init_usage_bits(const struct fnode *_fnode) {
     buffer = object_alloc(_fnode->size);
     read_dir_content(_fnode, buffer);
 
+    if (_fnode->id >= NEXT_FNODE_ID)
+        NEXT_FNODE_ID = _fnode->id + 1;
+
     dir_info = (struct dir_info*) buffer;
     dir_entry = buffer + sizeof(struct dir_info);
     for (int i = 0; i < dir_info->num_entries; i++, dir_entry++) {
@@ -568,6 +699,9 @@ void __init_usage_bits(const struct fnode *_fnode) {
 
         // Mark the sectors occupied by this dir_entry's content.
         record_fnode_sector_bits(__fnode);
+
+        if (__fnode->id >= NEXT_FNODE_ID)
+            NEXT_FNODE_ID = __fnode->id + 1;
 
         // If it's a directory, recurse, so we can account for its children.
         if (dir_entry->type == FOLDER)
