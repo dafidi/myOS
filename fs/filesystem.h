@@ -17,6 +17,7 @@
 #define MAX_FILE_CHUNKS ((MAX_FILE_SIZE) >> SECTOR_SIZE_SHIFT)
 
 typedef uint32_t fblock_index_t;
+typedef uint32_t fnode_id_t;
 
 enum fnode_type {
     FILE,
@@ -31,7 +32,7 @@ struct dir_info {
 };
 
 struct fnode {
-    uint32_t id;                    // Filesystem-wide id number for this file/folder.
+    fnode_id_t id;                  // Filesystem-wide id number for this file/folder.
     uint32_t size;                  // The size of the file or folder.
     enum fnode_type type;           // FILE or FOLDER.
     uint8_t reserved[56];
@@ -75,9 +76,22 @@ struct folder_creation_info {
     int size;
 };
 
+struct directory_chain_link {
+    struct directory_chain_link *next;
+    struct directory_chain_link *prev;
+    fnode_id_t id;
+};
+
+struct directory_chain {
+    struct directory_chain_link *head; // This should always be root.
+    struct directory_chain_link *tail; // This should always point to
+                                                     // the current working directory.
+};
+
 struct fs_context {
 	struct fnode *curr_dir_fnode;
 	struct fnode_location_t curr_dir_fnode_location;
+    struct directory_chain *working_directory_chain;
 };
 
 int create_file(struct fs_context *ctx, struct file_creation_info *file_info);

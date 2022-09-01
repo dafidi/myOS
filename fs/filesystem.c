@@ -32,6 +32,129 @@ uint8_t *sector_bitmap;
 // On init, we set this to the max fnode ID seen among pre-existing files + 1.
 uint32_t NEXT_FNODE_ID = 0;
 
+void load_root_fnode(struct fnode *_fnode) {
+}
+/**
+ * validate_directory_chain - Check via the on-disk source of truth whether a
+ * path (represented by the chain) is still valid.
+ *
+ * Fills in the fnode information for the innermost (tail) directory
+ * and its location.
+ */
+int validate_directory_chain(struct directory_chain *chain, struct fnode *tail_dir_fnode, struct fnode_location_t *tail_dir_fnode_location) {
+    struct fnode_location_t curr_fnode_location = root_dir_entry.fnode_location;
+    struct directory_chain_link *chainp;
+    bool chain_valid = false;
+    struct fnode curr_fnode;
+    int error = 0;
+
+    get_fnode(&root_dir_entry, &curr_fnode);
+    chainp = chain->head;
+    if (chainp->id != curr_fnode.id) {
+        print_string("Error: invalid chain, must start from root.\n");
+        return -1;
+    }
+
+    chainp = chainp->next;
+    if (!chainp)
+        chain_valid = true; // A chain of just the root directory is valid.
+
+    while (chainp) {
+        uint8_t *buffer = object_alloc(curr_fnode.size);
+        struct dir_entry *curr_dir_entry;
+        struct dir_info *curr_dir_info;
+        bool found_match = false;
+
+        read_dir_content(&curr_fnode, buffer);
+        curr_dir_info = buffer;
+        curr_dir_entry = ((char *) curr_dir_info) + sizeof(struct dir_info);
+        for (int i = 0; i < curr_dir_info->num_entries; i++, curr_dir_entry++) {
+            struct fnode curr_entry_fnode;
+
+            get_fnode(curr_dir_entry, &curr_entry_fnode);
+            if (curr_entry_fnode.id == chainp->id) {
+                curr_fnode = curr_entry_fnode;
+                curr_fnode_location = curr_dir_entry->fnode_location;
+                found_match = true;
+
+                if (chainp->next == NULL)
+                    chain_valid = true;
+                break;
+            }
+        }
+
+        object_free(buffer);
+        if (!found_match)
+            break;
+        chainp = chainp->next;
+    }
+
+    *tail_dir_fnode = curr_fnode;
+    *tail_dir_fnode_location = curr_fnode_location;
+
+    return chain_valid ? 0 : -1;
+}
+
+int list_dir_content(struct directory_chain *chain) {
+    struct fnode_location_t tail_dir_fnode_location;
+    struct fnode tail_dir_fnode;
+
+    if (validate_directory_chain(chain, &tail_dir_fnode, &tail_dir_fnode_location)) {
+        print_string("Error: dir show failed on chain validation.\n");
+        return -1;
+    }
+
+    show_dir_content(&tail_dir_fnode);
+    return 0;
+}
+
+int search_name_in_directory(char *name, struct fnode* dir_fnode, struct fnode *result_fnode) {
+    uint8_t *buffer = object_alloc(dir_fnode->size);
+    const int name_len = strlen(name);
+    struct dir_entry *dir_entry;
+    struct dir_info *dir_info;
+    bool target_found = false;
+
+    read_dir_content(dir_fnode, buffer);
+    dir_info = buffer;
+    dir_entry = ((char *) dir_info) + sizeof(struct dir_info);
+    for (int i = 0; i < dir_info->num_entries; i++, dir_entry++) {
+        const int entry_name_len = strlen(dir_entry->name);
+
+        if (entry_name_len != name_len)
+            continue;
+
+        if (strmatchn(dir_entry->name, name, entry_name_len)) {
+	    get_fnode(dir_entry, result_fnode);
+            target_found = true;
+            break;
+        }
+    }
+    object_free(buffer);
+
+    if (target_found)
+        return 0;
+
+    return -1;
+}
+
+int fs_search(struct directory_chain *chain, char* target_dir_name, struct fnode *result_fnode) {
+    struct fnode_location_t tail_dir_fnode_location;
+    struct fnode tail_dir_fnode;
+
+    if (validate_directory_chain(chain, &tail_dir_fnode, &tail_dir_fnode_location)) {
+        print_string("Error: Invalid directory_chain.\n");
+        return -1;
+    }
+
+    if (search_name_in_directory(target_dir_name, &tail_dir_fnode, result_fnode)) {
+        print_string("Error: could not find "); print_string(target_dir_name); print_string(" in chain provided.\n");
+        return -1;
+    }
+
+    return 0;
+}
+
 int add_dir_entry(struct fnode_location_t *dir_fnode_location, struct fnode *dir_fnode, struct dir_entry *new_entry) {
     uint8_t *sector_buffer, *sector_buffer_backup, *dir_info_buffer_backup = NULL;
     int last_sector_idx, used_in_last_sector, space_in_last_sector;
@@ -370,17 +493,15 @@ exit_with_alloc:
 }
 
 int create_file(struct fs_context *ctx, struct file_creation_info *file_info) {
-    struct fnode_location_t ctx_location = ctx->curr_dir_fnode_location;
-    struct fnode *parent_fnode = ctx->curr_dir_fnode;
+    struct fnode_location_t parent_fnode_location, new_fnode_location;
     int sz = file_info->file_size, sz_sectors = 1;
     // TODO: We're allocating this on the stack because it'll probably be greater
     // than 2k which is that max dynamic object allocation allows, when we dynamic
     // allocation supports greater than 2k, we should use than instead of this
     // stack-allocation.
     int sector_indexes_buffer[MAX_FILE_CHUNKS];
-    struct fnode_location_t new_fnode_location;
+    struct fnode parent_fnode, new_fnode;
     struct dir_entry new_dir_entry;
-    struct fnode new_fnode;
     int time, err;
 
     while ((sz_sectors << SECTOR_SIZE_SHIFT) < sz)
@@ -421,7 +542,13 @@ int create_file(struct fs_context *ctx, struct file_creation_info *file_info) {
     new_dir_entry.type = FILE;
     new_dir_entry.fnode_location = new_fnode_location;
 
-    if (add_dir_entry(&ctx_location, parent_fnode, &new_dir_entry))
+    // We get the parent_fnode (and location) by this validation process.
+    if (validate_directory_chain(ctx->working_directory_chain, &parent_fnode, &parent_fnode_location)) {
+        print_string("Error creating file: failed chain validation.\n");
+        goto unsave_new_fnode;
+    }
+
+    if (add_dir_entry(&parent_fnode_location, &parent_fnode, &new_dir_entry))
         goto unsave_new_fnode;
 
     return 0;
@@ -442,18 +569,16 @@ free_sectors:
 }
 
 int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_info) {
-    struct fnode_location_t ctx_location = ctx->curr_dir_fnode_location;
-    int sz = sizeof(struct dir_entry), sz_sectors = 1;
-    struct fnode *parent_fnode = ctx->curr_dir_fnode;
-    struct dir_info *new_dir_info;
+    struct fnode_location_t parent_fnode_location, new_fnode_location;
+    int sz = sizeof(struct dir_info), sz_sectors = 1;
     // TODO: We're allocating this on the stack because it'll probably be greater
     // than 2k which is that max dynamic object allocation allows, when we dynamic
     // allocation supports greater than 2k, we should use than instead of this
     // stack-allocation.
     int sector_indexes_buffer[MAX_FILE_CHUNKS];
-    struct fnode_location_t new_fnode_location;
+    struct fnode parent_fnode, new_fnode;
     struct dir_entry new_dir_entry;
-    struct fnode new_fnode;
+    struct dir_info *new_dir_info;
     int time, err;
 
     while ((sz_sectors << SECTOR_SIZE_SHIFT) < sz)
@@ -477,7 +602,7 @@ int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_in
     if (err)
         goto free_sectors; // Not enough fnodes.
 
-    new_fnode.size = sz;
+    new_fnode.size = sizeof(struct dir_info);
     new_fnode.type = FOLDER;
     new_fnode.id = NEXT_FNODE_ID++;
     for (int i = 0; i < sz_sectors; i++)
@@ -486,24 +611,30 @@ int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_in
     if (save_fnode(&new_fnode_location, &new_fnode))
         goto free_fnode;
 
-    // This is kinda funny, but I believe it is the correct thing to do.
+    // Prepare the folder info so we can save it. This writes the dir_info data
+    // which begins every folder's content.
     folder_info->data = object_alloc(sizeof(struct dir_info));
     folder_info->size = sizeof(struct dir_info);
     new_dir_info = (struct dir_info*) folder_info->data;
-    // Put the folder's name into it's dir_info field.
-    memory_copy(folder_info->name, &new_dir_info->name, MAX_FILENAME_LENGTH);
-    // Put the folder's num_entries (0 since it's a new folder) into it's dir_info field.
     new_dir_info->num_entries = 0;
+    memory_copy(folder_info->name, &new_dir_info->name, MAX_FILENAME_LENGTH);
+    // Save the folder (currently containing only a dir_info).
     if (save_folder(&new_fnode, folder_info))
         goto unsave_new_fnode;
     object_free(folder_info->data);
 
+    // We get the parent_fnode (and location) by this validation process.
+    if (validate_directory_chain(ctx->working_directory_chain, &parent_fnode, &parent_fnode_location)) {
+        print_string("Error creating folder: failed chain validation.\n");
+        goto unsave_new_fnode;
+    }
+
+    // Prepare the dir_entry which will be added to the folder's parent folder.
     memory_copy(folder_info->name, new_dir_entry.name, MAX_FILENAME_LENGTH);
-    new_dir_entry.size = sz; // Unnecessary as size field is obsolete but leave for now.
+    new_dir_entry.size = sizeof(struct dir_info); // Unnecessary as size field is obsolete but leave for now.
     new_dir_entry.type = FOLDER;
     new_dir_entry.fnode_location = new_fnode_location;
-
-    if (add_dir_entry(&ctx_location, parent_fnode, &new_dir_entry))
+    if (add_dir_entry(&parent_fnode_location, &parent_fnode, &new_dir_entry))
         goto unsave_new_fnode;
 
     return 0;
@@ -581,7 +712,7 @@ int get_fnode(struct dir_entry *entry, struct fnode* fnode_ptr) {
     uint8_t *buffer = object_alloc(SECTOR_SIZE);
 
     // Read fnode in from disk.
-    if (read_from_storage_disk(entry->fnode_location.fnode_sector_index, sizeof(struct fnode), buffer))
+    if (read_from_storage_disk(entry->fnode_location.fnode_sector_index, SECTOR_SIZE, buffer))
         return -1;
 
     *fnode_ptr = (struct fnode)(*(struct fnode*)(buffer + entry->fnode_location.offset_within_sector));

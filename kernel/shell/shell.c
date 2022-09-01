@@ -8,7 +8,7 @@
 #include <kernel/string.h>
 #include <kernel/system.h>
 
-#define NUM_KNOWN_COMMANDS 7
+#define NUM_KNOWN_COMMANDS 8
 
 extern struct fnode root_fnode;
 extern struct dir_entry root_dir_entry;
@@ -31,13 +31,38 @@ static char* known_commands[NUM_KNOWN_COMMANDS] = {
 	"newfi",
 	"newfo",
 	"disk-test",
-	"disk-id"
+	"disk-id",
+	"cd"
 };
+static const char prompt[MAX_FILENAME_LENGTH + 3];
 static const char stub[3] = "$ ";
 
 static struct fs_context current_fs_ctx = {
 	.curr_dir_fnode = &root_fnode,
 };
+
+int change_directory(char *target_dir_name) {
+	struct directory_chain_link *new_link;
+	struct fnode target_dir_fnode;
+	int error = 0;
+
+	error = fs_search(current_fs_ctx.working_directory_chain, target_dir_name, &target_dir_fnode);
+	if (error) {
+		print_string("Can't change directories to "); print_string(target_dir_name); print_string("\n");
+		return -1;
+	}
+
+    new_link = (struct directory_chain_link *) object_alloc(sizeof(struct directory_chain_link));
+    new_link->id = target_dir_fnode.id;
+
+    current_fs_ctx.working_directory_chain->tail->next = new_link;
+    current_fs_ctx.working_directory_chain->tail = new_link;
+
+    clear_buffer(prompt, MAX_FILENAME_LENGTH + 3);
+    memory_copy(target_dir_name, prompt, strlen(target_dir_name));
+    memory_copy(stub, prompt + strlen(target_dir_name), 2);
+    return error;
+}
 
 static void exec_known_cmd(const int cmd) {
 	switch (cmd) {
@@ -45,16 +70,11 @@ static void exec_known_cmd(const int cmd) {
 		print_string("hi to you too!\n");
 		break;
 	case 1: {
-		struct dir_info dir_info;
-
-		if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
-			print_string("Failed to get dir_info for [fnode=");
-			print_int32(current_fs_ctx.curr_dir_fnode);
-			print_string("]\n");
+		if (list_dir_content(current_fs_ctx.working_directory_chain)) {
+			print_string("Error showing dir with current chain.\n");
 			return;
 		}
 
-		show_dir_content(current_fs_ctx.curr_dir_fnode);
 		break;
 	}
 	case 2: {
@@ -103,6 +123,15 @@ static void exec_known_cmd(const int cmd) {
 	case 6: {
 		print_string("Running \"IDENTIFY DEVICE\" ATA command.\n");
 		identify_device();
+
+		break;
+	}
+	case 7: {
+		char dir_name[MAX_FILENAME_LENGTH] = "new_folder";
+
+		clear_buffer(dir_name + strlen(dir_name), MAX_FILENAME_LENGTH - strlen(dir_name));
+		if (change_directory(dir_name))
+			print_string("Error: unable to change directory.\n");
 
 		break;
 	}
@@ -186,22 +215,21 @@ static bool process_new_scancodes(const int offset, const int num_new_characters
 }
 
 static void show_prompt(void) {
-	struct dir_info dir_info;
-
-	clear_buffer(&dir_info, sizeof(struct dir_info));
-	if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
-		print_string("Failed to get dir_info for [fnode=");
-		print_int32(current_fs_ctx.curr_dir_fnode);
-		print_string("]\n");
-		return;
-	}
-
-	print_string(dir_info.name);
-	print_string(stub);
+	print_string(prompt);
 }
 
 void main_shell_init(void) {
 	current_fs_ctx.curr_dir_fnode_location = root_dir_entry.fnode_location;
+	current_fs_ctx.curr_dir_fnode = &root_fnode;
+	current_fs_ctx.working_directory_chain = object_alloc(sizeof(struct directory_chain));
+	current_fs_ctx.working_directory_chain->head = (struct directory_chain_link *) object_alloc(sizeof(struct directory_chain_link));
+	current_fs_ctx.working_directory_chain->head->id = root_fnode.id;
+	current_fs_ctx.working_directory_chain->head->next = NULL;
+	current_fs_ctx.working_directory_chain->head->prev = NULL;
+	current_fs_ctx.working_directory_chain->tail = current_fs_ctx.working_directory_chain->head;
+
+	memory_copy(&root_dir_entry.name, prompt, strlen(root_dir_entry.name));
+	memory_copy(stub, prompt + strlen(root_dir_entry.name), 2);
 }
 
 void main_shell_run(void) {
