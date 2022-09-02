@@ -4,11 +4,6 @@
 
 #include "screen.h"
 
-/**
- * 2^32 = 4294967296
- */
-static char int_template[11] = "0000000000";
-
 // Cursor things.
 static int get_screen_offset(int row, int col) {
 	return 2 * ((row)* MAX_COLS + col);
@@ -99,6 +94,7 @@ static void print_char(char character, int row, int col, char attribute_byte) {
 
 void print_string(const char* message) {
 	int i = 0;
+
 	while(message[i] != 0) {
 		int cursor_offset = get_cursor() - VIDEO_ADDRESS;
 		int row = cursor_offset / (2 * MAX_COLS);
@@ -107,20 +103,44 @@ void print_string(const char* message) {
 	}
 }
 
-/* Special function for printing integers because we'd like to do without printing 0s. */
-/* which are usually left behind after converting ints to string  (by int_to_string).  */
-static void print_int(const char* p) {
-	while(*p == '0') { p++;	}
-	
-	if (*p == '\0')
-		p--; // Need to be able to print 0.
-	
-	print_string(p);
+// TODO: Use unsigned long long here.
+void print_int(unsigned int n) {
+    int num_digits = 0;
+
+    while (n) {
+        n /= 10;
+        num_digits++;
+    }
+
+    if (num_digits == 0) {
+        print_string("0");
+        return;
+    }
+
+    char out_buff[num_digits + 1];
+    out_buff[num_digits] = '\0';
+    while (num_digits--) {
+        int n_0unit = (n / 10) * 10;
+
+        out_buff[num_digits] = '0' + n - n_0unit;
+
+        n /= 10;
+    }
+
+    print_string(out_buff);
+}
+
+void print_int64(uint64_t n) {
+    print_int(n);
 }
 
 void print_int32(int n) {
-  int_to_string(int_template, n, 10);
-  print_int(int_template);
+    print_int(n);
+}
+
+void print_ptr(void *p) {
+    // TODO: Print as actual pointer, not int32.
+    print_int64((uint32_t) p);
 }
 
 static void print_register(char *register_name, const int register_value) {

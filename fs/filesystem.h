@@ -94,8 +94,14 @@ struct fs_context {
     struct directory_chain *working_directory_chain;
 };
 
-int create_file(struct fs_context *ctx, struct file_creation_info *file_info);
-
+int create_file(struct fs_context *, struct file_creation_info *);
+int create_folder(struct fs_context *, struct folder_creation_info *);
+int fs_search(struct directory_chain *, char*, struct fnode *);
+int list_dir_content(struct directory_chain *);
+int get_dir_info(struct fnode *, struct dir_info *);
+int get_fnode(struct dir_entry *, struct fnode *);
+int read_dir_content(const struct fnode *, uint8_t *);
+void show_dir_content(const struct fnode *);
 void init_fs(void);
 
 #endif

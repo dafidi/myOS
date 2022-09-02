@@ -420,7 +420,7 @@ void init_page_usage_bitmap(void) {
 
 	// Set every page up to _bss_end as being used.
 	for (int i = 0; i < num_pages; i++)
-		set_bit(page_usage_bitmap, i);
+		set_bit((uint8_t *)page_usage_bitmap, i);
 }
 
 /**
@@ -477,6 +477,7 @@ static void zone_append_free(struct order_zone *zone, struct mem_block *block) {
  * @param zone 
  * @param block 
  */
+/* Commenting this out for now as it's not being used generates a warning.
 static void zone_prepend_used(struct order_zone *zone, struct mem_block *block) {
 	block->next = zone->used_list;
 	block->order = zone->order;
@@ -485,6 +486,7 @@ static void zone_prepend_used(struct order_zone *zone, struct mem_block *block) 
 	zone->used_list = block;
 	zone->used++;
 }
+*/
 
 /**
  * @brief Add block to the end of zone's free_list.
@@ -512,7 +514,7 @@ static void zone_remove_used(struct order_zone* zone, struct mem_block *block) {
 		
 	if (!zone->used_list) {
 		print_string("The zone's used_list is empty yet we are tring to free block=");
-		print_int32(block); print_string(", which is BAD.\n");
+		print_ptr(block); print_string(", which is BAD.\n");
 		return;
 	}
 
@@ -525,7 +527,7 @@ static void zone_remove_used(struct order_zone* zone, struct mem_block *block) {
 	while(predecessor->next != block) {
 		predecessor = predecessor->next;
 		if (!predecessor) {
-			print_string("Could not find block="); print_int32(block);
+			print_string("Could not find block="); print_ptr(block);
 			print_string(" in the used_list of zone"); print_int32(zone->order);
 			print_string(" which is BAD.\n");
 			return;
@@ -549,7 +551,7 @@ static void zone_remove_free(struct order_zone* zone, struct mem_block *block) {
 		
 	if (!zone->free_list) {
 		print_string("The zone's used_list is empty yet we are tring to free block=");
-		print_int32(block); print_string(", which is BAD.\n");
+		print_ptr(block); print_string(", which is BAD.\n");
 		return;
 	}
 
@@ -562,7 +564,7 @@ static void zone_remove_free(struct order_zone* zone, struct mem_block *block) {
 	while(predecessor->next != block) {
 		predecessor = predecessor->next;
 		if (!predecessor) {
-			print_string("Could not find block="); print_int32(block);
+			print_string("Could not find block="); print_ptr(block);
 			print_string(" in the used_list of zone "); print_int32(zone->order);
 			print_string(" which is BAD.\n");
 			return;
@@ -600,7 +602,7 @@ static struct mem_block *get_block_buddy(struct order_zone *zone, struct mem_blo
 	print_string("block="); print_int32(block);
 	print_string(",&mem_block_pool[0]="); print_int32(&mem_block_pool[0]);
 	print_string(",block_pool_index="); print_int32(block_pool_index); print_string("\n");
-	/**/
+	*/
 
 	/*
 	  I'm not really able to think of the specific reason but I just know
@@ -852,8 +854,8 @@ void static print_order_zone(const struct order_zone *const zone) {
 	const int num_block_pages = 1 << (zone->order);
 
 	print_string("Zone: "); 			print_int32(zone->order);
-	print_string(" free_list: ");	print_int32(zone->free_list);
-	print_string(" free_list->next: ");	print_int32(zone->free_list->next);
+	print_string(" free_list: ");	print_ptr(zone->free_list);
+	print_string(" free_list->next: ");	print_ptr(zone->free_list->next);
 	print_string(" blocks: ");			print_int32(zone->num_blocks);
 	print_string(" pages_per_block: ");	print_int32(num_block_pages);
 	print_string(" total_size: ");		print_int32(num_block_pages * PAGE_SIZE * zone->num_blocks);
@@ -1023,7 +1025,7 @@ static struct memory_object *object_remove_used(struct memory_object_cache *cach
 
 	if (!mo) {
 		print_string("cache-"); print_int32(cache->order);
-		print_string(" has no mo for addr="); print_int32(addr);
+		print_string(" has no mo for addr="); print_int32((int)addr);
 		print_string("\n");
 		return NULL;
 	}
@@ -1085,7 +1087,7 @@ uint8_t *object_alloc(int sz) {
  * @return struct memory_object_header*
  */
 static struct memory_object_header *get_header(uint8_t *addr) {
-	struct memory_object_header *moh = addr - sizeof(struct memory_object_header);
+	struct memory_object_header *moh = (struct memory_object_header *) (addr - sizeof(struct memory_object_header));
 
 	return moh;
 }
@@ -1128,7 +1130,7 @@ void memory_object_cache_init(struct memory_object_cache *cache, int order) {
 		return;
 
 	header_addr = NULL;
-	next_header_addr = object_block->addr;
+	next_header_addr = (uint8_t *) object_block->addr;
 
 	cache->free_objects = (struct memory_object *) next_header_addr;
 	cache->object_block_ptr = object_block;
@@ -1142,7 +1144,7 @@ void memory_object_cache_init(struct memory_object_cache *cache, int order) {
 		header_addr = next_header_addr;
 		next_header_addr = header_addr + skip_size;
 
-		init_memory_object((struct memory_object*)header_addr, cache->order, cache->object_size, next_header_addr);
+		init_memory_object((struct memory_object*)header_addr, cache->order, cache->object_size, (struct memory_object *) next_header_addr);
 		cache->free++;
 
 		init_object_count++;

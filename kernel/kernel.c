@@ -24,7 +24,7 @@ static char *kernel_load_message = "Kernel loaded and running.\n";
 
 extern struct folder root_folder;
 
-extern system_test(void);
+extern void system_test(void);
 
 /**
  * init - Initialize system components.
@@ -80,4 +80,7 @@ int main(void) {
 	*/
 	system_test();
 	exec_main_shell();
+
+	// We should never reach here.
+	INFINITE_LOOP();
 }

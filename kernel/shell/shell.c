@@ -34,7 +34,7 @@ static char* known_commands[NUM_KNOWN_COMMANDS] = {
 	"disk-id",
 	"cd"
 };
-static const char prompt[MAX_FILENAME_LENGTH + 3];
+static char prompt[MAX_FILENAME_LENGTH + 3];
 static const char stub[3] = "$ ";
 
 static struct fs_context current_fs_ctx = {
@@ -58,7 +58,7 @@ int change_directory(char *target_dir_name) {
     current_fs_ctx.working_directory_chain->tail->next = new_link;
     current_fs_ctx.working_directory_chain->tail = new_link;
 
-    clear_buffer(prompt, MAX_FILENAME_LENGTH + 3);
+    clear_buffer((uint8_t *) prompt, MAX_FILENAME_LENGTH + 3);
     memory_copy(target_dir_name, prompt, strlen(target_dir_name));
     memory_copy(stub, prompt + strlen(target_dir_name), 2);
     return error;
@@ -82,7 +82,7 @@ static void exec_known_cmd(const int cmd) {
 
 		if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
 			print_string("Failed to get dir_info for [fnode=");
-			print_int32(current_fs_ctx.curr_dir_fnode);
+			print_ptr(current_fs_ctx.curr_dir_fnode);
 			print_string("]\n");
 			return;
 		}
@@ -96,7 +96,7 @@ static void exec_known_cmd(const int cmd) {
 		struct file_creation_info info = {
 			.name = "new_file",
 			.file_size = strlen(text),
-			.file_content = text
+			.file_content = (uint8_t *) text
 		};
 
 		print_string("One new file coming right up!\n");
@@ -129,7 +129,7 @@ static void exec_known_cmd(const int cmd) {
 	case 7: {
 		char dir_name[MAX_FILENAME_LENGTH] = "new_folder";
 
-		clear_buffer(dir_name + strlen(dir_name), MAX_FILENAME_LENGTH - strlen(dir_name));
+		clear_buffer((uint8_t *)dir_name + strlen(dir_name), MAX_FILENAME_LENGTH - strlen(dir_name));
 		if (change_directory(dir_name))
 			print_string("Error: unable to change directory.\n");
 
@@ -202,7 +202,7 @@ static bool process_new_scancodes(const int offset, const int num_new_characters
 
 			exec(execution_bounce_buffer);
 
-			clear_buffer(execution_bounce_buffer, SHELL_CMD_INPUT_LIMIT);
+			clear_buffer((uint8_t *) execution_bounce_buffer, SHELL_CMD_INPUT_LIMIT);
 			last_executed_pos_ = ascii_buffer_head_;
 		} else {
 			int write_pos = ascii_buffer_head_++ % SHELL_CMD_INPUT_LIMIT;
@@ -221,14 +221,14 @@ static void show_prompt(void) {
 void main_shell_init(void) {
 	current_fs_ctx.curr_dir_fnode_location = root_dir_entry.fnode_location;
 	current_fs_ctx.curr_dir_fnode = &root_fnode;
-	current_fs_ctx.working_directory_chain = object_alloc(sizeof(struct directory_chain));
+	current_fs_ctx.working_directory_chain = (struct directory_chain *) object_alloc(sizeof(struct directory_chain));
 	current_fs_ctx.working_directory_chain->head = (struct directory_chain_link *) object_alloc(sizeof(struct directory_chain_link));
 	current_fs_ctx.working_directory_chain->head->id = root_fnode.id;
 	current_fs_ctx.working_directory_chain->head->next = NULL;
 	current_fs_ctx.working_directory_chain->head->prev = NULL;
 	current_fs_ctx.working_directory_chain->tail = current_fs_ctx.working_directory_chain->head;
 
-	memory_copy(&root_dir_entry.name, prompt, strlen(root_dir_entry.name));
+	memory_copy((char *)&root_dir_entry.name, prompt, strlen(root_dir_entry.name));
 	memory_copy(stub, prompt + strlen(root_dir_entry.name), 2);
 }
 

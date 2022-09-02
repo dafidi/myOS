@@ -124,8 +124,10 @@ static enum sys_error __read_from_disk(enum disk_channel channel, enum drive_cla
 		int drq_sectors = to_read > device_data.CURRENT_DRQ_DATA_BLOCK ? device_data.CURRENT_DRQ_DATA_BLOCK : to_read;
 
 		err = __read_sectors_from_disk(&config, drq_sectors, buffer + sectors_read * SECTOR_SIZE);
-		if (err)
+		if (err) {
+			__display_registers(&config);
 			return err;
+		}
 
 		to_read -= drq_sectors;
 		sectors_read += drq_sectors;
@@ -163,7 +165,7 @@ static enum sys_error __read_from_disk(enum disk_channel channel, enum drive_cla
  */
 static enum sys_error __write_to_disk(enum disk_channel channel, enum drive_class class, lba_t block_address, int n_sectors, void *buffer) {
 	struct ata_port_config config;
-	int command, flush;
+	int command;
 
 	if (n_sectors < 0)
 		return -1;
@@ -219,7 +221,7 @@ int write_to_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
 	if (rem) {
 		int final_write_block_idx = block_address + full_sectors;
 
-		clear_buffer(flush_buffer, FLUSH_BUFFER_SIZE);
+		clear_buffer((uint8_t *) flush_buffer, FLUSH_BUFFER_SIZE);
 
 		read_from_storage_disk(final_write_block_idx, SECTOR_SIZE, flush_buffer);
 
@@ -250,9 +252,9 @@ int read_from_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
 		error = __read_from_disk(PRIMARY, SLAVE, block_address, full_sectors, buffer);
 
 	if (!error && rem) {
-		clear_buffer(flush_buffer, FLUSH_BUFFER_SIZE);
+		clear_buffer((uint8_t * ) flush_buffer, FLUSH_BUFFER_SIZE);
 
-		error = __read_from_disk(PRIMARY, SLAVE, block_address + full_sectors, 1, flush_buffer);
+		error = __read_from_disk(PRIMARY, SLAVE, block_address + full_sectors, 1, (uint8_t *) flush_buffer);
 
 		memory_copy(flush_buffer, buffer + full_sectors * SECTOR_SIZE, rem);
 	}
@@ -260,7 +262,7 @@ int read_from_storage_disk(lba_t block_address, int n_bytes, void* buffer) {
 	return error;
 }
 
-static display_device_data(void) {
+static void display_device_data(void) {
 	print_string("MAX_DRQ_DATA_BLOCK="); print_int32(device_data.MAX_DRQ_DATA_BLOCK);
 	print_string("\nword47_reserved="); print_int32(device_data.word47_reserved);
 	print_string("\nCURRENT_DRQ_DATA_BLOCK="); print_int32(device_data.CURRENT_DRQ_DATA_BLOCK);
@@ -273,7 +275,7 @@ void identify_device(void) {
 
 	assign_ata_ports(SLAVE, &config);
 
-	clear_buffer(&device_data, sizeof(struct identify_device_data));
+	clear_buffer((uint8_t *) &device_data, sizeof(struct identify_device_data));
 
 	disable_interrupts();
 

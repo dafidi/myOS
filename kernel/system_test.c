@@ -1,5 +1,7 @@
 #include "mm.h"
+#include <drivers/disk/disk.h>
 #include <fs/filesystem.h>
+#include "print.h"
 #include "string.h"
 
 extern struct order_zone order_zones[];
@@ -64,8 +66,7 @@ static bool mem_zone_test(void) {
 	*/
 	struct mem_block *auxillary_block, **auxillary_storage_region;
 	struct order_zone *test_zone, *auxillary_zone;
-	int test_zone_order, auxillary_zone_order;
-	int auxillary_storage_needed;
+	int test_zone_order;
     bool failed = false;
 	int to_alloc;
 
@@ -101,7 +102,7 @@ static bool mem_zone_test(void) {
 		if (auxillary_zone == test_zone)
 			goto skip_test2;
 		auxillary_block = zone_alloc(ORDER_SIZE(auxillary_zone->order));
-		auxillary_storage_region = auxillary_block->addr;
+		auxillary_storage_region = (struct mem_block **) auxillary_block->addr;
 
 		to_alloc = test_zone->free;
 		// Exhaust the zone - allocate all its blocks.
@@ -111,7 +112,7 @@ static bool mem_zone_test(void) {
 
 			// Let's not print everthing; zone's have thousands of blocks.
 			if (i > to_alloc - 8) {
-				print_int32(tmp_block);
+				print_int32((uint32_t)tmp_block);
 				print_string((i < to_alloc - 1 ? "," : ""));
 			}
 
@@ -136,7 +137,7 @@ static bool mem_zone_test(void) {
 			struct mem_block *tmp_block = auxillary_storage_region[i];
 
 			if (i > to_alloc - 8) {
-				print_int32(tmp_block);
+				print_int32((uint32_t) tmp_block);
 				print_string((i < to_alloc - 1 ? "," : ""));
 			}
 
@@ -163,7 +164,7 @@ skip_test2:
 
 		auxillary_zone = get_auxillary_zone(test_zone);
 		auxillary_block = zone_alloc(ORDER_SIZE(auxillary_zone->order));
-		auxillary_storage_region = auxillary_block->addr;
+		auxillary_storage_region = (struct mem_block **) auxillary_block->addr;
 
 		to_alloc = test_zone->free;
 		print_string("alloced: ");
@@ -172,7 +173,7 @@ skip_test2:
 
 			// Let's not print everthing; zone's have thousands of blocks.
 			if (i > to_alloc - 8) {
-				print_int32(tmp_block);
+				print_int32((uint32_t) tmp_block);
 				print_string((i < to_alloc - 1 ? "," : ""));
 			}
 
@@ -195,7 +196,7 @@ skip_test2:
 
 			// Let's not print everthing; zone's have thousands of blocks.
 			if (i > to_alloc - 8) {
-				print_int32(tmp_block);
+				print_int32((uint32_t) tmp_block);
 				print_string((i < to_alloc - 1 ? "," : ""));
 			}
 
@@ -206,7 +207,6 @@ skip_test2:
 	}
 	/* END OF TEST 3. */
 
-skip_test3:
 	return failed;
 }
 
