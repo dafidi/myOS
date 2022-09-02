@@ -32,9 +32,6 @@ uint8_t *sector_bitmap;
 // On init, we set this to the max fnode ID seen among pre-existing files + 1.
 uint32_t NEXT_FNODE_ID = 0;
 
-void load_root_fnode(struct fnode *_fnode) {
-}
-
 /**
  * @brief Set num_bits bits within a disk sector.
  * 
@@ -96,7 +93,7 @@ void sector_bitmap_unset(uint32_t start_bit, uint64_t num_bits) {
 }
 
 /**
- * validate_directory_chain - Check via the on-disk source of truth whether a
+ * @brief Check via the on-disk source of truth whether a
  * path (represented by the chain) is still valid.
  *
  * Fills in the fnode information for the innermost (tail) directory
@@ -155,6 +152,12 @@ int validate_directory_chain(struct directory_chain *chain, struct fnode *tail_d
     return chain_valid ? 0 : -1;
 }
 
+/**
+ * @brief List out the files and folders in the innermost directory
+ * in the given directory_chain.
+ *
+ * @param chain - directory path representation.
+ */
 int list_dir_content(struct directory_chain *chain) {
     struct fnode_location_t tail_dir_fnode_location;
     struct fnode tail_dir_fnode;
@@ -168,6 +171,18 @@ int list_dir_content(struct directory_chain *chain) {
     return 0;
 }
 
+/**
+ * @brief Look for a file or folder named name within the
+ * directory represented by dir_fnode.
+ *
+ * If found, put the fnode information of the file/folder in result_fnode.
+ *
+ * @param name - name of the file/folder being searched for.
+ * @param dir_fnode - fnode of the folder where we should search for the
+ *        file/folder.
+ * @param result_fnode - if file/folder named name is found, this points to an fnode
+ *        containing information about this file.
+ */
 int search_name_in_directory(char *name, struct fnode* dir_fnode, struct fnode *result_fnode) {
     uint8_t *buffer = object_alloc(dir_fnode->size);
     const int name_len = strlen(name);
@@ -198,6 +213,18 @@ int search_name_in_directory(char *name, struct fnode* dir_fnode, struct fnode *
     return -1;
 }
 
+/**
+ * @brief Search for a file/folder in the innermost folder of a directory_chain.
+ *
+ * Although the logic seems to apply to both files and folders, the description
+ * is targeted at folders because this function was initially written for the
+ * purpose of handling a change-directory command where we would be looking for
+ * target directory in the chain'd innermost directory.
+ *
+ * @param chain
+ * @param target_dir_name
+ * @param result_fnode
+ */
 int fs_search(struct directory_chain *chain, char* target_dir_name, struct fnode *result_fnode) {
     struct fnode_location_t tail_dir_fnode_location;
     struct fnode tail_dir_fnode;
@@ -215,6 +242,15 @@ int fs_search(struct directory_chain *chain, char* target_dir_name, struct fnode
     return 0;
 }
 
+/** @brief Search for num_fnodes free fnodes.
+ *
+ * This amounts to looking for the num_fnodes unset bits within the fnode bitmap
+ * and is made complicated by the fact that the fnode_bitmap (for now) resides on
+ * disk.
+ *
+ * @param num_fnodes
+ * @Param fnode_indexes an output array of the indexes of the free fnodes found.
+ */
 int query_free_fnodes(int num_fnodes, struct fnode_location_t *fnode_indexes) {
     int visit_count = 0, free_count = 0, fnode_bitmap_current_sector_offset = 0;
     const int fnode_bitmap_start_sector = master_record.fnode_bitmap_start_sector;
@@ -284,6 +320,15 @@ exit_with_alloc:
     return error;
 }
 
+/**
+ * @brief Search for unused sectors.
+ *
+ * Find num_sectors unused sectors. This amounts to  search for num_sectors unset bits
+ * in the sector_bitmap and is complicated by the fact sector_bitmap is on-disk.
+ *
+ * @param num_sectors
+ * @param sector_indexes output array of indexes of free sectors.
+ */
 int query_free_sectors(int num_sectors, int *sector_indexes) {
     int bitmap_sector = (master_record.data_blocks_start_sector / BITS_PER_BYTE) >> SECTOR_SIZE_SHIFT;
     const int sector_total = master_record.sector_bitmap_size * BITS_PER_BYTE;
@@ -342,6 +387,12 @@ exit_with_alloc:
     return error;
 }
 
+/**
+ * @brief Save the contents of the firl described by file_info to disk.
+ *
+ * @param fnode fnode of the file to be saved to disk.
+ * @param file_info
+ */
 int save_file(struct fnode *fnode, struct file_creation_info *file_info) {
     int error = 0, written = 0, to_write, sectors_written = 0;
     uint8_t *data = file_info->file_content;
@@ -366,6 +417,12 @@ int save_file(struct fnode *fnode, struct file_creation_info *file_info) {
     return error;
 }
 
+/**
+ * @brief Save the content of the folder described by fnode to disk.
+ *
+ * @param fnode
+ * @param folder_info
+ */
 int save_folder(struct fnode *fnode, struct folder_creation_info *folder_info) {
     int error = 0, written = 0, to_write, sectors_written = 0;
     const int sz = folder_info->size;
@@ -390,6 +447,12 @@ int save_folder(struct fnode *fnode, struct folder_creation_info *folder_info) {
     return error;
 }
 
+/**
+ * @brief Write an fnode to disk.
+ *
+ * @param location on-disk location wher the fnode whould be written.
+ * @param fnode the fnode to be written.
+ */
 int save_fnode(struct fnode_location_t *location, struct fnode *fnode) {
     uint8_t *sector_buffer;
     int error = 0;
@@ -422,6 +485,13 @@ void unsave_fnode(struct fnode_location_t location) {
     // TODO.
 }
 
+/**
+ * @brief Extend a directory fnode's content (on-disk) by one dir_entry.
+ *
+ * @param dir_fnode_location
+ * @param dir_fnode
+ * @param new_entry
+ */
 int add_dir_entry(struct fnode_location_t *dir_fnode_location, struct fnode *dir_fnode, struct dir_entry *new_entry) {
     uint8_t *sector_buffer, *sector_buffer_backup, *dir_info_buffer_backup = NULL;
     int last_sector_idx, used_in_last_sector, space_in_last_sector;
@@ -552,6 +622,13 @@ exit:
     return error;
 }
 
+/**
+ * @brief Create a new file within the innermost directory of the direcotory chain
+ * of the supplied filesystem context.
+ *
+ * @param ctx
+ * @param file_info
+ */
 int create_file(struct fs_context *ctx, struct file_creation_info *file_info) {
     struct fnode_location_t parent_fnode_location, new_fnode_location;
     int sz = file_info->file_size, sz_sectors = 1;
@@ -628,6 +705,13 @@ free_sectors:
     return -1;
 }
 
+/**
+ * @brief Create a new folder within the innermost directory of the supplied filesystem
+ * context's chain.
+ *
+ * @param ctx
+ * @param folder_info
+ */
 int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_info) {
     struct fnode_location_t parent_fnode_location, new_fnode_location;
     int sz = sizeof(struct dir_info), sz_sectors = 1;
@@ -714,6 +798,13 @@ free_sectors:
     return -1;
 }
 
+/**
+ * @brief Read the content of directory associated with the provided fnode into the provided
+ * buffer.
+ *
+ * @param dir_fnode
+ * @param buffer
+ */
 int read_dir_content(const struct fnode *dir_fnode, uint8_t *buffer) {
     int buffer_top = 0, amt_read = 0, fnode_sector_idx = 0;
 
@@ -731,10 +822,37 @@ int read_dir_content(const struct fnode *dir_fnode, uint8_t *buffer) {
     return amt_read;
 }
 
-void print_dir_entry(const struct dir_entry *dir_entry) {
-    print_string("dir-entry: "); print_string(dir_entry->name); print_string("\n");
+/**
+ * @brief Pretty-print an fnode_location struct.
+ *
+ * @param location
+ */
+void print_fnode_location(const struct fnode_location_t *location) {
+    print_string("[ ");
+    print_int32(location->fnode_table_index);
+    print_string(", ");
+    print_int32(location->fnode_sector_index);
+    print_string(", ");
+    print_int32(location->offset_within_sector);
+    print_string(" ]");
 }
 
+/**
+ * @brief Pretty-print a dir_entry struct.
+ *
+ * @param dir_entry
+ */
+void print_dir_entry(const struct dir_entry *dir_entry) {
+    print_string("dir-entry: ");
+    print_string(dir_entry->name); print_string(" ");
+    print_fnode_location(&dir_entry->fnode_location); print_string("\n");
+}
+
+/**
+ * @brief List the contents of the directory pointed to by the given fnode.
+ *
+ * @param dir_fnode
+ */
 void show_dir_content(const struct fnode *dir_fnode) {
     struct dir_entry *dir_entry;
     struct dir_info *dir_info;
@@ -767,6 +885,11 @@ void show_dir_content(const struct fnode *dir_fnode) {
     object_free(buffer);
 }
 
+/**
+ * @brief Read in the fnode of the provided directory entry.
+ *
+ * @param fnode_ptr
+ */
 int get_fnode(struct dir_entry *entry, struct fnode* fnode_ptr) {
     uint8_t *buffer = object_alloc(SECTOR_SIZE);
 
@@ -781,12 +904,22 @@ int get_fnode(struct dir_entry *entry, struct fnode* fnode_ptr) {
     return 0;
 }
 
+/**
+ * @brief Read in the info of the directory pointed to by the given fnode.
+ *
+ * @param fnode
+ * @param output buffer where the struct dir_info is written.
+ */
 int get_dir_info(struct fnode *fnode, struct dir_info *dir_info) {
     return read_from_storage_disk(fnode->sector_indexes[0], sizeof(struct dir_info), (uint8_t *) dir_info);
 }
 
-
-
+/**
+ * @brief Set on the sector_bitmap the corresponding bits of the sectors occupied
+ * by this fnode's content.
+ *
+ * @param _fnode
+ */
 void record_fnode_sector_bits(const struct fnode *_fnode) {
     int bytes_tracked = 0, sector_index = 0;
 
@@ -842,6 +975,11 @@ void __init_usage_bits(const struct fnode *_fnode) {
     object_free(buffer);
 }
 
+/**
+ * @brief Initialize the sector_bitmap and the fnode_bitmap by setting the bits
+ * for the files that any files that are already on the system.
+ *
+ */
 void init_fnode_bits(void) {
     // Record sectors used by the root_fnode content (dir_entrys).
     record_fnode_sector_bits(&root_fnode);
@@ -891,6 +1029,10 @@ void init_usage_bits(void) {
     print_string("d_b done\n");
 }
 
+/**
+ * @brief Read in the root fnode struct.
+ *
+ */
 void init_root_fnode(void) {
     root_dir_entry.fnode_location = master_record.root_dir_fnode_location;
     if (get_fnode(&root_dir_entry, &root_fnode)) {
@@ -900,10 +1042,18 @@ void init_root_fnode(void) {
     root_dir_entry.size = root_fnode.size;
 }
 
+/**
+ * @brief Initialize the master_record.
+ *
+ */
 void init_master_record(void) {
     read_from_storage_disk(0, sizeof(struct fs_master_record), &master_record);
 }
 
+/**
+ * @brief Initialize the filesystem.
+ *
+ */
 void init_fs(void) {
     init_master_record();
 
@@ -911,3 +1061,4 @@ void init_fs(void) {
 
     init_usage_bits();
 }
+
