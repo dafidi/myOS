@@ -89,8 +89,8 @@ struct directory_chain {
 };
 
 struct fs_context {
-	struct fnode *curr_dir_fnode;
-	struct fnode_location_t curr_dir_fnode_location;
+    struct fnode *curr_dir_fnode;
+    struct fnode_location_t curr_dir_fnode_location;
     struct directory_chain *working_directory_chain;
 };
 

@@ -13,12 +13,12 @@
  */
 #define time_op(op, delta, val) {             							\
     int start_time, end_time; 								            \
-																        \
+                                                                        \
     start_time = mark_time(); 	                                        \
-	val = op;                           								\
-	end_time = mark_time();		  								        \
-																        \
-	delta = end_time - start_time;										\
+    val = op;                           								\
+    end_time = mark_time();		  								        \
+                                                                        \
+    delta = end_time - start_time;										\
 }
 
 void init_timer(void);

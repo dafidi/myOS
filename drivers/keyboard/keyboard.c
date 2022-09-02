@@ -12,22 +12,22 @@ extern bool processing_input_;
 int ignored_because_buffer_full_count_ = 0;
 
 void keyboard_handler(struct registers* r) {
-	uint8_t scancode;
+    uint8_t scancode;
 
-	if (shell_input_counter_ - last_processed_pos_ == SHELL_CMD_INPUT_LIMIT) {
-		ignored_because_buffer_full_count_++;
-		return;
-	}
+    if (shell_input_counter_ - last_processed_pos_ == SHELL_CMD_INPUT_LIMIT) {
+        ignored_because_buffer_full_count_++;
+        return;
+    }
 
-	scancode = port_byte_in(KEYBOARD_DATA_REGISTER_PORT);
+    scancode = port_byte_in(KEYBOARD_DATA_REGISTER_PORT);
 
-	shell_scancode_buffer[shell_input_counter_++ % SHELL_CMD_INPUT_LIMIT] = scancode;
+    shell_scancode_buffer[shell_input_counter_++ % SHELL_CMD_INPUT_LIMIT] = scancode;
 }
 
 void install_keyboard(void) {
-	install_irq(1, keyboard_handler);
+    install_irq(1, keyboard_handler);
 }
 
 void init_keyboard(void) {
-	install_keyboard();
+    install_keyboard();
 }

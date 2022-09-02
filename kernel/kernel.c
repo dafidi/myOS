@@ -30,30 +30,30 @@ extern void system_test(void);
  * init - Initialize system components.
  */
 void init(void) {
-	/* Set up fault handlers and interrupt handlers */
-	/* but do not enable interrupts. */
-	init_interrupts();
+    /* Set up fault handlers and interrupt handlers */
+    /* but do not enable interrupts. */
+    init_interrupts();
 
-	/* Set up system's timer. */
-	init_timer();
+    /* Set up system's timer. */
+    init_timer();
 
-	/* Set up memory management. */
-	init_mm();
+    /* Set up memory management. */
+    init_mm();
 
-	/* Set up disk. */
-	init_disk();
+    /* Set up disk. */
+    init_disk();
 
-	/* Set up task management. */
-	init_task_system();
+    /* Set up task management. */
+    init_task_system();
 
-	/* Set up fs. */
-	init_fs();
-	
-	/* Setup keyboard */
-	init_keyboard();
+    /* Set up fs. */
+    init_fs();
+    
+    /* Setup keyboard */
+    init_keyboard();
 
-	/* Let the fun begin, enable interrupts. */
-	start_interrupts();
+    /* Let the fun begin, enable interrupts. */
+    start_interrupts();
 }
 
 extern struct order_zone order_zones[];
@@ -62,25 +62,25 @@ extern struct order_zone order_zones[];
  * main - main kernel execution starting point.
  */
 int main(void) {
-	print_string(kernel_load_message);
-	init();
-	print_string(kernel_init_message);
+    print_string(kernel_load_message);
+    init();
+    print_string(kernel_init_message);
 
-	/*
-	struct file file;
-	int status;
+    /*
+    struct file file;
+    int status;
 
-	status = find_file(&root_folder, "app.bin", &file);
-	if (status != 0) {
-		print_string("file not found.");
-		PAUSE();
-	}
+    status = find_file(&root_folder, "app.bin", &file);
+    if (status != 0) {
+        print_string("file not found.");
+        PAUSE();
+    }
 
-	execute_binary_file(&file);
-	*/
-	system_test();
-	exec_main_shell();
+    execute_binary_file(&file);
+    */
+    system_test();
+    exec_main_shell();
 
-	// We should never reach here.
-	INFINITE_LOOP();
+    // We should never reach here.
+    INFINITE_LOOP();
 }

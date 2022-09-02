@@ -34,7 +34,7 @@ uint32_t NEXT_FNODE_ID = 0;
 
 /**
  * @brief Set num_bits bits within a disk sector.
- * 
+ *
  * @param start_bit
  * @param num_bits
  * @param start_sector
@@ -200,7 +200,7 @@ int search_name_in_directory(char *name, struct fnode* dir_fnode, struct fnode *
             continue;
 
         if (strmatchn(dir_entry->name, name, entry_name_len)) {
-	    get_fnode(dir_entry, result_fnode);
+            get_fnode(dir_entry, result_fnode);
             target_found = true;
             break;
         }
@@ -934,7 +934,7 @@ void record_fnode_sector_bits(const struct fnode *_fnode) {
 /**
  * @brief Recursively record in the fnode bitmap and sector bitmap the bits used by
  * the contents of a folder.
- * 
+ *
  * @param _fnode (MUST HAVE type = FOLDER)
  */
 void __init_usage_bits(const struct fnode *_fnode) {
@@ -956,7 +956,7 @@ void __init_usage_bits(const struct fnode *_fnode) {
 
         // Mark the fnode used by this entry in the fnode bitmap.
         fnode_bitmap_set(dir_entry->fnode_location.fnode_table_index, 1);
-        
+
         // Read in the sector containing the fnode for this dir_entry.
         read_from_storage_disk(dir_entry->fnode_location.fnode_sector_index, SECTOR_SIZE, &sector_buffer);
         __fnode = (struct fnode *) &sector_buffer[dir_entry->fnode_location.offset_within_sector];
@@ -993,7 +993,7 @@ void init_fnode_bits(void) {
 
 /**
  * @brief Initialize the fnode_bitmap and sector_bitmap.
- * 
+ *
  */
 void init_usage_bits(void) {
     uint32_t start_bit;

@@ -62,35 +62,35 @@
 typedef uint32_t lba_t;
 
 enum disk_channel {
-	PRIMARY,
-	SECONDARY 
+    PRIMARY,
+    SECONDARY 
 };
 
 enum drive_class {
-	MASTER,
-	SLAVE
+    MASTER,
+    SLAVE
 };
 
 struct ata_port_config {
-	uint16_t drive_select_port;
-	uint16_t sector_count_port;
-	uint16_t lba_high_port;
-	uint16_t lba_low_port;
-	uint16_t lba_mid_port;
-	uint16_t command_port;
-	uint16_t status_port;
-	uint16_t error_port;
-	uint16_t data_port;
+    uint16_t drive_select_port;
+    uint16_t sector_count_port;
+    uint16_t lba_high_port;
+    uint16_t lba_low_port;
+    uint16_t lba_mid_port;
+    uint16_t command_port;
+    uint16_t status_port;
+    uint16_t error_port;
+    uint16_t data_port;
 }__attribute__((packed));
 
 struct identify_device_data {
-	uint16_t reserved0[47];
-	uint8_t MAX_DRQ_DATA_BLOCK;
-	uint8_t word47_reserved;
-	uint16_t reserved1[11];
-	uint8_t CURRENT_DRQ_DATA_BLOCK;
-	uint8_t word59_byte1;
-	uint16_t reserved2[196];
+    uint16_t reserved0[47];
+    uint8_t MAX_DRQ_DATA_BLOCK;
+    uint8_t word47_reserved;
+    uint16_t reserved1[11];
+    uint8_t CURRENT_DRQ_DATA_BLOCK;
+    uint8_t word59_byte1;
+    uint16_t reserved2[196];
 }__attribute__((packed));
 
 void init_disk(void);

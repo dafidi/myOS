@@ -9,17 +9,17 @@ extern void enable_interrupts(void);
 extern void initialize_idt(void);
 
 static void init_interrupts(void) {
-	idt_info_ptr.base = (u32) (&idt[0]);
-	idt_info_ptr.limit = sizeof(struct idt_entry) * 256;
+    idt_info_ptr.base = (u32) (&idt[0]);
+    idt_info_ptr.limit = sizeof(struct idt_entry) * 256;
 
-	initialize_idt();
+    initialize_idt();
 
-	install_isrs();
-	install_irqs();
+    install_isrs();
+    install_irqs();
 }
 
 static void start_interrupts(void) {
-	enable_interrupts();
+    enable_interrupts();
 }
 
 #endif // __INTERRUPTS_H__
