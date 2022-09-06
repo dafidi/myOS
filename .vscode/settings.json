@@ -3,6 +3,11 @@
     "keyboard.h": "c",
     "screen.h": "c",
     "fs.h": "c",
-    "print.h": "c"
-  }
+    "print.h": "c",
+    "string.h": "c",
+    "system.h": "c"
+  },
+  "C_Cpp.default.includePath": [
+    "${workspaceFolder}"
+  ]
 }

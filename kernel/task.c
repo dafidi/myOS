@@ -86,20 +86,20 @@ void configure_user_tss(task_info* task) {
 void load_task_into_ram(task_info *task) {
     int start_sector = task->start_disk_sector;
     pa_t write_pos = task->start_phy_addr;
-	int app_size = task->mem_required;
-	int amt_left = app_size;
-	int amt_read = 0;
+    int app_size = task->mem_required;
+    int amt_left = app_size;
+    int amt_read = 0;
 
-	while(amt_left) {
-		int chunk_size = amt_left > 8192 ? 8192 : amt_left;
-		int sector_offset = amt_read / 512 /* size of a sector. */;
+    while(amt_left) {
+        int chunk_size = amt_left > 8192 ? 8192 : amt_left;
+        int sector_offset = amt_read / 512 /* size of a sector. */;
 
-		read_from_storage_disk(start_sector + sector_offset, chunk_size, (void *)write_pos);
+        read_from_storage_disk(start_sector + sector_offset, chunk_size, (void *)write_pos);
 
-		amt_left -= chunk_size;
-		write_pos += chunk_size;
-		amt_read += chunk_size;
-	}
+        amt_left -= chunk_size;
+        write_pos += chunk_size;
+        amt_read += chunk_size;
+    }
 }
 
 /**
@@ -123,7 +123,11 @@ int prepare_for_task_switch(task_info *task) {
     
     if (reserve_and_map_user_memory(task->start_virt_addr, task->start_phy_addr, requested_memory) != 0)
         return -1;
-    
+
+    configure_user_tss(task);
+
+    load_task_into_ram(task);
+
     return 0;
 }
 
@@ -151,11 +155,8 @@ int clean_up_after_task(task_info *task) {
 void exec_waiting_tasks(void) { }
 
 void exec_task(struct task_info *task) {
-    prepare_for_task_switch(task);
-
-    configure_user_tss(task);
-
-    load_task_into_ram(task);
+    if (prepare_for_task_switch(task))
+        return;
 
     print_string("attempting task switch.\n");
     switch_to_user_task();
@@ -166,8 +167,8 @@ void exec_task(struct task_info *task) {
 
 void init_task_system(void) {
     // Set kernel and user TSS descriptors in GDT.
-	make_gdt_entry(&pm_gdt[KERNEL_TSS_DESCRIPTOR_IDX], sizeof(kernel_tss), (unsigned int) &kernel_tss, 0x9, 0x18);
-	make_gdt_entry(&pm_gdt[USER_TSS_DESCRIPTOR_IDX], sizeof(user_tss), (unsigned int) &user_tss, 0x9, 0x1e);
+    make_gdt_entry(&pm_gdt[KERNEL_TSS_DESCRIPTOR_IDX], sizeof(kernel_tss), (unsigned int) &kernel_tss, 0x9, 0x18);
+    make_gdt_entry(&pm_gdt[USER_TSS_DESCRIPTOR_IDX], sizeof(user_tss), (unsigned int) &user_tss, 0x9, 0x1e);
 
     configure_kernel_tss();
 

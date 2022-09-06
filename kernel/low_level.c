@@ -6,12 +6,12 @@
  * @returns: one byte read from an I/O port.
  */
 unsigned char port_byte_in(unsigned short port) {
-	// Reads a byte from the specified port.
-	// "=a" (result) means: put AL register in variable RESULT when finished
-	// "d" (port) means: load EDX with port
-	unsigned char result;
-	__asm__("in %%dx, %%al" : "=a" (result) : "d" (port));
-	return result;
+    // Reads a byte from the specified port.
+    // "=a" (result) means: put AL register in variable RESULT when finished
+    // "d" (port) means: load EDX with port
+    unsigned char result;
+    __asm__("in %%dx, %%al" : "=a" (result) : "d" (port));
+    return result;
 }
 
 /**
@@ -22,9 +22,9 @@ unsigned char port_byte_in(unsigned short port) {
  * @returns: one word read from an I/O port.
  */
 unsigned short port_word_in(unsigned short port) {
-	unsigned short result;
-	__asm__("in %%dx, %%ax" : "=a" (result) : "d" (port));
-	return result;
+    unsigned short result;
+    __asm__("in %%dx, %%ax" : "=a" (result) : "d" (port));
+    return result;
 }
 
 /**
@@ -37,9 +37,9 @@ unsigned short port_word_in(unsigned short port) {
  * @returns: one double-word read from an I/O port.
  */
 unsigned long port_long_in(unsigned short port) {
-	unsigned long result;
-	__asm__("in %%dx, %%eax" : "=a" (result) : "d" (port));
-	return result;
+    unsigned long result;
+    __asm__("in %%dx, %%eax" : "=a" (result) : "d" (port));
+    return result;
 }
 
 /**
@@ -49,9 +49,9 @@ unsigned long port_long_in(unsigned short port) {
  * @data: data to write.
  */
 void port_byte_out(unsigned short port, unsigned char data) {
-	// "a" (data) means: load EAX with data
-	// "d" (port) means: load EDX with port
-	__asm__("out %%al, %%dx" : : "a" (data), "d" (port));
+    // "a" (data) means: load EAX with data
+    // "d" (port) means: load EDX with port
+    __asm__("out %%al, %%dx" : : "a" (data), "d" (port));
 }
 
 /**
@@ -61,7 +61,7 @@ void port_byte_out(unsigned short port, unsigned char data) {
  * @data: data to write.
  */
 void port_word_out(unsigned short port, unsigned short data) {
-	__asm__("out %%ax, %%dx" : : "a" (data), "d" (port));
+    __asm__("out %%ax, %%dx" : : "a" (data), "d" (port));
 }
 
 /**
@@ -71,7 +71,7 @@ void port_word_out(unsigned short port, unsigned short data) {
  * @data: data to write.
  */
 void port_long_out(unsigned short port, unsigned long data) {
-	__asm__("out %%eax, %%dx" : : "a" (data), "d" (port));
+    __asm__("out %%eax, %%dx" : : "a" (data), "d" (port));
 }
 
 /**
@@ -87,7 +87,7 @@ void port_long_out(unsigned short port, unsigned long data) {
  * which expects this to be specified in ECX.
  */
 void insb(unsigned short port, void *buf, int nr) {
-	asm volatile("cld\n\trep insb"::"d"(port), "D"(buf), "c"(nr));
+    asm volatile("cld\n\trep insb"::"d"(port), "D"(buf), "c"(nr));
 }
 
 /**
@@ -100,7 +100,7 @@ void insb(unsigned short port, void *buf, int nr) {
  * @nr: The number of words intended to be read.
  */
 void insw(unsigned short port, void *buf, int nr) {
-	asm volatile("cld\n\trep insw"::"d"(port), "D"(buf), "c"(nr));
+    asm volatile("cld\n\trep insw"::"d"(port), "D"(buf), "c"(nr));
 }
 
 /**
@@ -113,7 +113,7 @@ void insw(unsigned short port, void *buf, int nr) {
  * @nr: The number of words intended to be read.
  */
 void insl(unsigned short port, void *buf, int nr) {
-	asm volatile("cld\n\trep insl"::"d"(port), "D"(buf), "c"(nr));
+    asm volatile("cld\n\trep insl"::"d"(port), "D"(buf), "c"(nr));
 }
 
 /**
@@ -129,7 +129,7 @@ void insl(unsigned short port, void *buf, int nr) {
  * which expects this to be specified in ECX.
  */
 void outsb(unsigned short port, void *buf, int nr) {
-	asm volatile("cld\n\trep outsb\n\t"::"d"(port), "S"(buf), "c"(nr));
+    asm volatile("cld\n\trep outsb\n\t"::"d"(port), "S"(buf), "c"(nr));
 }
 
 /**
@@ -145,7 +145,7 @@ void outsb(unsigned short port, void *buf, int nr) {
  * which expects this to be specified in ECX.
  */
 void outsw(unsigned short port, void *buf, int nr) {
-	asm volatile("cld\n\trep outsw"::"d"(port), "S"(buf), "c"(nr));
+    asm volatile("cld\n\trep outsw"::"d"(port), "S"(buf), "c"(nr));
 }
 
 /**
@@ -161,5 +161,13 @@ void outsw(unsigned short port, void *buf, int nr) {
  * which expects this to be specified in ECX.
  */
 void outsl(unsigned short port, void *buf, int nr) {
-	asm volatile("cld\n\trep outsl\n\t"::"d"(port), "S"(buf), "c"(nr));
+    asm volatile("cld\n\trep outsl\n\t"::"d"(port), "S"(buf), "c"(nr));
+}
+
+int bit_scan_forward(unsigned int val) {
+    int idx;
+
+    asm volatile("bsf %1, %%edx": "=d" (idx) : "m" (val));
+
+    return idx;
 }

@@ -1,194 +1,345 @@
 #include "shell.h"
 
 #include <drivers/keyboard/keyboard_map.h>
+#include <drivers/disk/disk.h>
 #include <fs/filesystem.h>
 #include <kernel/mm.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
 #include <kernel/system.h>
 
-extern struct folder root_folder;
+#define NUM_KNOWN_COMMANDS 9
 
-const char stub[3] = "$ ";
-char shell_ascii_buffer[SHELL_CMD_INPUT_LIMIT];
-static char* known_commands[NUM_KNOWN_COMMANDS] = {
-	"hi",
-	"ls",
-	"pwd",
-	"addfile"
-};
-static int last_known_input_buffer_size = 0;
-
+extern struct fnode root_fnode;
 extern struct dir_entry root_dir_entry;
-// Default/Main shell stuff.
+
+extern void disk_test(void);
+
+volatile int shell_input_counter_ = 0;
+volatile int last_processed_pos_ = 0;
+static int last_executed_pos_ = 0;
+static int ascii_buffer_head_ = 0;
+bool processing_input_ = false;
+
+static char execution_bounce_buffer[SHELL_CMD_INPUT_LIMIT];
+static char shell_ascii_buffer[SHELL_CMD_INPUT_LIMIT];
+char shell_scancode_buffer[SHELL_CMD_INPUT_LIMIT];
+static char* known_commands[NUM_KNOWN_COMMANDS] = {
+    "hi",
+    "ls",
+    "pwd",
+    "newfi",
+    "newfo",
+    "disk-test",
+    "disk-id",
+    "cd",
+    "cdp"
+};
+static char prompt[MAX_FILENAME_LENGTH + 3];
+static const char stub[3] = "$ ";
+
 static struct fs_context current_fs_ctx = {
-		.curr_dir = &root_dir_entry
+    .curr_dir_fnode = &root_fnode,
 };
 
-static void default_exec_routine(void);
-static void default_show_prompt(void);
-static void default_shell_init(void);
+void update_prompt(void) {
+    struct dir_info dir_info;
+    int len;
 
-struct shell default_shell = {
-	.exec = default_exec_routine,
-	.init = default_shell_init,
-	.show_prompt = default_show_prompt
-};
+    if (get_dir_info_from_chain(current_fs_ctx.working_directory_chain, &dir_info)) {
+        print_string("Error: can't update prompt, couldn't get dir_info.\n");
+        return;
+    }
 
-static void exec(char* input);
-static void exec_known_cmd(int i);
-void exec_main_shell(void);
+    len = strlen((char *) dir_info.name);
 
-static void process_new_scancodes(int offset, int num_new_characters);
-static void process_cmd_input(void);
+    memory_copy((char *) dir_info.name, prompt, len);
+    memory_copy((char *) stub, prompt + len, 3);
+}
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// System-level input processing functions that can be used by any shell.
+int cdp(char *path) {
+    struct directory_chain *chain;
+
+    chain = create_chain_from_path(&current_fs_ctx, path);
+    if (!chain) {
+        print_string("cdp failed: bad path?\n");
+        return -1;
+    }
+
+    if (path[0] == '/') {
+        destroy_directory_chain(current_fs_ctx.working_directory_chain);
+        current_fs_ctx.working_directory_chain = chain;
+    }
+
+    update_prompt();
+
+    return 0;
+}
+
+int change_directory(char *target_dir_name) {
+    struct fnode target_dir_fnode;
+    int error = 0;
+
+    error = fs_search(current_fs_ctx.working_directory_chain, target_dir_name, &target_dir_fnode);
+    if (error) {
+        print_string("Can't change directories to "); print_string(target_dir_name); print_string("\n");
+        return -1;
+    }
+
+    if (push_directory_chain_link(current_fs_ctx.working_directory_chain, &target_dir_fnode)) {
+        print_string("Error: path valid but internal error occurred.\n");
+        return -1;
+    }
+
+    clear_buffer((uint8_t *) prompt, MAX_FILENAME_LENGTH + 3);
+    memory_copy(target_dir_name, prompt, strlen(target_dir_name));
+    memory_copy(stub, prompt + strlen(target_dir_name), 2);
+    return error;
+}
+
+static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
+    switch (cmd) {
+    case 0: // hi
+        print_string("hi to you too!\n");
+        break;
+    case 1: {
+        if (list_dir_content(current_fs_ctx.working_directory_chain)) {
+            print_string("Error showing dir with current chain.\n");
+            return;
+        }
+
+        break;
+    }
+    case 2: { // pwd
+        //struct dir_info dir_info;
+
+        //if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
+        //    print_string("Failed to get dir_info for [fnode=");
+        //    print_ptr(current_fs_ctx.curr_dir_fnode);
+        //    print_string("]\n");
+        //    return;
+        // }
+        // print_string("cwd: ["); print_string(dir_info.name); print_string("]\n");
+
+        struct directory_chain_link *link = current_fs_ctx.working_directory_chain->head;
+
+        while (link) {
+            print_string(link->name);
+            print_string("/");
+            link = link->next;
+        }
+        print_string("\n");
+
+        break;
+    }
+    case 3: { // newfi
+        char text[] = "Bien Venue!";
+
+        if (strlen(argsp) == 0) {
+            print_string("Error [newfi]: provide file name.\n");
+            break;
+        }
+
+        struct file_creation_info info = {
+            .file_size = strlen(text),
+            .file_content = (uint8_t *) text
+        };
+
+        clear_buffer((uint8_t *)info.name, MAX_FILENAME_LENGTH);
+        memory_copy(argsp, info.name, strlen(argsp));
+
+        print_string("One new file coming right up!\n");
+        if (create_file(&current_fs_ctx, &info))
+            print_string("Sorry, file creation failed.\n");
+        break;
+    }
+    case 4: { // newfo
+        if (strlen(argsp) == 0) {
+            print_string("Error [newfo]: provide new folder name.\n");
+            break;
+        }
+
+        struct folder_creation_info info;
+        clear_buffer((uint8_t *)info.name, MAX_FILENAME_LENGTH);
+        memory_copy(argsp, info.name, strlen(argsp));
+
+        print_string("One new folder coming up!\n");
+        if (create_folder(&current_fs_ctx, &info))
+            print_string("Sorry, folder creation failed.\n");
+        break;
+    }
+    case 5: { // disk-test
+        print_string("Running disk_test.\n");
+        disk_test();
+
+        break;
+    }
+    case 6: { // disk-id
+        print_string("Running \"IDENTIFY DEVICE\" ATA command.\n");
+        identify_device();
+
+        break;
+    }
+    case 7: { // cd
+        //char dir_name[MAX_FILENAME_LENGTH] = "new_folder";
+        char *dir_name = argsp;
+
+        //clear_buffer((uint8_t *)dir_name + strlen(dir_name), MAX_FILENAME_LENGTH - strlen(dir_name));
+        if (change_directory(dir_name))
+            print_string("Error: unable to change directory.\n");
+
+        break;
+    }
+    case 8: { // cdp
+        //char dir_name[MAX_FILENAME_LENGTH] = "new_folder";
+        char *path = argsp;
+
+        //clear_buffer((uint8_t *)dir_name + strlen(dir_name), MAX_FILENAME_LENGTH - strlen(dir_name));
+        if (cdp(path))
+            print_string("Error: unable to change directory.\n");
+
+        break;
+    }
+    default:
+        print_string("don't know what that is sorry :(\n");
+    }
+}
+
 static void exec(char* input) {
-	print_string("Attempting to execute: "); print_string(input); print_string("\n");
-	char* known_cmd;
-	int l, m;
-	int i;
+    int i, l, m;
+    char *cmdp = input, *argsp;
 
-	for (known_cmd = known_commands[0], i = 0; i < NUM_KNOWN_COMMANDS; i++, known_cmd = known_commands[i]) {
-		l = strlen(known_cmd);
-		m = strlen(input);
+    print_string("Attempting to execute: ["); print_string(input); print_string("]\n");
 
-		if (l != m) {
-			continue;
-		}
+    // Ignore leading spaces.
+    while (*cmdp == ' ')
+        cmdp++;
 
-		if (strmatchn(known_cmd, input, l)) {
-			exec_known_cmd(i);
-			break;
-		}
-	}
+    argsp = cmdp;
 
-	if (i == NUM_KNOWN_COMMANDS) {
-		print_string("Sorry bud, can't help with that... yet!\n");
-	}
+    // Go past command characters.
+    while (*argsp != ' ' && *argsp != '\0')
+        argsp++;
 
+    if (*argsp == ' ')
+        *argsp++ = '\0';
+
+    // Go past spaces after command but before args.
+    while (*argsp == ' ' && *argsp != '\0')
+        argsp++;
+
+    m = strlen(cmdp);
+    for (i = 0; i < NUM_KNOWN_COMMANDS; i++) {
+        l = strlen(known_commands[i]);
+
+        if (l != m)
+            continue;
+
+        if (strmatchn(known_commands[i], cmdp, l))
+            break;
+    }
+
+    if (i >= NUM_KNOWN_COMMANDS)
+        print_string("Sorry, can't help with that... yet!\n");
+
+    print_string("cmd=["); print_string(cmdp); print_string("]");
+    print_string(" args=["); print_string(argsp); print_string("]\n");
+    if (i < NUM_KNOWN_COMMANDS)
+        exec_known_cmd(i, cmdp, argsp);
 }
 
-static void exec_known_cmd(int i) {
-	switch (i) {
-		case 0:
-			print_string("hi to you too!\n");
-			break;
-		case 1: {
-			struct mem_block *block = get_fnode(current_fs_ctx.curr_dir);
-
-			show_dir_content((struct fnode *)block->addr);
-			zone_free(block);
-			break;
-		}
-		case 2: {
-			print_string("The current directory is: [");
-			print_string(current_fs_ctx.curr_dir->name);
-			print_string("].\n");
-			break;
-		}
-		case 3:
-			print_string("addfile!.\n");
-			break;
-		default:
-			print_string("don't know what that is sorry :(\n");
-	}
+void reset_shell_counters(void) {
+    shell_input_counter_ = 0;
+    last_processed_pos_ = 0;
+    last_executed_pos_ = 0;
+    ascii_buffer_head_ = 0;
 }
 
-static void init_shell(struct shell* shell) {
-	shell->init();
+static bool process_new_scancodes(const int offset, const int num_new_characters) {
+    bool reshow_prompt = false;
+
+    for (int i = 0; i < num_new_characters; i++, last_processed_pos_++) {
+        uint8_t scancode = shell_scancode_buffer[offset + i];
+        char ascii_char = US_KEYBOARD_MAP[scancode];
+        char char_buff[2] = { ascii_char, '\0' };
+
+        if ((scancode & 0x80) || !scancode)
+            continue;
+
+        print_string(char_buff);
+
+        if (ascii_char == '\n') {
+            int e, p;
+
+            reshow_prompt = true;
+            if (last_executed_pos_ == ascii_buffer_head_)
+                continue;
+
+            e = last_executed_pos_ % SHELL_CMD_INPUT_LIMIT;
+            p = ascii_buffer_head_ % SHELL_CMD_INPUT_LIMIT;
+
+            if (e < p) {
+                memory_copy(&shell_ascii_buffer[e], execution_bounce_buffer, p - e);
+            } else {
+                memory_copy(&shell_ascii_buffer[e], execution_bounce_buffer, SHELL_CMD_INPUT_LIMIT - e);
+                memory_copy(&shell_ascii_buffer[0], &execution_bounce_buffer[e], p);
+            }
+
+            exec(execution_bounce_buffer);
+
+            clear_buffer((uint8_t *) execution_bounce_buffer, SHELL_CMD_INPUT_LIMIT);
+            last_executed_pos_ = ascii_buffer_head_;
+        } else {
+            int write_pos = ascii_buffer_head_++ % SHELL_CMD_INPUT_LIMIT;
+
+            shell_ascii_buffer[write_pos] = ascii_char;
+        }
+    }
+
+    return reshow_prompt;
 }
 
-static void exec_shell(struct shell* shell) {
-	shell->exec();
+static void show_prompt(void) {
+    print_string(prompt);
 }
 
-static char char_buff[2] = { '\0', '\0' };
-static uint8_t scancode;
-static char ascii_char;
+void main_shell_init(void) {
+    current_fs_ctx.curr_dir_fnode_location = root_dir_entry.fnode_location;
+    current_fs_ctx.curr_dir_fnode = &root_fnode;
+    current_fs_ctx.working_directory_chain = init_directory_chain();
 
-static void process_new_scancodes(int offset, int num_new_characters) {
-	int i;
-
-	if (offset + num_new_characters >= SHELL_CMD_INPUT_LIMIT) {
-		print_string("[Main Shell]:Input too large. Not processing\n");
-		return;
-	}
-
-	for (i = 0; i < num_new_characters; i++) {
-		scancode = shell_scancode_buffer[offset + i];
-
-		if (scancode & 0x80) {
-			/* TODO: Handle key release actions. */
-		} else if (scancode) {
-			ascii_char = US_KEYBOARD_MAP[scancode];
-			char_buff[0] =  ascii_char;
-			char_buff[1] = 0;
-
-			print_string(char_buff);
-
-			if (ascii_char == '\n') {
-				print_string("you entered: ["); print_string(shell_ascii_buffer); print_string("]\n");
-				process_cmd_input();
-				default_show_prompt();
-
-				clear_buffer((uint8_t*)shell_ascii_buffer, SHELL_CMD_INPUT_LIMIT);
-				clear_buffer((uint8_t*)shell_scancode_buffer, SHELL_CMD_INPUT_LIMIT);
-				shell_input_counter = 0;
-				last_known_input_buffer_size = 0;
-				continue;
-			} else {
-				shell_ascii_buffer[offset + i] = ascii_char;
-				// shell_input_counter++;
-			}
-
-			if (shell_input_counter >= SHELL_CMD_INPUT_LIMIT) {
-				print_string("You have entered too many characters.  Resetting prompt...\n");
-				clear_buffer((uint8_t*) shell_ascii_buffer, SHELL_CMD_INPUT_LIMIT);
-				clear_buffer((uint8_t*) shell_scancode_buffer, SHELL_CMD_INPUT_LIMIT);
-				shell_input_counter = 0;
-				last_known_input_buffer_size = 0;
-				default_show_prompt();
-			}
-		}
-	}
+    memory_copy((char *)&root_dir_entry.name, prompt, strlen(root_dir_entry.name));
+    memory_copy(stub, prompt + strlen(root_dir_entry.name), 2);
 }
 
-void process_cmd_input(void) {
-	exec(shell_ascii_buffer);
-}
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+void main_shell_run(void) {
+    bool prompt = true;
 
-static void default_show_prompt(void) {
-	print_string(current_fs_ctx.curr_dir->name);
-	print_string(stub);
-}
+    print_string("Main shell Executing.\n");
+    shell_input_counter_ = 0;
 
-static void default_exec_routine(void) {
-	shell_input_counter = 0;
-	print_string("Main shell Executing.\n");
-	default_show_prompt();
-	while(true) {
-		if (last_known_input_buffer_size < shell_input_counter) {
-			process_new_scancodes(last_known_input_buffer_size,
-													 shell_input_counter - last_known_input_buffer_size);
-			last_known_input_buffer_size = shell_input_counter;
-		} else if (last_known_input_buffer_size > shell_input_counter) {
-			print_string("Something has gone terribly wrong with the shell. Exiting.\n");
-			break;
-		}
-	}
+    while (true) {
+        int head = shell_input_counter_ % SHELL_CMD_INPUT_LIMIT;
+        int tail = last_processed_pos_ % SHELL_CMD_INPUT_LIMIT;
 
-	while(true);
+        // Show shell prompt, "<directory name>$".
+        if (prompt)
+            show_prompt();
+
+        // Wait for input from keyboard.
+        while (tail == head)
+            head = shell_input_counter_  % SHELL_CMD_INPUT_LIMIT;
+
+        prompt = process_new_scancodes(tail, head - tail);
+    }
+
+    print_string("We should never reach here. Going into infinite loop.\n");
+
+    PAUSE();
 }
 
-static void default_shell_init(void) {
-	default_shell.fs_ctx = current_fs_ctx;
-}
-
-// Executes the default/main shell.
 void exec_main_shell(void) {
-	init_shell(&default_shell);
-	exec_shell(&default_shell);
+    main_shell_init();
+
+    main_shell_run();
 }

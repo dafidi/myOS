@@ -6,5 +6,6 @@
 void print_registers(struct registers *registers);
 void print_string(const char* message);
 void print_int32(int n);
+void print_ptr(const void *p);
 
 #endif

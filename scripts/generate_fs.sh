@@ -32,6 +32,7 @@ FNODE_SIZE \
 MASTER_RECORD_SIZE \
 )
 
+BUILD_LOCATION=/tmp/myOS-build
 TEMPLATE_LOCATION=templates/filesystem
 METADATA_SIZE=0
 METADATA_SIZE_SECTORS=0
@@ -127,7 +128,6 @@ build_metadata_component() {
 }
 
 build_fs_metadata() {
-    BUILD_LOCATION=/tmp/myOS-build
     SECTOR_SIZE=${FILESYSTEM_SETTINGS[SECTOR_SIZE]}
     if [ ! -d ${BUILD_LOCATION} ]
     then

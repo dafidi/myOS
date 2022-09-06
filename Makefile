@@ -28,6 +28,7 @@ boot_sector_deps=boot_sect_1.bin boot_sect_2.bin
 
 %.bin: %.asm
 	nasm $< -f bin -o $@
+	ndisasm $@ > $@.dis
 
 # Default build target.
 default: myOS.img 

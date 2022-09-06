@@ -11,3 +11,5 @@ Specifically, doing the following:
     then, conducting a far jump to update CS to 16
     and finally, updating DS, SS, ES, FS, and GS to 8
 causes issues as soon as interrupts are enabled.
+
+It seems there is sometimes(?) a problem writing to and reading form zones MAX_ORDER and MAX_ORDER-1 (see memory_object_cache_init). This came up while allocating a block to support memory object allocation. MAX_ORDER-2 is fine. Might be worth investigating what's going on there.
