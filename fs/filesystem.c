@@ -32,6 +32,459 @@ uint8_t *sector_bitmap;
 // On init, we set this to the max fnode ID seen among pre-existing files + 1.
 uint32_t NEXT_FNODE_ID = 0;
 
+int load_root_fnode(struct fnode *fnode) {
+    if (get_fnode(&root_dir_entry, fnode))
+        return -1;
+    return 0;
+}
+
+int get_dir_name(struct fnode *fnode, char* name_buffer) {
+    struct dir_info dir_info;
+    int name_len = -1;
+
+    if (get_dir_info(fnode, &dir_info)) {
+        print_string("Error: Unable to get dir info during get name.\n");
+        return -1;
+    }
+
+    name_len = strlen((char *) dir_info.name);
+    memory_copy((char *) dir_info.name, name_buffer, name_len);
+    return name_len;
+}
+
+/**
+ * @brief Initialize a directory chain.
+ *
+ * Directory chains are initialized with an initial link whose id is
+ * the root fnode's id.
+ * This consumes some dynamic memory, so to avoid memory leaks, this
+ * should generally be paired with destroy_directory_chain calls.
+ *
+ */
+struct directory_chain *init_directory_chain(void) {
+    struct directory_chain_link *chain_head;
+    struct directory_chain *chain;
+    struct fnode fnode;
+    char *name_buffer;
+
+    if (load_root_fnode(&fnode)) {
+        print_string("Error: root fnode load failed during chain init.\n");
+        return NULL;
+    }
+
+    chain_head = (struct directory_chain_link *) object_alloc(sizeof(struct directory_chain_link));
+    if (!chain_head) {
+       print_string("Error: unable to alloc chain_link. OOM?\n");
+       return NULL;
+    }
+
+    name_buffer = (char *) object_alloc(MAX_FILENAME_LENGTH);
+    if (!name_buffer) {
+        print_string("Error: unable to allocate for name_buffer.\n");
+        object_free((uint8_t *) chain_head);
+        return NULL;
+    }
+
+    if (get_dir_name(&fnode, name_buffer) < 0) {
+        print_string("Error: unable to get name for dir");
+        object_free((uint8_t *) name_buffer);
+        object_free((uint8_t *) chain_head);
+        return NULL;
+    }
+
+    chain_head->next = NULL;
+    chain_head->prev = NULL;
+    chain_head->id = fnode.id;
+    chain_head->name = name_buffer;
+
+    chain = (struct directory_chain *) object_alloc(sizeof(struct directory_chain));
+    if (!chain) {
+        object_free((uint8_t *) chain_head);
+        object_free((uint8_t *) name_buffer);
+        print_string("Error: unable to alloc chain. OOM?\n");
+        return NULL;
+    }
+
+    chain->head = chain_head;
+    chain->tail = chain_head;
+    chain->size = 1;
+    return chain;
+}
+
+/**
+ * @brief Deallocate all the memory used in a directory chain.
+ *
+ * @param chain
+ */
+void destroy_directory_chain(struct directory_chain *chain) {
+    struct directory_chain_link *chainp = chain->head;
+
+    object_free((uint8_t *) chain);
+
+    if (!chainp)
+        return;
+
+    while (chainp->next) {
+        object_free((uint8_t *) chainp->name);
+        object_free((uint8_t *) chainp);
+        chainp = chainp->next;
+    }
+
+    object_free((uint8_t *) chainp->name);
+    object_free((uint8_t *) chainp);
+}
+
+/**
+ * @brief Add a link to the end of a directory chain.
+ *
+ * @param chain
+ * @param fnode;
+ */
+int push_directory_chain_link(struct directory_chain *chain, struct fnode *fnode) {
+    struct directory_chain_link *chainp = chain->head;
+    struct dir_info dir_info;
+    fnode_id_t id = fnode->id;
+    int error = 0;
+
+    if (!chainp) {
+        print_string("Error: pushing to NULL chain?\n");
+        return -1;
+    }
+
+    while (chainp->next)
+        chainp = chainp->next;
+
+    if (chainp != chain->tail) {
+        print_string("Something smells fishy in this chain.\n");
+        return -1;
+    }
+
+    chainp->next = (struct directory_chain_link *)
+                   object_alloc(sizeof(struct directory_chain_link));
+    if (!chainp->next) {
+        print_string("Error: alloc failed in chain push.\n");
+        return -1;
+    }
+
+    chainp->next->id = id;
+    chainp->next->next = NULL;
+    chainp->next->prev = chainp;
+    chain->tail = chainp->next;
+
+    if (get_dir_info(fnode, &dir_info)) {
+        print_string("Error getting dir info for push.\n");
+        error = -1;
+        goto remove_new_link;
+    }
+
+    chainp->next->name = (char *) object_alloc(strlen(dir_info.name));
+    if (!chainp->next->name) {
+        print_string("Error allocating object for name in chain push.\n");
+        error = -1;
+        goto remove_new_link;
+    }
+    memory_copy(dir_info.name, chainp->next->name, strlen(dir_info.name));
+    chain->size++;
+
+    return 0;
+
+remove_new_link:
+    chainp->next = NULL;
+    chain->tail = chainp;
+    object_free((uint8_t *) chainp->next);
+
+    return error;
+}
+
+/**
+ * @brief Remove a link from the end of a directory chain.
+ *
+ * @param chain
+ */
+int pop_directory_chain_link(struct directory_chain *chain) {
+    struct directory_chain_link *chainp = chain->head;
+
+    if (chain->size == 1) {
+        print_string("Cannot pop lone (root) link, destroy the chain if you "
+                     "must.\n");
+        return -1;
+    }
+
+    if (!chainp) {
+        print_string("Error: popping from NULL chain?\n");
+        return -1;
+    }
+
+    while (chainp->next)
+        chainp = chainp->next;
+
+    if (chainp != chain->tail) {
+        print_string("Error: pop detected a fishy chain.\n");
+        return -1;
+    }
+
+    chainp = chainp->prev;
+    object_free((uint8_t *) chainp->next->name);
+    object_free((uint8_t *) chainp->next);
+    chainp->next = NULL;
+
+    chain->tail = chainp;
+    chain->size--;
+
+    return 0;
+}
+
+int validate_path_string(const char *path_str) {
+    return 0;
+}
+
+/**
+ * @brief Look for a file or folder named name within the
+ * directory represented by dir_fnode.
+ *
+ * If found, put the fnode information of the file/folder in result_fnode.
+ *
+ * @param name - name of the file/folder being searched for.
+ * @param dir_fnode - fnode of the folder where we should search for the
+ *        file/folder.
+ * @param result_fnode - if file/folder named name is found, this points to an fnode
+ *        containing information about this file.
+ */
+int search_name_in_directory(char *name, struct fnode* dir_fnode, struct fnode *result_fnode) {
+    uint8_t *buffer = object_alloc(dir_fnode->size);
+    const int name_len = strlen(name);
+    struct dir_entry *dir_entry;
+    struct dir_info *dir_info;
+    bool target_found = false;
+
+    if (!buffer) {
+        print_string("Error: alloc failed in name search.\n");
+        return -1;
+    }
+
+    if (read_dir_content(dir_fnode, buffer) < 0) {
+        print_string("Error during name search. read_dir_content_failed.\n");
+        return -1;
+    }
+
+    dir_info = (struct dir_info *) buffer;
+    dir_entry = (struct dir_entry *) (((char *) dir_info) + sizeof(struct dir_info));
+    for (int i = 0; i < dir_info->num_entries; i++, dir_entry++) {
+        const int entry_name_len = strlen(dir_entry->name);
+
+        if (entry_name_len != name_len)
+            continue;
+
+        if (strmatchn(dir_entry->name, name, entry_name_len)) {
+            get_fnode(dir_entry, result_fnode);
+            target_found = true;
+            break;
+        }
+    }
+    object_free(buffer);
+
+    if (target_found)
+        return 0;
+
+    return -1;
+}
+
+/**
+ * @brief Check via the on-disk source of truth whether a
+ * path (represented by the chain) is still valid.
+ *
+ * Fills in the fnode information for the innermost (tail) directory
+ * and its location.
+ */
+int validate_directory_chain(struct directory_chain *chain, struct fnode *tail_dir_fnode, struct fnode_location_t *tail_dir_fnode_location) {
+    struct fnode_location_t curr_fnode_location = root_dir_entry.fnode_location;
+    struct directory_chain_link *chainp;
+    bool chain_valid = false;
+    struct fnode curr_fnode;
+
+    if (get_fnode(&root_dir_entry, &curr_fnode)) {
+        print_string("Error during chain vaildation: get_fnode failed.\n");
+        return -1;
+    }
+
+    chainp = chain->head;
+    if (chainp->id != curr_fnode.id) {
+        print_string("Error: invalid chain, must start from root.\n");
+        return -1;
+    }
+
+    chainp = chainp->next;
+    if (!chainp)
+        chain_valid = true; // A chain of just the root directory is valid.
+
+    while (chainp) {
+        uint8_t *buffer = object_alloc(curr_fnode.size);
+        struct dir_entry *curr_dir_entry;
+        struct dir_info *curr_dir_info;
+        bool found_match = false;
+
+        if (!buffer) {
+            print_string("Error during chain validation: mem alloc failure.\n");
+            return -1;
+        }
+
+        if (read_dir_content(&curr_fnode, buffer) < 0) {
+            print_string("Error during chain validation: failed read_dir_content.\n");
+            object_free(buffer);
+            return -1;
+        }
+
+        curr_dir_info = (struct dir_info *) buffer;
+        curr_dir_entry = (struct dir_entry *)
+                         (((char *) curr_dir_info) + sizeof(struct dir_info));
+        for (int i = 0; i < curr_dir_info->num_entries; i++, curr_dir_entry++) {
+            struct fnode curr_entry_fnode;
+
+            if (get_fnode(curr_dir_entry, &curr_entry_fnode)) {
+                print_string("Error during chain validation: get_fnode failed.\n");
+                object_free(buffer);
+                return -1;
+            }
+            if (curr_entry_fnode.id == chainp->id) {
+                curr_fnode = curr_entry_fnode;
+                curr_fnode_location = curr_dir_entry->fnode_location;
+                found_match = true;
+
+                if (chainp->next == NULL)
+                    chain_valid = true;
+                break;
+            }
+        }
+
+        object_free(buffer);
+        if (!found_match)
+            break;
+        chainp = chainp->next;
+    }
+
+    if (chain_valid) {
+        *tail_dir_fnode = curr_fnode;
+        *tail_dir_fnode_location = curr_fnode_location;
+    }
+
+    return chain_valid ? 0 : -1;
+}
+
+/**
+ * @brief Construct a struct directory_chain from a path string.
+ *
+ * If an absolute path is provided, a new directory_chain object is allocated.
+ * (In that case, caller should take care to destroy the ctx's chain).
+ * Otherwise, the chain of the provided context is adjusted.
+ *
+ * @param ctx
+ * @param path
+ */
+struct directory_chain *create_chain_from_path(struct fs_context *ctx, char *path) {
+    struct fnode_location_t curr_dir_parent_fnode_location;
+    struct fnode curr_dir_parent_fnode, curr_dir_fnode;
+    char curr_dir_name[MAX_FILENAME_LENGTH + 1];
+    int curr_dir_name_start_idx_in_path = 0;
+    int curr_dir_name_end_idx_in_path = 0;
+    const bool abs_path = path[0] == '/';
+    struct directory_chain *chain;
+    int curr_path_depth = 0;
+
+    if (validate_path_string(path)) {
+        print_string("Error creating chain: invalid path.\n");
+        return NULL;
+    }
+
+    if (abs_path || !ctx || !ctx->working_directory_chain)
+        chain = init_directory_chain();
+    else
+        chain = ctx->working_directory_chain;
+
+    if (validate_directory_chain(chain,
+                                 &curr_dir_parent_fnode,
+                                 &curr_dir_parent_fnode_location)) {
+        print_string("Error: chain validation failed during chain creation.\n");
+        if (abs_path)
+            destroy_directory_chain(chain);
+        return NULL;
+    }
+
+    curr_path_depth += (int) abs_path;
+
+next_name_idx_and_len:
+    clear_buffer((uint8_t *) curr_dir_name, MAX_FILENAME_LENGTH + 1);
+
+    while (path[curr_dir_name_start_idx_in_path] == '/' &&
+           path[curr_dir_name_start_idx_in_path] != '\0')
+        curr_dir_name_start_idx_in_path++;
+
+    curr_dir_name_end_idx_in_path = curr_dir_name_start_idx_in_path;
+    while (path[curr_dir_name_end_idx_in_path] != '/' &&
+           path[curr_dir_name_end_idx_in_path] != '\0')
+        curr_dir_name_end_idx_in_path++;
+
+    if (curr_dir_name_start_idx_in_path == curr_dir_name_end_idx_in_path)
+        goto done;
+
+    memory_copy(&path[curr_dir_name_start_idx_in_path],
+                curr_dir_name,
+                curr_dir_name_end_idx_in_path - curr_dir_name_start_idx_in_path);
+
+    if (strlen(curr_dir_name) == 2 && strmatchn(curr_dir_name, "..", strlen(curr_dir_name))) {
+        if (chain->size == 1) {
+            print_string("Error: path resolves to (nonexistent) parent of root dir.\n");
+            goto revert_chain_changes;
+        }
+
+        pop_directory_chain_link(chain);
+        curr_path_depth--;
+
+        // We don't really need to validate here, we just want the fnode
+        // of the grandparent directory and this is currently the simplest way
+        // to get it.
+        // TODO: Create a function that's a simpler way to get the grandparent
+        // fnode.
+        if (validate_directory_chain(chain,
+                                     &curr_dir_parent_fnode,
+                                     &curr_dir_parent_fnode_location)) {
+             print_string("Error: although this validation isn't needed, "
+                          "there's no reason for it to fail.\n");
+             goto revert_chain_changes;
+        }
+        curr_dir_name_start_idx_in_path = curr_dir_name_end_idx_in_path;
+        goto next_name_idx_and_len;
+    }
+
+    if (search_name_in_directory(curr_dir_name, &curr_dir_parent_fnode, &curr_dir_fnode)) {
+        print_string("Error creating chain: unfound name in path.\n");
+        goto revert_chain_changes;
+    }
+
+    if (push_directory_chain_link(chain, &curr_dir_fnode)) {
+        print_string("Error: link push failed during create chain.\n");
+        goto revert_chain_changes;
+    }
+
+    curr_dir_name_start_idx_in_path = curr_dir_name_end_idx_in_path;
+    curr_dir_parent_fnode = curr_dir_fnode;
+    curr_path_depth++;
+
+    goto next_name_idx_and_len;
+
+done:
+    return chain;
+
+revert_chain_changes:
+    if (abs_path)
+        destroy_directory_chain(chain);
+    else
+        // TODO: curr_path_depth may actually be negative, so handle this.
+        while (curr_path_depth--)
+            pop_directory_chain_link(chain);
+
+    return NULL;
+}
+
 /**
  * @brief Set num_bits bits within a disk sector.
  *
@@ -93,66 +546,6 @@ void sector_bitmap_unset(uint32_t start_bit, uint64_t num_bits) {
 }
 
 /**
- * @brief Check via the on-disk source of truth whether a
- * path (represented by the chain) is still valid.
- *
- * Fills in the fnode information for the innermost (tail) directory
- * and its location.
- */
-int validate_directory_chain(struct directory_chain *chain, struct fnode *tail_dir_fnode, struct fnode_location_t *tail_dir_fnode_location) {
-    struct fnode_location_t curr_fnode_location = root_dir_entry.fnode_location;
-    struct directory_chain_link *chainp;
-    bool chain_valid = false;
-    struct fnode curr_fnode;
-
-    get_fnode(&root_dir_entry, &curr_fnode);
-    chainp = chain->head;
-    if (chainp->id != curr_fnode.id) {
-        print_string("Error: invalid chain, must start from root.\n");
-        return -1;
-    }
-
-    chainp = chainp->next;
-    if (!chainp)
-        chain_valid = true; // A chain of just the root directory is valid.
-
-    while (chainp) {
-        uint8_t *buffer = object_alloc(curr_fnode.size);
-        struct dir_entry *curr_dir_entry;
-        struct dir_info *curr_dir_info;
-        bool found_match = false;
-
-        read_dir_content(&curr_fnode, buffer);
-        curr_dir_info = (struct dir_info *) buffer;
-        curr_dir_entry = (struct dir_entry *)(((char *) curr_dir_info) + sizeof(struct dir_info));
-        for (int i = 0; i < curr_dir_info->num_entries; i++, curr_dir_entry++) {
-            struct fnode curr_entry_fnode;
-
-            get_fnode(curr_dir_entry, &curr_entry_fnode);
-            if (curr_entry_fnode.id == chainp->id) {
-                curr_fnode = curr_entry_fnode;
-                curr_fnode_location = curr_dir_entry->fnode_location;
-                found_match = true;
-
-                if (chainp->next == NULL)
-                    chain_valid = true;
-                break;
-            }
-        }
-
-        object_free(buffer);
-        if (!found_match)
-            break;
-        chainp = chainp->next;
-    }
-
-    *tail_dir_fnode = curr_fnode;
-    *tail_dir_fnode_location = curr_fnode_location;
-
-    return chain_valid ? 0 : -1;
-}
-
-/**
  * @brief List out the files and folders in the innermost directory
  * in the given directory_chain.
  *
@@ -169,48 +562,6 @@ int list_dir_content(struct directory_chain *chain) {
 
     show_dir_content(&tail_dir_fnode);
     return 0;
-}
-
-/**
- * @brief Look for a file or folder named name within the
- * directory represented by dir_fnode.
- *
- * If found, put the fnode information of the file/folder in result_fnode.
- *
- * @param name - name of the file/folder being searched for.
- * @param dir_fnode - fnode of the folder where we should search for the
- *        file/folder.
- * @param result_fnode - if file/folder named name is found, this points to an fnode
- *        containing information about this file.
- */
-int search_name_in_directory(char *name, struct fnode* dir_fnode, struct fnode *result_fnode) {
-    uint8_t *buffer = object_alloc(dir_fnode->size);
-    const int name_len = strlen(name);
-    struct dir_entry *dir_entry;
-    struct dir_info *dir_info;
-    bool target_found = false;
-
-    read_dir_content(dir_fnode, buffer);
-    dir_info = (struct dir_info *) buffer;
-    dir_entry = (struct dir_entry *) (((char *) dir_info) + sizeof(struct dir_info));
-    for (int i = 0; i < dir_info->num_entries; i++, dir_entry++) {
-        const int entry_name_len = strlen(dir_entry->name);
-
-        if (entry_name_len != name_len)
-            continue;
-
-        if (strmatchn(dir_entry->name, name, entry_name_len)) {
-            get_fnode(dir_entry, result_fnode);
-            target_found = true;
-            break;
-        }
-    }
-    object_free(buffer);
-
-    if (target_found)
-        return 0;
-
-    return -1;
 }
 
 /**
@@ -904,6 +1255,18 @@ int get_fnode(struct dir_entry *entry, struct fnode* fnode_ptr) {
     return 0;
 }
 
+int get_dir_info_from_chain(struct directory_chain *chain, struct dir_info *dir_info) {
+    struct fnode_location_t fnode_location;
+    struct fnode fnode;
+
+    if (validate_directory_chain(chain, &fnode, &fnode_location)) {
+        print_string("Error getting dir_info: chain validation failed.\n");
+        return -1;
+    }
+
+    return get_dir_info(&fnode, dir_info);
+}
+
 /**
  * @brief Read in the info of the directory pointed to by the given fnode.
  *
@@ -943,7 +1306,11 @@ void __init_usage_bits(const struct fnode *_fnode) {
     uint8_t *buffer;
 
     buffer = object_alloc(_fnode->size);
-    read_dir_content(_fnode, buffer);
+    if (read_dir_content(_fnode, buffer) < 0) {
+        print_string("Error initializing usage bits for fnode at "); print_ptr(_fnode);
+        print_string(".\n");
+        return;
+    }
 
     if (_fnode->id >= NEXT_FNODE_ID)
         NEXT_FNODE_ID = _fnode->id + 1;

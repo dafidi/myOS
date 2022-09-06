@@ -106,9 +106,11 @@ void print_string(const char* message) {
 // TODO: Use unsigned long long here.
 void print_int(unsigned int n) {
     int num_digits = 0;
+    int minus = ((int) n) < 0;
+    int n_ = minus ? -n : n;
 
-    while (n) {
-        n /= 10;
+    while (n_) {
+        n_ /= 10;
         num_digits++;
     }
 
@@ -117,16 +119,18 @@ void print_int(unsigned int n) {
         return;
     }
 
-    char out_buff[num_digits + 1];
-    out_buff[num_digits] = '\0';
+    n_ = minus ? -n : n;
+    char out_buff[num_digits + 1 + minus];
+    out_buff[num_digits + minus] = '\0';
+
     while (num_digits--) {
-        int n_0unit = (n / 10) * 10;
+        int n_0unit = (n_ / 10) * 10;
 
-        out_buff[num_digits] = '0' + n - n_0unit;
+        out_buff[num_digits + minus] = '0' + n_ - n_0unit;
 
-        n /= 10;
+        n_ /= 10;
     }
-
+    out_buff[0] = minus ? '-' : out_buff[0];
     print_string(out_buff);
 }
 
@@ -138,7 +142,7 @@ void print_int32(int n) {
     print_int(n);
 }
 
-void print_ptr(void *p) {
+void print_ptr(const void *p) {
     // TODO: Print as actual pointer, not int32.
     print_int64((uint32_t) p);
 }

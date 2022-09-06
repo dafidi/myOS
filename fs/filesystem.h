@@ -1,4 +1,3 @@
-
 #ifndef __FILESYSTEM_H__
 #define __FILESYSTEM_H__
 
@@ -80,12 +79,14 @@ struct directory_chain_link {
     struct directory_chain_link *next;
     struct directory_chain_link *prev;
     fnode_id_t id;
+    char *name;
 };
 
 struct directory_chain {
     struct directory_chain_link *head; // This should always be root.
     struct directory_chain_link *tail; // This should always point to
                                                      // the current working directory.
+    int size;                          // Shortcut way to get the number of links.
 };
 
 struct fs_context {
@@ -94,10 +95,17 @@ struct fs_context {
     struct directory_chain *working_directory_chain;
 };
 
+
+struct directory_chain *create_chain_from_path(struct fs_context *, char*);
+int push_directory_chain_link(struct directory_chain *, struct fnode *);
+int pop_directory_chain_link(struct directory_chain *);
+struct directory_chain *init_directory_chain(void);
+void destroy_directory_chain(struct directory_chain *);
 int create_file(struct fs_context *, struct file_creation_info *);
 int create_folder(struct fs_context *, struct folder_creation_info *);
 int fs_search(struct directory_chain *, char*, struct fnode *);
 int list_dir_content(struct directory_chain *);
+int get_dir_info_from_chain(struct directory_chain *, struct dir_info *);
 int get_dir_info(struct fnode *, struct dir_info *);
 int get_fnode(struct dir_entry *, struct fnode *);
 int read_dir_content(const struct fnode *, uint8_t *);

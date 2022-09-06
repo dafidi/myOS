@@ -1025,7 +1025,7 @@ static struct memory_object *object_remove_used(struct memory_object_cache *cach
 
     if (!mo) {
         print_string("cache-"); print_int32(cache->order);
-        print_string(" has no mo for addr="); print_int32((int)addr);
+        print_string(" has no used mo for addr="); print_int32((int)addr);
         print_string("\n");
         return NULL;
     }
