@@ -8,7 +8,7 @@
 #include <kernel/string.h>
 #include <kernel/system.h>
 
-#define NUM_KNOWN_COMMANDS 10
+#define NUM_KNOWN_COMMANDS 9
 
 extern struct fnode root_fnode;
 extern struct dir_entry root_dir_entry;
@@ -33,11 +33,10 @@ static char* known_commands[NUM_KNOWN_COMMANDS] = {
     "disk-test",
     "disk-id",
     "cd",
-    "cdp",
     "fdel"
 };
 static char prompt[MAX_FILENAME_LENGTH + 3];
-static const char stub[3] = "$ ";
+static char stub[3] = "$ ";
 
 static struct fs_context current_fs_ctx = {
     .curr_dir_fnode = &root_fnode,
@@ -45,7 +44,6 @@ static struct fs_context current_fs_ctx = {
 
 void update_prompt(void) {
     struct directory_chain_link *chainp;
-    struct dir_info dir_info;
     char *promptp;
     int len;
 
@@ -64,12 +62,14 @@ void update_prompt(void) {
         chainp = chainp->next;
     }
 
-    memory_copy((char *) stub, promptp++, 3);
+    memory_copy((char *) stub, promptp, 3);
 
-    *promptp++ = '\0';
+    promptp += strlen(stub);
+
+    *promptp = '\0';
 }
 
-int cdp(char *path) {
+int change_directory(char *path) {
     struct directory_chain *chain;
 
     chain = create_chain_from_path(&current_fs_ctx, path);
@@ -86,27 +86,6 @@ int cdp(char *path) {
     return 0;
 }
 
-int change_directory(char *target_dir_name) {
-    struct fnode target_dir_fnode;
-    int error = 0;
-
-    error = fs_search(current_fs_ctx.working_directory_chain, target_dir_name, &target_dir_fnode);
-    if (error) {
-        print_string("Can't change directories to "); print_string(target_dir_name); print_string("\n");
-        return -1;
-    }
-
-    if (push_directory_chain_link(current_fs_ctx.working_directory_chain, &target_dir_fnode)) {
-        print_string("Error: path valid but internal error occurred.\n");
-        return -1;
-    }
-
-    clear_buffer((uint8_t *) prompt, MAX_FILENAME_LENGTH + 3);
-    memory_copy(target_dir_name, prompt, strlen(target_dir_name));
-    memory_copy(stub, prompt + strlen(target_dir_name), 2);
-    return error;
-}
-
 static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
     switch (cmd) {
     case 0: // hi
@@ -121,17 +100,7 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
         break;
     }
     case 2: { // pwd
-        //struct dir_info dir_info;
-
-        //if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
-        //    print_string("Failed to get dir_info for [fnode=");
-        //    print_ptr(current_fs_ctx.curr_dir_fnode);
-        //    print_string("]\n");
-        //    return;
-        // }
-        // print_string("cwd: ["); print_string(dir_info.name); print_string("]\n");
-
-        struct directory_chain_link *link = current_fs_ctx.working_directory_chain->head;
+       struct directory_chain_link *link = current_fs_ctx.working_directory_chain->head;
 
         while (link) {
             print_string(link->name);
@@ -191,32 +160,20 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
         break;
     }
     case 7: { // cd
-        //char dir_name[MAX_FILENAME_LENGTH] = "new_folder";
-        char *dir_name = argsp;
-
-        //clear_buffer((uint8_t *)dir_name + strlen(dir_name), MAX_FILENAME_LENGTH - strlen(dir_name));
-        if (change_directory(dir_name))
-            print_string("Error: unable to change directory.\n");
-
-        break;
-    }
-    case 8: { // cdp
-        //char dir_name[MAX_FILENAME_LENGTH] = "new_folder";
         char *path = argsp;
 
-        //clear_buffer((uint8_t *)dir_name + strlen(dir_name), MAX_FILENAME_LENGTH - strlen(dir_name));
-        if (cdp(path))
+        if (change_directory(path))
             print_string("Error: unable to change directory.\n");
 
         break;
     }
-    case 9: {
-        struct file_deletion_info info;
+    case 8: { // fdel
+        char filename[MAX_FILENAME_LENGTH];
 
-        clear_buffer(info.name, MAX_FILENAME_LENGTH);
-        memory_copy(argsp, info.name, strlen(argsp));
-        if (delete_file(&current_fs_ctx, &info)) {
-            print_string("Error: deleting ["); print_string(info.name);
+        clear_buffer((uint8_t *) filename, MAX_FILENAME_LENGTH);
+        memory_copy(argsp, filename, strlen(argsp));
+        if (delete_file(&current_fs_ctx, filename)) {
+            print_string("Error: deleting ["); print_string(filename);
             print_string("] failed.\n");
         }
         break;

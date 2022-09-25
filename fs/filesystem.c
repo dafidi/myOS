@@ -1281,7 +1281,7 @@ int delete_file(struct fs_context *ctx, char *path) {
     if (path[i] == '/')
         i++;
 
-    clear_buffer(deletion_target_name, MAX_FILENAME_LENGTH);
+    clear_buffer((uint8_t *) deletion_target_name, MAX_FILENAME_LENGTH);
 
     memory_copy(&path[i], deletion_target_name, j - i + 1);
 
