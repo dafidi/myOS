@@ -623,17 +623,33 @@ void sector_bitmap_unset(uint32_t start_bit, uint64_t num_bits) {
  * in the given directory_chain.
  *
  * @param chain - directory path representation.
+ * @param path
  */
-int list_dir_content(struct directory_chain *chain) {
+int list_dir_content(struct fs_context *ctx, char *path) {
     struct fnode_location_t tail_dir_fnode_location;
+    struct directory_chain *new_chain = NULL;
     struct fnode tail_dir_fnode;
 
-    if (validate_directory_chain(chain, &tail_dir_fnode, &tail_dir_fnode_location)) {
+    if (path) {
+        new_chain = create_chain_from_path(ctx, path);
+        if (!new_chain) {
+            print_string("Error list_dir_content: create_chain_from_path.\n");
+            return -1;
+        }
+    } else {
+        new_chain = ctx->working_directory_chain;
+    }
+
+    if (validate_directory_chain(new_chain, &tail_dir_fnode, &tail_dir_fnode_location)) {
         print_string("Error: dir show failed on chain validation.\n");
         return -1;
     }
 
     show_dir_content(&tail_dir_fnode);
+
+    if (path)
+        destroy_directory_chain(new_chain);
+
     return 0;
 }
 

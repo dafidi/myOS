@@ -91,8 +91,13 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
     case 0: // hi
         print_string("hi to you too!\n");
         break;
-    case 1: {
-        if (list_dir_content(current_fs_ctx.working_directory_chain)) {
+    case 1: { // ls
+        char *path = NULL;
+
+        if (strlen(argsp) > 0)
+            path = argsp;
+
+        if (list_dir_content(&current_fs_ctx, path)) {
             print_string("Error showing dir with current chain.\n");
             return;
         }
