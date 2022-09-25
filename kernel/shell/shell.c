@@ -8,7 +8,7 @@
 #include <kernel/string.h>
 #include <kernel/system.h>
 
-#define NUM_KNOWN_COMMANDS 9
+#define NUM_KNOWN_COMMANDS 10
 
 extern struct fnode root_fnode;
 extern struct dir_entry root_dir_entry;
@@ -33,7 +33,8 @@ static char* known_commands[NUM_KNOWN_COMMANDS] = {
     "disk-test",
     "disk-id",
     "cd",
-    "cdp"
+    "cdp",
+    "fdel"
 };
 static char prompt[MAX_FILENAME_LENGTH + 3];
 static const char stub[3] = "$ ";
@@ -43,18 +44,29 @@ static struct fs_context current_fs_ctx = {
 };
 
 void update_prompt(void) {
+    struct directory_chain_link *chainp;
     struct dir_info dir_info;
+    char *promptp;
     int len;
 
-    if (get_dir_info_from_chain(current_fs_ctx.working_directory_chain, &dir_info)) {
-        print_string("Error: can't update prompt, couldn't get dir_info.\n");
-        return;
+    chainp = current_fs_ctx.working_directory_chain->head;
+    promptp = prompt;
+
+    while (chainp) {
+        len = strlen(chainp->name);
+
+        memory_copy(chainp->name, promptp, len);
+
+        promptp += len;
+
+        *promptp++ = '/';
+
+        chainp = chainp->next;
     }
 
-    len = strlen((char *) dir_info.name);
+    memory_copy((char *) stub, promptp++, 3);
 
-    memory_copy((char *) dir_info.name, prompt, len);
-    memory_copy((char *) stub, prompt + len, 3);
+    *promptp++ = '\0';
 }
 
 int cdp(char *path) {
@@ -66,10 +78,8 @@ int cdp(char *path) {
         return -1;
     }
 
-    if (path[0] == '/') {
-        destroy_directory_chain(current_fs_ctx.working_directory_chain);
-        current_fs_ctx.working_directory_chain = chain;
-    }
+    destroy_directory_chain(current_fs_ctx.working_directory_chain);
+    current_fs_ctx.working_directory_chain = chain;
 
     update_prompt();
 
@@ -200,6 +210,17 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
 
         break;
     }
+    case 9: {
+        struct file_deletion_info info;
+
+        clear_buffer(info.name, MAX_FILENAME_LENGTH);
+        memory_copy(argsp, info.name, strlen(argsp));
+        if (delete_file(&current_fs_ctx, &info)) {
+            print_string("Error: deleting ["); print_string(info.name);
+            print_string("] failed.\n");
+        }
+        break;
+    }
     default:
         print_string("don't know what that is sorry :(\n");
     }
@@ -272,6 +293,8 @@ static bool process_new_scancodes(const int offset, const int num_new_characters
             int e, p;
 
             reshow_prompt = true;
+
+            // This could happen if a bunch of '\n's are entered.
             if (last_executed_pos_ == ascii_buffer_head_)
                 continue;
 
@@ -319,18 +342,18 @@ void main_shell_run(void) {
     shell_input_counter_ = 0;
 
     while (true) {
-        int head = shell_input_counter_ % SHELL_CMD_INPUT_LIMIT;
-        int tail = last_processed_pos_ % SHELL_CMD_INPUT_LIMIT;
+        int p = last_processed_pos_, c = shell_input_counter_;
+        int p_mod = p % SHELL_CMD_INPUT_LIMIT;
 
         // Show shell prompt, "<directory name>$".
         if (prompt)
             show_prompt();
 
         // Wait for input from keyboard.
-        while (tail == head)
-            head = shell_input_counter_  % SHELL_CMD_INPUT_LIMIT;
+        while (p == c)
+            c = shell_input_counter_;
 
-        prompt = process_new_scancodes(tail, head - tail);
+        prompt = process_new_scancodes(p_mod, c - p);
     }
 
     print_string("We should never reach here. Going into infinite loop.\n");

@@ -4,7 +4,7 @@
 ;                   |-------------|
 DATA_BLOCKS_START_SECTOR equ 0x804001
 dd 0                                    ; [ root     ] fnode.id
-dd 424                                  ; [ root     ] fnode.size
+dd 432                                  ; [ root     ] fnode.size
 dd 1                                    ; [ root     ] fnode.type
 times 56 db 0                           ; [ root     ] fnode.reserved
 dd DATA_BLOCKS_START_SECTOR             ; [ root     ] sector_indexes[0]

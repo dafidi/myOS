@@ -111,6 +111,47 @@ struct directory_chain *init_directory_chain(void) {
     return chain;
 }
 
+struct directory_chain *__init_directory_chain(struct directory_chain *orig) {
+    struct directory_chain_link *origp;
+    struct directory_chain *chain;
+
+    chain = init_directory_chain();
+    if (!chain) {
+        print_string("Error: could not init chain. OOM? .\n");
+        return NULL;
+    }
+
+    origp = orig->head;
+    if (!origp) {
+        print_string("Error: init_directory_chain: orig has no head.\n");
+        goto fail_init;
+    }
+
+    // Skip past root folder link.
+    origp = origp->next;
+
+    while (origp) {
+        struct fnode fnode;
+
+        if (get_fnode_by_id(origp->id, &fnode)) {
+            print_string("Error __init_directory_chain: getting fnode.\n");
+            goto fail_init;
+        }
+
+        if (push_directory_chain_link(chain, &fnode)) {
+            print_string("Error pushing link.\n");
+            goto fail_init;
+        }
+        origp = origp->next;
+    }
+
+    return chain;
+
+fail_init:
+    destroy_directory_chain(chain);
+    return NULL;
+}
+
 /**
  * @brief Deallocate all the memory used in a directory chain.
  *
@@ -184,6 +225,11 @@ int push_directory_chain_link(struct directory_chain *chain, struct fnode *fnode
         goto remove_new_link;
     }
     memory_copy(dir_info.name, chainp->next->name, strlen(dir_info.name));
+
+    // There might be garbage left over in the allocated space, mark the
+    // string's end.
+    chainp->next->name[strlen(dir_info.name)] = '\0';
+
     chain->size++;
 
     return 0;
@@ -373,9 +419,8 @@ int validate_directory_chain(struct directory_chain *chain, struct fnode *tail_d
 /**
  * @brief Construct a struct directory_chain from a path string.
  *
- * If an absolute path is provided, a new directory_chain object is allocated.
- * (In that case, caller should take care to destroy the ctx's chain).
- * Otherwise, the chain of the provided context is adjusted.
+ * This allocates a new directory_chain object. So, callers should take care to
+ * pair with destroy appropriately to avoid memory leaks.
  *
  * @param ctx
  * @param path
@@ -398,14 +443,13 @@ struct directory_chain *create_chain_from_path(struct fs_context *ctx, char *pat
     if (abs_path || !ctx || !ctx->working_directory_chain)
         chain = init_directory_chain();
     else
-        chain = ctx->working_directory_chain;
+        chain = __init_directory_chain(ctx->working_directory_chain);
 
     if (validate_directory_chain(chain,
                                  &curr_dir_parent_fnode,
                                  &curr_dir_parent_fnode_location)) {
         print_string("Error: chain validation failed during chain creation.\n");
-        if (abs_path)
-            destroy_directory_chain(chain);
+        destroy_directory_chain(chain);
         return NULL;
     }
 
@@ -518,6 +562,35 @@ void set_sector_bits(uint32_t start_bit, uint64_t num_bits, uint32_t start_secto
 }
 
 /**
+ * @brief Unset num_bit bits on disk starting from start_sector);
+ *
+ * @param start_bit
+ * @param num_bits
+ * @param start_sector
+ */
+void unset_sector_bits(uint32_t start_bit, uint64_t num_bits, uint32_t start_sector) {
+    const int BITS_PER_SECTOR = BITS_PER_BYTE * SECTOR_SIZE;
+    int sector_offset = start_bit / BITS_PER_SECTOR;
+    int bit_offset = start_bit % BITS_PER_SECTOR;
+    uint8_t sector_buffer[SECTOR_SIZE];
+    int sector;
+
+    while (num_bits) {
+        sector = start_sector + sector_offset;
+
+        read_from_storage_disk(sector, SECTOR_SIZE, sector_buffer);
+        while (num_bits && bit_offset < BITS_PER_SECTOR) {
+            clear_bit(sector_buffer, bit_offset++);
+            num_bits--;
+        }
+        write_to_storage_disk(sector, SECTOR_SIZE, sector_buffer);
+
+        bit_offset = 0;
+        sector_offset++;
+    }
+}
+
+/**
  * @brief set bit n in the fnode bitmap.
  *
  * TODO: when we're reading the structures into memory, this will be as simple as:
@@ -528,7 +601,7 @@ void fnode_bitmap_set(uint32_t start_bit, uint64_t num_bits) {
 }
 
 void fnode_bitmap_unset(uint32_t start_bit, uint64_t num_bits) {
-    // TODO.
+    unset_sector_bits(start_bit, num_bits, master_record.fnode_bitmap_start_sector);
 }
 
 /**
@@ -542,7 +615,7 @@ void sector_bitmap_set(uint32_t start_bit, uint64_t num_bits) {
 }
 
 void sector_bitmap_unset(uint32_t start_bit, uint64_t num_bits) {
-    // TODO.
+    unset_sector_bits(start_bit, num_bits, master_record.sector_bitmap_start_sector);
 }
 
 /**
@@ -674,7 +747,7 @@ exit_with_alloc:
 /**
  * @brief Search for unused sectors.
  *
- * Find num_sectors unused sectors. This amounts to  search for num_sectors unset bits
+ * Find num_sectors unused sectors. This amounts to a search for num_sectors unset bits
  * in the sector_bitmap and is complicated by the fact sector_bitmap is on-disk.
  *
  * @param num_sectors
@@ -974,6 +1047,84 @@ exit:
 }
 
 /**
+ * @brief Remove a directory entry from a directory's content
+ *
+ * @param dir_fnode
+ * @param name
+ */
+int remove_dir_entry(struct fnode *dir_fnode, char *name) {
+    uint8_t *buffer = object_alloc(dir_fnode->size);
+    struct fnode_location_t dir_fnode_location;
+    const int name_len = strlen(name);
+    struct dir_entry *dir_entry;
+    struct dir_info *dir_info;
+    int num_entries_to_shift;
+    int error = 0, i;
+
+    if (!buffer) {
+        print_string("Error: object alloc failed in remove_dir_entry.\n");
+        error = -1;
+        goto return_error;
+    }
+
+    if (get_fnode_location(dir_fnode->id, &dir_fnode_location)) {
+        print_string("Error removing dir_entry: get_fnode_location failed.\n");
+        error = -1;
+        goto free_buffer;
+    }
+
+    if (read_dir_content(dir_fnode, buffer) < 0) {
+        print_string("Error removing dir_entry: failed read_dir_content.\n");
+        error = -1;
+        goto free_buffer;
+    }
+
+    dir_info = (struct dir_info*) buffer;
+    dir_entry = (struct dir_entry*) (dir_info + 1);
+
+    for (i = 0; i < dir_info->num_entries; i++, dir_entry++) {
+        const int entry_name_len = strlen(dir_entry->name);
+
+        if (entry_name_len == name_len &&
+            strmatchn(name, dir_entry->name, name_len))
+            break;
+    }
+
+    if (i == dir_info->num_entries) {
+        print_string("Error removing entry: couldn't find name.\n");
+        error = -1;
+        goto free_buffer;
+    }
+
+    num_entries_to_shift = dir_info->num_entries - (i + 1);
+    while (num_entries_to_shift--) {
+        *dir_entry = *(dir_entry + 1);
+        dir_entry++;
+    }
+
+    dir_info->num_entries--;
+
+    const int new_size = (uint8_t *) dir_entry - (uint8_t *) dir_info;
+    if (overwrite_dir_content(dir_fnode, buffer, new_size)) {
+        print_string("Error adding dir_entry: overwrite_dir_content failed.\n");
+        error = -1;
+        goto free_buffer;
+    }
+
+    dir_fnode->size = new_size;
+    if (save_fnode(&dir_fnode_location, dir_fnode)) {
+        print_string("Error: remove_dir_entry: save_fnode.\n");
+        error = -1;
+    }
+
+free_buffer:
+    object_free(buffer);
+
+return_error:
+    return error;
+}
+
+/**
  * @brief Create a new file within the innermost directory of the direcotory chain
  * of the supplied filesystem context.
  *
@@ -1029,6 +1180,7 @@ int create_file(struct fs_context *ctx, struct file_creation_info *file_info) {
     new_dir_entry.size = sz; // Unnecessary as size field is obsolete but leave for now.
     new_dir_entry.type = FILE;
     new_dir_entry.fnode_location = new_fnode_location;
+    new_dir_entry.id = new_fnode.id;
 
     // We get the parent_fnode (and location) by this validation process.
     if (validate_directory_chain(ctx->working_directory_chain, &parent_fnode, &parent_fnode_location)) {
@@ -1054,6 +1206,105 @@ free_sectors:
         sector_bitmap_unset(sector_indexes_buffer[i], 1);
 
     return -1;
+}
+
+int __delete_file(struct directory_chain *chain, char *deletion_target_name) {
+    struct fnode_location_t enclosing_fnode_location, file_fnode_location;
+    struct fnode enclosing_fnode, file_fnode;
+    int to_delete, sector_idx;
+
+    if (validate_directory_chain(chain,
+                                 &enclosing_fnode,
+                                 &enclosing_fnode_location)) {
+        print_string("Error deleting file: couldn't validate chain.\n");
+        return -1;
+    }
+
+    // Verify that target file is present in working directory.
+    if (search_name_in_directory(deletion_target_name, &enclosing_fnode, &file_fnode)) {
+        print_string("Error deleting file: couldn't find file in wd.\n");
+        return -1;
+    }
+
+    // Free the sectors occupied by the file.
+    to_delete = file_fnode.size;
+    sector_idx = 0;
+    while (to_delete) {
+        int delete_size = to_delete > SECTOR_SIZE ? SECTOR_SIZE : to_delete;
+        sector_bitmap_unset(file_fnode.sector_indexes[sector_idx++], 1ULL);
+        to_delete -= delete_size;
+    }
+
+    // Free the fnode used by the file.
+    if (get_fnode_location(file_fnode.id, &file_fnode_location)) {
+        print_string("Error during delete: failed getting fnode location.\n");
+        return -1;
+    }
+
+    fnode_bitmap_unset(file_fnode_location.fnode_table_index, 1);
+
+    remove_dir_entry(&enclosing_fnode, deletion_target_name);
+
+    return 0;
+}
+
+/**
+ * @brief Delete a file from the current directory of an fs_context.
+ *
+ * @param ctx
+ * @param folder_info
+ */
+int delete_file(struct fs_context *ctx, char *path) {
+    char deletion_target_name[MAX_FILENAME_LENGTH];
+    struct directory_chain *chain;
+    int path_len = strlen(path);
+    int i, j, error = 0;
+    char c;
+
+    if (path_len <= 0)
+        return -1;
+
+    i = path_len - 1;
+
+    // Skip past trailing '/'s.
+    while (i >= 0 && path[i] == '/')
+        i--;
+
+    if (i < 0 )
+        return -1;
+
+    // Skip past non '/'s.
+    j = i;
+    while (i && path[i] != '/')
+        i--;
+
+    if (path[i] == '/')
+        i++;
+
+    clear_buffer(deletion_target_name, MAX_FILENAME_LENGTH);
+
+    memory_copy(&path[i], deletion_target_name, j - i + 1);
+
+    // Mark end of enclosing path so it can be used to create a chain.
+    c = path[i];
+    path[i] = '\0';
+
+    chain = create_chain_from_path(ctx, path);
+    if (!chain) {
+        print_string("Error: delete_file: create_chain_from_path.\n");
+        error = -1;
+    }
+    path[i] = c;
+
+    if (!error && __delete_file(chain, deletion_target_name)) {
+        print_string("Error: delete_file: __delete_file.\n");
+        error = -1;
+    }
+
+    if (chain)
+        destroy_directory_chain(chain);
+
+    return error;
 }
 
 /**
@@ -1129,6 +1380,7 @@ int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_in
     new_dir_entry.size = sizeof(struct dir_info); // Unnecessary as size field is obsolete but leave for now.
     new_dir_entry.type = FOLDER;
     new_dir_entry.fnode_location = new_fnode_location;
+    new_dir_entry.id = new_fnode.id;
     if (add_dir_entry(&parent_fnode_location, &parent_fnode, &new_dir_entry))
         goto unsave_new_fnode;
 
@@ -1171,6 +1423,36 @@ int read_dir_content(const struct fnode *dir_fnode, uint8_t *buffer) {
     }
 
     return amt_read;
+}
+
+/**
+ * @brief Overwrite the content of a directory fnode.
+ *
+ * @param fnode
+ * @param buffer
+ * @param bytes
+ */
+int overwrite_dir_content(struct fnode *fnode, uint8_t *buffer, int bytes) {
+    int error = 0, written = 0, to_write, sectors_written = 0;
+    uint8_t *data = buffer;
+
+    // Write to disk one sector at a time because fnode->sector_indexes
+    // might not be contiguous.
+    while (written < bytes) {
+        int idx = fnode->sector_indexes[sectors_written];
+
+        to_write = (bytes - written) < SECTOR_SIZE ? (bytes - written) : SECTOR_SIZE;
+        if (write_to_storage_disk(idx, to_write, data)) {
+            print_string("Failed to write file content to disk.\n");
+            return -1;
+        }
+
+        sectors_written++;
+        written += to_write;
+        data += written;
+    }
+
+    return error;
 }
 
 /**
@@ -1241,6 +1523,25 @@ void show_dir_content(const struct fnode *dir_fnode) {
  *
  * @param fnode_ptr
  */
+int get_fnode_by_location(struct fnode_location_t *location, struct fnode* fnodep) {
+    uint8_t *buffer = object_alloc(SECTOR_SIZE);
+
+    // Read fnode in from disk.
+    if (read_from_storage_disk(location->fnode_sector_index, SECTOR_SIZE, buffer))
+        return -1;
+
+    *fnodep = *((struct fnode*)(buffer + location->offset_within_sector));
+
+    object_free(buffer);
+
+    return 0;
+}
+
+/**
+ * @brief Read in the fnode of the provided directory entry.
+ *
+ * @param fnode_ptr
+ */
 int get_fnode(struct dir_entry *entry, struct fnode* fnode_ptr) {
     uint8_t *buffer = object_alloc(SECTOR_SIZE);
 
@@ -1251,6 +1552,112 @@ int get_fnode(struct dir_entry *entry, struct fnode* fnode_ptr) {
     *fnode_ptr = (struct fnode)(*(struct fnode*)(buffer + entry->fnode_location.offset_within_sector));
 
     object_free(buffer);
+
+    return 0;
+}
+
+/**
+ * @brief Get the location of fnode with id id within the folder represented by fnode
+ *
+ * CAREFUL! The return value semantics are:
+ *
+ *  < 0 => an error occurred
+ * == 0 => no error occurred but the fnode was not found
+ *  > 0 => fnode with the required id was found
+ *
+ * @param fnode (MUST HAVE type=FOLDER)
+ * @param id
+ * @param result_fnode_location
+ */
+int __get_fnode_location(struct fnode *fnode, fnode_id_t id, struct fnode_location_t *result_fnode_location) {
+    uint8_t *buffer = object_alloc(fnode->size);
+    struct dir_entry *dir_entry;
+    struct dir_info *dir_info;
+    int error = 0, i;
+
+    if (read_dir_content(fnode, buffer) < 0) {
+        print_string("Error: __get_fnode_location: read_dir_content.\n");
+        error = -1;
+        goto free_buffer;
+    }
+
+    dir_info = (struct dir_info *) buffer;
+    dir_entry = (struct dir_entry *) (dir_info + 1);
+
+    for (i = 0; i < dir_info->num_entries; i++, dir_entry++) {
+        if (dir_entry->id == id)
+            break;
+    }
+
+    if (i < dir_info->num_entries) {
+        *result_fnode_location = dir_entry->fnode_location;
+        error = 1;
+        goto free_buffer;
+    }
+
+    // Since we didn't find the id in the current directory, we must recursively search its subdirectories.
+    dir_entry = (struct dir_entry *) (dir_info + 1);
+
+    for (i = 0; i < dir_info->num_entries; i++, dir_entry++) {
+        struct fnode subdir_fnode;
+
+        if (dir_entry->type != FOLDER)
+            continue;
+
+        if (get_fnode(dir_entry, &subdir_fnode)) {
+            print_string("Error __get_fnode_location: get_fnode.\n");
+            error = -1;
+            goto free_buffer;
+        }
+
+        // TODO: Do we really care if a subdirectory search encounters an error?
+        // Such an error is not likely to have downstream effects so at least
+        // for now we can just ignore it.
+        if (__get_fnode_location(&subdir_fnode, id, result_fnode_location) > 0) {
+            error = 1;
+            break;
+        }
+    }
+
+free_buffer:
+    object_free(buffer);
+
+    return error;
+}
+
+int get_fnode_location(fnode_id_t id, struct fnode_location_t *result_fnode_location) {
+    struct fnode root_fnode;
+
+    if (id == root_dir_entry.id) {
+        *result_fnode_location = root_dir_entry.fnode_location;
+        return 0;
+    }
+
+    if (get_fnode(&root_dir_entry, &root_fnode)) {
+        print_string("Error get_fnode_location: get_fnode.\n");
+        return -1;
+    }
+
+    if (__get_fnode_location(&root_fnode, id, result_fnode_location) <= 0) {
+        print_string("Error get_fnode_location: __get_fnode_location.\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+int get_fnode_by_id(fnode_id_t id, struct fnode *fnode) {
+    struct fnode_location_t location;
+
+    if (get_fnode_location(id, &location)) {
+        print_string("Error: get_fnode: get_fnode_location.\n");
+        return -1;
+    }
+
+    if (get_fnode_by_location(&location, fnode)) {
+        print_string("Error: get_fnode: get_fnode.\n");
+        return -1;
+    }
 
     return 0;
 }
