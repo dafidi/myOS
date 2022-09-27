@@ -1141,7 +1141,7 @@ return_error:
 }
 
 /**
- * @brief Create a new file within the innermost directory of the direcotory chain
+ * @brief Create a new file within the innermost directory of the directory chain
  * of the supplied filesystem context.
  *
  * @param ctx
