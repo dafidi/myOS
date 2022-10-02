@@ -8,7 +8,7 @@
 #include <kernel/string.h>
 #include <kernel/system.h>
 
-#define NUM_KNOWN_COMMANDS 9
+#define NUM_KNOWN_COMMANDS 10
 
 extern struct fnode root_fnode;
 extern struct dir_entry root_dir_entry;
@@ -33,7 +33,8 @@ static char* known_commands[NUM_KNOWN_COMMANDS] = {
     "disk-test",
     "disk-id",
     "cd",
-    "fdel"
+    "fidel",
+    "fodel"
 };
 static char prompt[MAX_FILENAME_LENGTH + 3];
 static char stub[3] = "$ ";
@@ -172,13 +173,24 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
 
         break;
     }
-    case 8: { // fdel
+    case 8: { // fidel
         char filename[MAX_FILENAME_LENGTH];
 
         clear_buffer((uint8_t *) filename, MAX_FILENAME_LENGTH);
         memory_copy(argsp, filename, strlen(argsp));
         if (delete_file(&current_fs_ctx, filename)) {
             print_string("Error: deleting ["); print_string(filename);
+            print_string("] failed.\n");
+        }
+        break;
+    }
+    case 9: {// fodel
+        char foldername[MAX_FILENAME_LENGTH];
+
+        clear_buffer((uint8_t *) foldername, MAX_FILENAME_LENGTH);
+        memory_copy(argsp, foldername, strlen(argsp));
+        if (delete_folder(&current_fs_ctx, foldername)) {
+            print_string("Error: deleting ["); print_string(foldername);
             print_string("] failed.\n");
         }
         break;

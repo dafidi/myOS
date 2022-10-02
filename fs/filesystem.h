@@ -113,7 +113,7 @@ void destroy_directory_chain(struct directory_chain *);
 int create_file(struct fs_context *, struct file_creation_info *);
 int delete_file(struct fs_context *, char *);
 int create_folder(struct fs_context *, struct folder_creation_info *);
-int delete_folder(struct fs_context *, struct folder_deletion_info *);
+int delete_folder(struct fs_context *, char *);
 int fs_search(struct directory_chain *, char*, struct fnode *);
 int list_dir_content(struct fs_context *, char *);
 int get_dir_info_from_chain(struct directory_chain *, struct dir_info *);

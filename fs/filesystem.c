@@ -1071,6 +1071,7 @@ exit:
 int remove_dir_entry(struct fnode *dir_fnode, char *name) {
     uint8_t *buffer = object_alloc(dir_fnode->size);
     struct fnode_location_t dir_fnode_location;
+    int num_sectors_new, num_sectors_old, diff;
     const int name_len = strlen(name);
     struct dir_entry *dir_entry;
     struct dir_info *dir_info;
@@ -1125,6 +1126,16 @@ int remove_dir_entry(struct fnode *dir_fnode, char *name) {
         print_string("Error adding dir_entry: overwrite_dir_content failed.\n");
         error = -1;
         goto free_buffer;
+    }
+
+    num_sectors_old = (dir_fnode->size / SECTOR_SIZE) +
+                      ((dir_fnode->size % SECTOR_SIZE) ? 1 : 0);
+    num_sectors_new = (new_size / SECTOR_SIZE) +
+                      ((new_size % SECTOR_SIZE) ? 1 : 0);
+
+    if ((diff = num_sectors_old - num_sectors_new)) {
+        for (int i = 0; i < diff; i++)
+            sector_bitmap_unset(dir_fnode->sector_indexes[num_sectors_new + i], 1);
     }
 
     dir_fnode->size = new_size;
@@ -1282,12 +1293,10 @@ int delete_file(struct fs_context *ctx, char *path) {
 
     i = path_len - 1;
 
-    // Skip past trailing '/'s.
-    while (i >= 0 && path[i] == '/')
-        i--;
-
-    if (i < 0 )
+    if (path[i] == '/') {
+        print_string("Error: filenames should not end with (or have) '/'\n");
         return -1;
+    }
 
     // Skip past non '/'s.
     j = i;
@@ -1321,6 +1330,51 @@ int delete_file(struct fs_context *ctx, char *path) {
         destroy_directory_chain(chain);
 
     return error;
+}
+
+static int free_dir_content_sectors(struct fnode *__fnode) {
+    uint8_t *buffer = object_alloc(__fnode->size);
+    struct dir_entry *dir_entry;
+    struct dir_info *dir_info;
+
+    if (!buffer) {
+        print_string("Error free_dir_content: object_alloc.\n");
+        return -1;
+    }
+
+    if (read_dir_content(__fnode, buffer) < 0) {
+        print_string("Error free_dir_content_sectors: read_dir_content.\n");
+        return -1;
+    }
+
+    dir_info = (struct dir_info *) buffer;
+    dir_entry = (struct dir_entry *) (dir_info + 1);
+
+    for (int i = 0; i < dir_info->num_entries; i++, dir_entry++) {
+        int to_delete, sector_idx;
+        struct fnode fnode;
+
+        if (get_fnode_by_location(&dir_entry->fnode_location, &fnode)) {
+            print_string("Error free_dir_content: get_fnode_by_location.\n");
+            return -1;
+        }
+
+        if (dir_entry->type == FOLDER) {
+            if (free_dir_content_sectors(&fnode)) {
+                print_string("Error free_dir_content_sectors(fnode).\n");
+                return -1;
+            }
+        }
+
+        for (sector_idx = 0, to_delete = fnode.size; to_delete > 0; sector_idx++) {
+            sector_bitmap_unset(fnode.sector_indexes[sector_idx], 1);
+            to_delete -= to_delete > SECTOR_SIZE ? SECTOR_SIZE : to_delete;
+        }
+
+        fnode_bitmap_unset(dir_entry->fnode_location.fnode_table_index, 1);
+    }
+
+    return 0;
 }
 
 /**
@@ -1415,6 +1469,101 @@ free_sectors:
         sector_bitmap_unset(sector_indexes_buffer[i], 1);
 
     return -1;
+}
+
+static int __delete_folder(struct directory_chain *chain, char *deletion_target_name) {
+    struct fnode_location_t enclosing_fnode_location, folder_fnode_location;
+    struct fnode enclosing_fnode, folder_fnode;
+    int to_delete, sector_idx;
+
+    if (validate_directory_chain(chain,
+                                 &enclosing_fnode,
+                                 &enclosing_fnode_location)) {
+        print_string("Error deleting folder: couldn't validate chain.\n");
+        return -1;
+    }
+
+    if (search_name_in_directory(deletion_target_name, &enclosing_fnode, &folder_fnode)) {
+        print_string("Error deleting folder: couldn't find folder in enclosing directory.\n");
+        return -1;
+    }
+
+    if (free_dir_content_sectors(&folder_fnode)) {
+        print_string("Error deleting folder: content sectors free failed.\n");
+        return -1;
+    }
+
+    // Free the sectors occupied by the folder.
+    to_delete = folder_fnode.size;
+    sector_idx = 0;
+    while (to_delete) {
+        int delete_size = to_delete > SECTOR_SIZE ? SECTOR_SIZE : to_delete;
+        sector_bitmap_unset(folder_fnode.sector_indexes[sector_idx++], 1ULL);
+        to_delete -= delete_size;
+    }
+
+    // Free the fnode used by the folder.
+    if (get_fnode_location(folder_fnode.id, &folder_fnode_location)) {
+        print_string("Error during delete: failed getting fnode location.\n");
+        return -1;
+    }
+
+    fnode_bitmap_unset(folder_fnode_location.fnode_table_index, 1);
+
+    remove_dir_entry(&enclosing_fnode, deletion_target_name);
+
+    return 0;
+}
+
+int delete_folder(struct fs_context *ctx, char *path) {
+    char deletion_target_name[MAX_FILENAME_LENGTH];
+    struct directory_chain *chain;
+    int path_len = strlen(path);
+    int i, j, error = 0;
+    char c;
+
+    if (path_len <= 0)
+        return -1;
+
+    i = path_len - 1;
+
+    while (i >= 0 && path[i] == '/')
+        i--;
+
+    if (i < 0) {
+        print_string("Deleting '/' (the root directory) is not allowed.\n");
+        return -1;
+    }
+
+    j = i;
+    while (i && path[i] != '/')
+        i--;
+
+    if (path[i] == '/')
+        i++;
+
+    clear_buffer((uint8_t *) deletion_target_name, MAX_FILENAME_LENGTH);
+    memory_copy(&path[i], deletion_target_name, j - i + 1);
+
+    c = path[i];
+    path[i] = '\0';
+
+    chain = create_chain_from_path(ctx, path);
+    if (!chain) {
+        print_string("Error: delete_file: create_chain_from_path.\n");
+        error = -1;
+    }
+    path[i] = c;
+
+    if (!error && __delete_folder(chain, deletion_target_name)) {
+        print_string("Error: delete_file: __delete_file.\n");
+        error = -1;
+    }
+
+    if (chain)
+        destroy_directory_chain(chain);
+
+    return error;
 }
 
 /**
