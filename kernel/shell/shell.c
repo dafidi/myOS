@@ -8,7 +8,7 @@
 #include <kernel/string.h>
 #include <kernel/system.h>
 
-#define NUM_KNOWN_COMMANDS 9
+#define NUM_KNOWN_COMMANDS 10
 
 extern struct fnode root_fnode;
 extern struct dir_entry root_dir_entry;
@@ -33,31 +33,44 @@ static char* known_commands[NUM_KNOWN_COMMANDS] = {
     "disk-test",
     "disk-id",
     "cd",
-    "cdp"
+    "fidel",
+    "fodel"
 };
 static char prompt[MAX_FILENAME_LENGTH + 3];
-static const char stub[3] = "$ ";
+static char stub[3] = "$ ";
 
 static struct fs_context current_fs_ctx = {
     .curr_dir_fnode = &root_fnode,
 };
 
 void update_prompt(void) {
-    struct dir_info dir_info;
+    struct directory_chain_link *chainp;
+    char *promptp;
     int len;
 
-    if (get_dir_info_from_chain(current_fs_ctx.working_directory_chain, &dir_info)) {
-        print_string("Error: can't update prompt, couldn't get dir_info.\n");
-        return;
+    chainp = current_fs_ctx.working_directory_chain->head;
+    promptp = prompt;
+
+    while (chainp) {
+        len = strlen(chainp->name);
+
+        memory_copy(chainp->name, promptp, len);
+
+        promptp += len;
+
+        *promptp++ = '/';
+
+        chainp = chainp->next;
     }
 
-    len = strlen((char *) dir_info.name);
+    memory_copy((char *) stub, promptp, 3);
 
-    memory_copy((char *) dir_info.name, prompt, len);
-    memory_copy((char *) stub, prompt + len, 3);
+    promptp += strlen(stub);
+
+    *promptp = '\0';
 }
 
-int cdp(char *path) {
+int change_directory(char *path) {
     struct directory_chain *chain;
 
     chain = create_chain_from_path(&current_fs_ctx, path);
@@ -66,35 +79,12 @@ int cdp(char *path) {
         return -1;
     }
 
-    if (path[0] == '/') {
-        destroy_directory_chain(current_fs_ctx.working_directory_chain);
-        current_fs_ctx.working_directory_chain = chain;
-    }
+    destroy_directory_chain(current_fs_ctx.working_directory_chain);
+    current_fs_ctx.working_directory_chain = chain;
 
     update_prompt();
 
     return 0;
-}
-
-int change_directory(char *target_dir_name) {
-    struct fnode target_dir_fnode;
-    int error = 0;
-
-    error = fs_search(current_fs_ctx.working_directory_chain, target_dir_name, &target_dir_fnode);
-    if (error) {
-        print_string("Can't change directories to "); print_string(target_dir_name); print_string("\n");
-        return -1;
-    }
-
-    if (push_directory_chain_link(current_fs_ctx.working_directory_chain, &target_dir_fnode)) {
-        print_string("Error: path valid but internal error occurred.\n");
-        return -1;
-    }
-
-    clear_buffer((uint8_t *) prompt, MAX_FILENAME_LENGTH + 3);
-    memory_copy(target_dir_name, prompt, strlen(target_dir_name));
-    memory_copy(stub, prompt + strlen(target_dir_name), 2);
-    return error;
 }
 
 static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
@@ -102,8 +92,13 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
     case 0: // hi
         print_string("hi to you too!\n");
         break;
-    case 1: {
-        if (list_dir_content(current_fs_ctx.working_directory_chain)) {
+    case 1: { // ls
+        char *path = NULL;
+
+        if (strlen(argsp) > 0)
+            path = argsp;
+
+        if (list_dir_content(&current_fs_ctx, path)) {
             print_string("Error showing dir with current chain.\n");
             return;
         }
@@ -111,17 +106,7 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
         break;
     }
     case 2: { // pwd
-        //struct dir_info dir_info;
-
-        //if (get_dir_info(current_fs_ctx.curr_dir_fnode, &dir_info)) {
-        //    print_string("Failed to get dir_info for [fnode=");
-        //    print_ptr(current_fs_ctx.curr_dir_fnode);
-        //    print_string("]\n");
-        //    return;
-        // }
-        // print_string("cwd: ["); print_string(dir_info.name); print_string("]\n");
-
-        struct directory_chain_link *link = current_fs_ctx.working_directory_chain->head;
+       struct directory_chain_link *link = current_fs_ctx.working_directory_chain->head;
 
         while (link) {
             print_string(link->name);
@@ -145,8 +130,8 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
             .file_content = (uint8_t *) text
         };
 
-        clear_buffer((uint8_t *)info.name, MAX_FILENAME_LENGTH);
-        memory_copy(argsp, info.name, strlen(argsp));
+        clear_buffer((uint8_t *)info.path, MAX_FILENAME_LENGTH);
+        memory_copy(argsp, info.path, strlen(argsp));
 
         print_string("One new file coming right up!\n");
         if (create_file(&current_fs_ctx, &info))
@@ -160,8 +145,8 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
         }
 
         struct folder_creation_info info;
-        clear_buffer((uint8_t *)info.name, MAX_FILENAME_LENGTH);
-        memory_copy(argsp, info.name, strlen(argsp));
+        clear_buffer((uint8_t *)info.path, MAX_FILENAME_LENGTH);
+        memory_copy(argsp, info.path, strlen(argsp));
 
         print_string("One new folder coming up!\n");
         if (create_folder(&current_fs_ctx, &info))
@@ -181,23 +166,33 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
         break;
     }
     case 7: { // cd
-        //char dir_name[MAX_FILENAME_LENGTH] = "new_folder";
-        char *dir_name = argsp;
+        char *path = argsp;
 
-        //clear_buffer((uint8_t *)dir_name + strlen(dir_name), MAX_FILENAME_LENGTH - strlen(dir_name));
-        if (change_directory(dir_name))
+        if (change_directory(path))
             print_string("Error: unable to change directory.\n");
 
         break;
     }
-    case 8: { // cdp
-        //char dir_name[MAX_FILENAME_LENGTH] = "new_folder";
-        char *path = argsp;
+    case 8: { // fidel
+        char filename[MAX_FILENAME_LENGTH];
 
-        //clear_buffer((uint8_t *)dir_name + strlen(dir_name), MAX_FILENAME_LENGTH - strlen(dir_name));
-        if (cdp(path))
-            print_string("Error: unable to change directory.\n");
+        clear_buffer((uint8_t *) filename, MAX_FILENAME_LENGTH);
+        memory_copy(argsp, filename, strlen(argsp));
+        if (delete_file(&current_fs_ctx, filename)) {
+            print_string("Error: deleting ["); print_string(filename);
+            print_string("] failed.\n");
+        }
+        break;
+    }
+    case 9: {// fodel
+        char foldername[MAX_FILENAME_LENGTH];
 
+        clear_buffer((uint8_t *) foldername, MAX_FILENAME_LENGTH);
+        memory_copy(argsp, foldername, strlen(argsp));
+        if (delete_folder(&current_fs_ctx, foldername)) {
+            print_string("Error: deleting ["); print_string(foldername);
+            print_string("] failed.\n");
+        }
         break;
     }
     default:
@@ -272,6 +267,8 @@ static bool process_new_scancodes(const int offset, const int num_new_characters
             int e, p;
 
             reshow_prompt = true;
+
+            // This could happen if a bunch of '\n's are entered.
             if (last_executed_pos_ == ascii_buffer_head_)
                 continue;
 
@@ -319,18 +316,18 @@ void main_shell_run(void) {
     shell_input_counter_ = 0;
 
     while (true) {
-        int head = shell_input_counter_ % SHELL_CMD_INPUT_LIMIT;
-        int tail = last_processed_pos_ % SHELL_CMD_INPUT_LIMIT;
+        int p = last_processed_pos_, c = shell_input_counter_;
+        int p_mod = p % SHELL_CMD_INPUT_LIMIT;
 
         // Show shell prompt, "<directory name>$".
         if (prompt)
             show_prompt();
 
         // Wait for input from keyboard.
-        while (tail == head)
-            head = shell_input_counter_  % SHELL_CMD_INPUT_LIMIT;
+        while (p == c)
+            c = shell_input_counter_;
 
-        prompt = process_new_scancodes(tail, head - tail);
+        prompt = process_new_scancodes(p_mod, c - p);
     }
 
     print_string("We should never reach here. Going into infinite loop.\n");

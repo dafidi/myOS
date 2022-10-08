@@ -19,3 +19,18 @@ dd if=fs.fs of=disk.hdd obs=512 seek=262144 conv=notrunc
 
 - To disassemble nasm binary:
 ndisasm # Linux
+
+- Inspect fs components on disk. The params to be aware of are start, skip and length
+
+START_SECTOR = COMPONENT_START_SECTOR
+SKIP (depends on where in the component you want to start reading from)
+LENGTH (depends on how much data you want to view)
+
+hexdump -C -s $((START_SECTOR * 512 + (SKIP) -n LENGTH)) disk.hdd
+
+-- Inspect 1024 bytes skipping the first 8404993 bytes of the sector_bitmap:
+(This example skips the first 8404993 / 8 bytes because that is how many bytes are occupied
+by the fs components and we want to view the bits used by the files & folders, not the
+fs components.)
+hexdump -C -s $((8193 * 512 + (8404993 / 8))) -n 1024 disk.hdd
+
