@@ -149,6 +149,7 @@ struct directory_chain *__init_directory_chain(struct directory_chain *orig) {
 
 fail_init:
     destroy_directory_chain(chain);
+
     return NULL;
 }
 
@@ -218,7 +219,7 @@ int push_directory_chain_link(struct directory_chain *chain, struct fnode *fnode
         goto remove_new_link;
     }
 
-    chainp->next->name = (char *) object_alloc(strlen(dir_info.name));
+    chainp->next->name = (char *) object_alloc(strlen(dir_info.name) + 1);
     if (!chainp->next->name) {
         print_string("Error allocating object for name in chain push.\n");
         error = -1;
@@ -1151,6 +1152,30 @@ return_error:
     return error;
 }
 
+char *extract_filename_from_path(char *path) {
+    int path_len = strlen(path);
+    int i;
+
+    if (path_len <= 0)
+        return NULL;
+
+    i = path_len - 1;
+
+    if (path[i] == '/') {
+        print_string("Error: filenames should not end with '/'.\n");
+        return NULL;
+    }
+
+    // Skip past non '/'s.
+    while(i && path[i] != '/')
+        i--;
+
+    if (path[i] == '/')
+        i++;
+
+    return &path[i];
+}
+
 /**
  * @brief Create a new file within the innermost directory of the directory chain
  * of the supplied filesystem context.
@@ -1168,6 +1193,8 @@ int create_file(struct fs_context *ctx, struct file_creation_info *file_info) {
     int sector_indexes_buffer[MAX_FILE_CHUNKS];
     struct fnode parent_fnode, new_fnode;
     struct dir_entry new_dir_entry;
+    struct directory_chain *chain;
+    char *filename;
     int time, err;
 
     while ((sz_sectors << SECTOR_SIZE_SHIFT) < sz)
@@ -1203,20 +1230,46 @@ int create_file(struct fs_context *ctx, struct file_creation_info *file_info) {
     if (save_file(&new_fnode, file_info))
         goto unsave_new_fnode;
 
-    memory_copy(file_info->name, new_dir_entry.name, MAX_FILENAME_LENGTH);
+    filename = extract_filename_from_path(file_info->path);
+    if (!filename) {
+        print_string("Error create_file: extract_filename_from_path.\n");
+        goto unsave_new_fnode;
+    }
+
+    memory_copy(filename, new_dir_entry.name, strlen(filename));
     new_dir_entry.size = sz; // Unnecessary as size field is obsolete but leave for now.
     new_dir_entry.type = FILE;
     new_dir_entry.fnode_location = new_fnode_location;
     new_dir_entry.id = new_fnode.id;
 
+    if (filename != file_info->path) {
+        char c = *(filename -1);
+
+        *(filename - 1) = '\0';
+        chain = create_chain_from_path(ctx, file_info->path);
+        *(filename - 1) = c;
+    } else {
+        chain = ctx->working_directory_chain;
+    }
+
+    if (!chain) {
+        print_string("Error create_file: create_chain_from_path");
+        goto unsave_new_fnode;
+    }
+
     // We get the parent_fnode (and location) by this validation process.
-    if (validate_directory_chain(ctx->working_directory_chain, &parent_fnode, &parent_fnode_location)) {
+    if (validate_directory_chain(chain, &parent_fnode, &parent_fnode_location)) {
         print_string("Error creating file: failed chain validation.\n");
+        if (chain != ctx->working_directory_chain)
+            destroy_directory_chain(chain);
         goto unsave_new_fnode;
     }
 
     if (add_dir_entry(&parent_fnode_location, &parent_fnode, &new_dir_entry))
         goto unsave_new_fnode;
+
+    if (chain != ctx->working_directory_chain)
+        destroy_directory_chain(chain);
 
     return 0;
 
@@ -1377,6 +1430,40 @@ static int free_dir_content_sectors(struct fnode *__fnode) {
     return 0;
 }
 
+int validate_new_folder_name(char *foldername) {
+    int name_len = strlen(foldername);
+    int i = 0;
+
+    // Verify that the new folder's name does not match '/[/]*'.
+    while (i < name_len && foldername[i] == '/')
+        i++;
+    if (i == name_len)
+        return -1;
+
+    // TODO: Other folder name validation.
+
+    return 0;
+}
+
+char *extract_foldername_from_path(char *path) {
+    int path_len = strlen(path);
+    int i;
+
+    if (path_len <= 0)
+        return NULL;
+
+    i = path_len - 1;
+
+    while (i && path[i] == '/')
+        i--;
+
+    // Skip past non '/'s.
+    while(i && path[i] != '/')
+        i--;
+
+    return &path[i];
+}
+
 /**
  * @brief Create a new folder within the innermost directory of the supplied filesystem
  * context's chain.
@@ -1395,6 +1482,9 @@ int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_in
     struct fnode parent_fnode, new_fnode;
     struct dir_entry new_dir_entry;
     struct dir_info *new_dir_info;
+    struct directory_chain *chain;
+    int folderpath_len;
+    char *foldername;
     int time, err;
 
     while ((sz_sectors << SECTOR_SIZE_SHIFT) < sz)
@@ -1427,26 +1517,104 @@ int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_in
     if (save_fnode(&new_fnode_location, &new_fnode))
         goto free_fnode;
 
+    foldername = extract_foldername_from_path(folder_info->path);
+    if (!foldername) {
+        print_string("Error create_folder: bad path?\n");
+        goto free_fnode;
+    }
+
+    if (validate_new_folder_name(foldername)) {
+        print_string("Error create_folder: invalid new folder name.\n");
+        goto free_fnode;
+    }
+
+    // The 2 if/else blocks that follow are a little esoteric, so here's an
+    // explanation for posterity:
+    //
+    // folder_info->path is a stack allocated array of chars.
+    // foldername points to the byte/char in folder_info->path which starts
+    // the name of the folder being added.
+    //
+    // The foldername could potentially include trailing '/'s. So, the first
+    // if block tries to set mark the end of the string at the first of the
+    // (possibly) trailing '/'s.
+    //
+    // To create the chain, we need to mark the end of the path correctly.
+    // If the folder's name (foldername) is the same as the beginning of the
+    // path, then the path contains just the folder name (no '/'s) and the
+    // folder is to be created in the working directory of the given context.
+    // Otherwise, '/'s are included in the path - in this case, we need to be
+    // mindful of paths that begin with '/'s - the inner if in the second
+    // if/else block handles this by terminating the path at the beginning of
+    // the foldername (this allows a path like "/home" to temporarily become
+    // "/\0ome" so we can correctly create a chain of just "/". This also
+    // works for something like "////home" (=> "////\0ome") as the
+    // create_chain_from_path knows how to deal with the extra '/'s.
+    // The inner else handles the case where the '/' that precede filename
+    // do not start the path, e.g "home////docs".
+    folderpath_len = strlen(folder_info->path);
+    if (folder_info->path[folderpath_len - 1] == '/') {
+        int i = folderpath_len - 1;
+
+        while (folder_info->path[i] == '/') {
+            i--;
+        }
+
+        folder_info->path[i + 1] = '\0';
+    }
+
+    if (foldername != folder_info->path) {
+        char *cp = foldername - 1;
+        char c;
+
+        while (cp > folder_info->path && *cp == '/')
+            cp--;
+
+        if (cp == folder_info->path) {
+            c = *foldername;
+            *foldername = '\0';
+            chain = create_chain_from_path(ctx, folder_info->path);
+            *foldername = c;
+        } else {
+            c = *(foldername - 1);
+            *(foldername - 1) = '\0';
+            chain = create_chain_from_path(ctx, folder_info->path);
+            *(foldername - 1) = c;
+        }
+    } else {
+        chain = ctx->working_directory_chain;
+    }
+
+    if (!chain) {
+       print_string("Error: create_folder: NULL chain?\n");
+       goto free_fnode;
+    }
+
     // Prepare the folder info so we can save it. This writes the dir_info data
     // which begins every folder's content.
     folder_info->data = object_alloc(sizeof(struct dir_info));
+    clear_buffer((uint8_t *) folder_info->data, sizeof(struct dir_info));
     folder_info->size = sizeof(struct dir_info);
+
     new_dir_info = (struct dir_info*) folder_info->data;
     new_dir_info->num_entries = 0;
-    memory_copy(folder_info->name, (char *) &new_dir_info->name, MAX_FILENAME_LENGTH);
+    memory_copy(foldername, (char *) &new_dir_info->name, strlen(foldername));
+
     // Save the folder (currently containing only a dir_info).
-    if (save_folder(&new_fnode, folder_info))
+    if (save_folder(&new_fnode, folder_info)) {
+        object_free(folder_info->data);
         goto unsave_new_fnode;
+    }
     object_free(folder_info->data);
 
     // We get the parent_fnode (and location) by this validation process.
-    if (validate_directory_chain(ctx->working_directory_chain, &parent_fnode, &parent_fnode_location)) {
+    if (validate_directory_chain(chain, &parent_fnode, &parent_fnode_location)) {
         print_string("Error creating folder: failed chain validation.\n");
         goto unsave_new_fnode;
     }
 
     // Prepare the dir_entry which will be added to the folder's parent folder.
-    memory_copy(folder_info->name, new_dir_entry.name, MAX_FILENAME_LENGTH);
+    memory_copy(foldername, new_dir_entry.name, strlen(foldername));
     new_dir_entry.size = sizeof(struct dir_info); // Unnecessary as size field is obsolete but leave for now.
     new_dir_entry.type = FOLDER;
     new_dir_entry.fnode_location = new_fnode_location;
@@ -1454,12 +1622,17 @@ int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_in
     if (add_dir_entry(&parent_fnode_location, &parent_fnode, &new_dir_entry))
         goto unsave_new_fnode;
 
+    if (chain != ctx->working_directory_chain)
+        destroy_directory_chain(chain);
     return 0;
 
     // It's not really necessary to unsave a new fnode. We only need to mark the
     // bit free in the fnode bitmap.
 unsave_new_fnode:
     unsave_fnode(new_fnode_location);
+
+if (chain != ctx->working_directory_chain)
+        destroy_directory_chain(chain);
 
 free_fnode:
     fnode_bitmap_unset(new_fnode_location.fnode_table_index, 1);
@@ -2000,4 +2173,3 @@ void init_fs(void) {
 
     init_usage_bits();
 }
-

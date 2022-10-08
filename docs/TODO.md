@@ -20,7 +20,7 @@ S/N|Feature Name     |Description                                 |Status      |
 Currently, allocs > 2k have to be zone_alloc'd.
 </li>
 <li>
-<b> Implement delete_folder</b>
+<b> Implement delete_folder (DONE)</b>
 </li>
 <li>
 <b> Make create_file and create_folder work with paths. </b>

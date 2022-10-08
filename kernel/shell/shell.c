@@ -130,8 +130,8 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
             .file_content = (uint8_t *) text
         };
 
-        clear_buffer((uint8_t *)info.name, MAX_FILENAME_LENGTH);
-        memory_copy(argsp, info.name, strlen(argsp));
+        clear_buffer((uint8_t *)info.path, MAX_FILENAME_LENGTH);
+        memory_copy(argsp, info.path, strlen(argsp));
 
         print_string("One new file coming right up!\n");
         if (create_file(&current_fs_ctx, &info))
@@ -145,8 +145,8 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
         }
 
         struct folder_creation_info info;
-        clear_buffer((uint8_t *)info.name, MAX_FILENAME_LENGTH);
-        memory_copy(argsp, info.name, strlen(argsp));
+        clear_buffer((uint8_t *)info.path, MAX_FILENAME_LENGTH);
+        memory_copy(argsp, info.path, strlen(argsp));
 
         print_string("One new folder coming up!\n");
         if (create_folder(&current_fs_ctx, &info))

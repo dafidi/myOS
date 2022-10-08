@@ -65,17 +65,17 @@ struct fs_master_record {
 }__attribute__((packed));
 
 struct file_creation_info {
-    char name[MAX_FILENAME_LENGTH];
+    char path[MAX_FILENAME_LENGTH];
     uint8_t *file_content;
     int file_size;
 };
 
 struct file_deletion_info {
-    char name[MAX_FILENAME_LENGTH];
+    char path[MAX_FILENAME_LENGTH];
 };
 
 struct folder_creation_info {
-    char name[MAX_FILENAME_LENGTH];
+    char path[MAX_FILENAME_LENGTH];
     uint8_t *data;
     int size;
 };
