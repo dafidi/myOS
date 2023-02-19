@@ -5,17 +5,17 @@
 #include "task.h"
 
 // System memory map as told by BIOS.
-extern unsigned int mem_map_buf_addr;
+extern pa_t mem_map_buf_addr;
 extern unsigned int mem_map_buf_entry_count;
 
 // Kernel sections' labels. For example, we can get the address of the start of
 // the .text section by taking &_text_start
-extern int _bss_start;
-extern int _bss_end;
-extern int _text_start;
-extern int _text_end;
-extern int _data_start;
-extern int _data_end;
+extern uint64_t _bss_start;
+extern uint64_t _bss_end;
+extern uint64_t _text_start;
+extern uint64_t _text_end;
+extern uint64_t _data_start;
+extern uint64_t _data_end;
 
 // TSS for kernel and user tasks.
 // Perhaps a future item here is to dynamically allocate user TSSes.
@@ -164,13 +164,13 @@ int get_next_free_user_page(void) {
     return -1;
 }
 
-int reserve_and_map_user_memory(va_t va, unsigned int pa, unsigned int amount) {
+int reserve_and_map_user_memory(va_t va, pa_t pa, unsigned int amount) {
     int num_pages;
     int page_idx;
     int i;
 
     // Verify requested physical address is not in [0, _bss_end)
-    if (pa < (unsigned int)&_bss_end)
+    if (pa < (pa_t)&_bss_end)
         return -1;
     page_idx = pa >> 12;
 
@@ -222,15 +222,15 @@ static void setup_page_directory_and_page_tables(void) {
     va_range_sz_t region_length;
     unsigned int i, page_frame;
     va_t region_start;
-    unsigned int addr;
+    pa_t addr;
 
-    print_string("kernel_page_directory="); 	print_int32((unsigned int) kernel_page_directory); 	print_string("\n");
-    print_string("user_page_directory="); 		print_int32((unsigned int) user_page_directory); 	print_string("\n");
-    print_string("kernel_page_tables="); 		print_int32((unsigned int) kernel_page_tables); 	print_string("\n");
-    print_string("user_page_tables="); 			print_int32((unsigned int) user_page_tables); 		print_string("\n");
+    print_string("kernel_page_directory="); 	print_int32((pa_t) kernel_page_directory); 	print_string("\n");
+    print_string("user_page_directory="); 		print_int32((pa_t) user_page_directory); 	print_string("\n");
+    print_string("kernel_page_tables="); 		print_int32((pa_t) kernel_page_tables); 	print_string("\n");
+    print_string("user_page_tables="); 			print_int32((pa_t) user_page_tables); 		print_string("\n");
 
     // Setup kernel paging structures.
-    addr = (unsigned int) &kernel_page_tables[0];
+    addr = (pa_t) &kernel_page_tables[0];
     for (i = 0; i < 1024; i++) {
         // Set all PDEs.
         kernel_page_directory[i] = (addr & 0xfffff000) | 0x3;
@@ -247,7 +247,7 @@ static void setup_page_directory_and_page_tables(void) {
 
     // Setup user paging structures. These generally should not change across user programs.
     // We'll set up the mapping of the program itself when the program is about to be run.
-    addr = (unsigned int) &user_page_tables[0];
+    addr = (pa_t) &user_page_tables[0];
     for (i = 0; i < USER_PAGE_DIR_SIZE; i++) {
         // Set all PDEs.
         user_page_directory[i] = (addr & 0xfffff000) | 0x7;
@@ -280,7 +280,7 @@ static void setup_page_directory_and_page_tables(void) {
          * memory between.
          * [PAGE_ROUND_DOWN(&_bss_end), PAGE_ROUND_DOWN(&_bss_end) + PAGE_SIZE).
          */
-        region_length = PAGE_ALIGN_UP((unsigned int)&_bss_end) - 0x100000;
+        region_length = PAGE_ALIGN_UP((pa_t)&_bss_end) - 0x100000;
         region_start = 0x100000;
         page_frame = 0x100000;
         map_va_range_to_pa_range(user_page_tables, /*va=*/(va_t)region_start, /*size=*/region_length, /*pa=*/page_frame,
@@ -291,7 +291,7 @@ static void setup_page_directory_and_page_tables(void) {
 /**
  * @brief Configure, setup and enable paging. 
  */
-static void setup_and_enable_paging(void) {
+void setup_and_enable_paging(void) {
     setup_page_directory_and_page_tables();
     enable_paging();
 }
@@ -300,8 +300,10 @@ static void setup_and_enable_paging(void) {
  * @brief Load global variable pm_gdt_info into the processor's GDTR.
  */
 static void load_pm_gdt(void) {
+#ifdef CONFIG32
     asm volatile("lgdt %0" : : "m"(pm_gdt_info));
     pm_jump();
+#endif
 }
 
 /**
@@ -371,6 +373,32 @@ void make_gdt_entry(struct gdt_entry* entry,
     entry->limit16_19_avl_l_db_g |= flags & 0xf0;
 }
 
+void make_gdt64_tss_entry(struct gdt64_tss_entry* entry,
+                    unsigned int limit,
+                    uint64_t base,
+                    char type,
+                    /*flags format: S_DPL_P_AVL_L_DB_G*/
+                    /*bits:         1_2___1_1___1_1__1*/
+                    char flags) {
+    // Set lower 16 bits of limit.
+    entry->limit0_15 = limit & 0xffff;
+    // Set lower 16 bits of base.
+    entry->base0_15 = base & 0xffff;
+    // Set bits 16 to 13 of base.
+    entry->base16_23 = (base >> 16) & 0xff;
+    // Set bits 24 to 31 of base.
+    entry->base24_31 = (base >> 24) & 0xff;
+    // Set upper 4 bits of 20 bit limit.
+    entry->limit16_19_avl_l_db_g = (limit >> 16) & 0xf;
+    // Set 4 bits of type.
+    entry->type_s_dpl_p = type & 0xf;
+    // Set S_DPL_P flags (lower 4 bits of 8 bit flags).
+    entry->type_s_dpl_p |= (flags & 0xe) << 4;
+    // Set AVL_L_DB_G flags (upper 4 bits of 8 bit flags).
+    entry->limit16_19_avl_l_db_g |= flags & 0x90;
+    entry->base32_63 = base & 0xffffffff00000000ULL;
+}
+
 /**
  * @brief Configure and update system GDT.
  * The current configuration defines the following GDT configuration:
@@ -383,7 +411,7 @@ void make_gdt_entry(struct gdt_entry* entry,
  * 5: KERNEL TASK SEGMENT DESCRIPTOR
  * 6: USER TASK SEGMENT DESCRIPTOR
  */
-static void setup_and_load_pm_gdt(void) {
+void setup_and_load_pm_gdt(void) {
     pm_gdt_info.addr = (long unsigned int) pm_gdt;
     pm_gdt_info.len = sizeof(pm_gdt);
 
@@ -415,7 +443,7 @@ void init_page_usage_bitmap(void) {
     unsigned long last_page_idx = ((unsigned long) &_bss_end) >> 12;
     int num_pages = last_page_idx + 1;
 
-    // Initaliaze bitmap to zero.
+    // Initialize bitmap to zero.
     fill_long_buffer((unsigned long *)page_usage_bitmap, 0,  NUM_BITMAP_INTS, 0x0);
 
     // Set every page up to _bss_end as being used.
@@ -1025,7 +1053,7 @@ static struct memory_object *object_remove_used(struct memory_object_cache *cach
 
     if (!mo) {
         print_string("cache-"); print_int32(cache->order);
-        print_string(" has no used mo for addr="); print_int32((int)addr);
+        print_string(" has no used mo for addr="); print_int32((pa_t)addr);
         print_string("\n");
         return NULL;
     }
@@ -1102,6 +1130,9 @@ void object_free(uint8_t *addr) {
     struct memory_object_header *moh;
     struct memory_object *mo;
 
+    if (!addr)
+        return;
+
     moh = get_header(addr);
     cache = &memory_object_caches[moh->order - MIN_MEMORY_OBJECT_ORDER];
 
@@ -1119,14 +1150,22 @@ void init_memory_object(struct memory_object *object, const int order, const int
 }
 
 void memory_object_cache_init(struct memory_object_cache *cache, int order) {
-    struct mem_block *object_block = __zone_alloc(&order_zones[MAX_ORDER - 2]);
-    int object_block_size = ORDER_SIZE(object_block->order);
     int init_object_count = 0, consumed = 0, skip_size;
     uint8_t *header_addr, *next_header_addr;
+    struct mem_block *object_block;
+    int object_block_size;
 
+    object_block = __zone_alloc(&order_zones[MAX_ORDER - 2]);
+    if (!object_block) {
+        print_string("Cache init failed on __zone_alloc for ");
+        print_int32(order);
+        print_string("\n");
+        return;
+    }
+    object_block_size = ORDER_SIZE(object_block->order);
     skip_size = sizeof(struct memory_object_header) + (1 << order);
 
-    if (!object_block || skip_size > object_block_size)
+    if (skip_size > object_block_size)
         return;
 
     header_addr = NULL;
@@ -1161,6 +1200,8 @@ static void setup_memory_object_caches(void) {
         order = i + MIN_MEMORY_OBJECT_ORDER;
 
         memory_object_cache_init(&memory_object_caches[i], order);
+
+        asm volatile ("nop");
     }
 }
 
@@ -1175,27 +1216,30 @@ static void setup_memory_object_caches(void) {
 void init_mm(void) {
     print_string("mem_map_buf_entry_count="); 	print_int32(mem_map_buf_entry_count);
     print_string("\n");
-      print_string("mem_map_buf_addr=");			print_int32(mem_map_buf_addr);
+    print_string("mem_map_buf_addr=");		    print_int32(mem_map_buf_addr);
     print_string("\n");
 
-    bmm = (struct bios_mem_map*) mem_map_buf_addr;
+    bmm = (struct bios_mem_map *)(pa_t)mem_map_buf_addr;
     for (int i = 0; i < mem_map_buf_entry_count; i++) {
-        print_string("entry "); 		print_int32(i); 			print_string(" has base "); print_int32(bmm[i].base);
-        print_string(" and length "); 	print_int32(bmm[i].length);
+        print_string("entry "); 		print_int32(i); 			print_string(" has base "); print_uint(bmm[i].base);
+        print_string(" and length "); 	print_uint(bmm[i].length);
         print_string(" (avail="); 		print_int32(bmm[i].type); 	print_string(")\n");
     }
 
     init_page_usage_bitmap();
 
-    print_string("_bss_start=");	print_int32((unsigned int) &_bss_start);	print_string(",");
-    print_string("_bss_end="); 		print_int32((unsigned int) &_bss_end);		print_string(",");
-    print_string("_text_start="); 	print_int32((unsigned int) &_text_start);	print_string(",");
-    print_string("_text_end="); 	print_int32((unsigned int) &_text_end);		print_string(",");
-    print_string("_data_start="); 	print_int32((unsigned int) &_data_start);	print_string(",");
-    print_string("_data_end=");		print_int32((unsigned int) &_data_end);		print_string("\n");
+    print_string("_bss_start=");	print_int32(addr_to_u32(&_bss_start));	print_string(",");
+    print_string("_bss_end="); 		print_int32(addr_to_u32(&_bss_end));		print_string(",");
+    print_string("_text_start="); 	print_int32(addr_to_u32(&_text_start));	print_string(",");
+    print_string("_text_end="); 	print_int32(addr_to_u32(&_text_end));		print_string(",");
+    print_string("_data_start="); 	print_int32(addr_to_u32(&_data_start));	print_string(",");
+    print_string("_data_end=");		print_int32(addr_to_u32(&_data_end));		print_string("\n");
 
+#ifdef CONFIG32
+    // In 64 bit mode paging and gdt setup are dont in kernel64.asm.
     setup_and_load_pm_gdt();
     setup_and_enable_paging();
+#endif
 
     /* Set up structures for dynamic memory allocation and de-allocation. */
     setup_zone_alloc_free();

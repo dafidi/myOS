@@ -29,11 +29,11 @@ static struct order_zone *get_auxillary_zone(struct order_zone *test_zone) {
     return &order_zones[auxillary_zone_order];
 }
 
-static bool alloc_free(int n) {
+static bool alloc_free(int sz) {
     bool failed = false;
     uint8_t *mem;
 
-    mem = object_alloc(n);
+    mem = object_alloc(sz);
     if (!mem)
         failed = true;
 
@@ -45,7 +45,7 @@ static bool mem_object_test(void) {
     bool failed = false;
 
     for (int i = MIN_MEMORY_OBJECT_ORDER; i <= MAX_MEMORY_OBJECT_ORDER; i++) {
-        bool res = alloc_free(i);
+        bool res = alloc_free(OBJECT_ORDER_SIZE(i));
 
         failed |= res;
 
@@ -57,12 +57,29 @@ static bool mem_object_test(void) {
     return failed;
 }
 
+static bool test_read_write(struct mem_block *block) {
+    const int num_bytes = ORDER_SIZE(block->order);
+    char *addr = (char *) block->addr;
+    bool failed = false;
+
+    for (int i = 0; i < num_bytes; i++) {
+        char old = addr[i];
+        char new = ~old;
+        addr[i] = new;
+
+        failed = failed || (addr[i] != new);
+    }
+
+    return failed;
+}
+
 static bool mem_zone_test(void) {
-    /* Memory allocation tests!
-    
-        The 'auxillary' zone is memory we allocate to store data to facilitate
-        the test. Obviously, since we are testing the mm's reliability, this is
-        risky as it relies on the mm, but what choice do we have?
+    /**
+     * Memory allocation tests!
+     * 
+     * The 'auxillary' zone is memory we allocate to store data to facilitate
+     * the test. Obviously, since we are testing the mm's reliability, this is
+     * risky as it relies on the mm, but what choice do we have?
     */
     struct mem_block *auxillary_block, **auxillary_storage_region;
     struct order_zone *test_zone, *auxillary_zone;
@@ -82,6 +99,9 @@ static bool mem_zone_test(void) {
         test_zone = &order_zones[test_zone_order];
 
         struct mem_block *block = zone_alloc(ORDER_SIZE(test_zone_order));
+
+        test_read_write(block);
+
         zone_free(block);
     }
     /**/
@@ -112,7 +132,7 @@ static bool mem_zone_test(void) {
 
             // Let's not print everthing; zone's have thousands of blocks.
             if (i > to_alloc - 8) {
-                print_int32((uint32_t)tmp_block);
+                print_int32((pa_t) tmp_block);
                 print_string((i < to_alloc - 1 ? "," : ""));
             }
 
@@ -137,7 +157,7 @@ static bool mem_zone_test(void) {
             struct mem_block *tmp_block = auxillary_storage_region[i];
 
             if (i > to_alloc - 8) {
-                print_int32((uint32_t) tmp_block);
+                print_int32((pa_t) tmp_block);
                 print_string((i < to_alloc - 1 ? "," : ""));
             }
 
@@ -173,7 +193,7 @@ skip_test2:
 
             // Let's not print everthing; zone's have thousands of blocks.
             if (i > to_alloc - 8) {
-                print_int32((uint32_t) tmp_block);
+                print_int32((pa_t) tmp_block);
                 print_string((i < to_alloc - 1 ? "," : ""));
             }
 
@@ -196,7 +216,7 @@ skip_test2:
 
             // Let's not print everthing; zone's have thousands of blocks.
             if (i > to_alloc - 8) {
-                print_int32((uint32_t) tmp_block);
+                print_int32((pa_t) tmp_block);
                 print_string((i < to_alloc - 1 ? "," : ""));
             }
 

@@ -37,6 +37,12 @@ struct registers {
     unsigned int eip, cs, eflags, useresp, ss;   /* pushed by the processor automatically */ 
 }__attribute__((packed));
 
+struct registers64 {
+    uint64_t rdi, rsi, rbp, rsp, rbx, rdx, rcx, rax;  /* pushed by asm handler */
+    uint64_t int_no;    /* our 'push byte #' and ecodes do this */
+    uint64_t err_code, rip, cs, rflags, userrsp, ss;   /* pushed by the processor automatically */ 
+}__attribute__((packed));
+
 void  memory_copy(const char* source , char* dest , int  no_bytes);
 void clear_buffer(uint8_t* buffer, int n);
 void fill_byte_buffer(unsigned char *buffer, const int start_index, int num_entries, const unsigned char val);
@@ -45,5 +51,19 @@ void fill_long_buffer(unsigned long *buffer, const int start_index, int num_entr
 
 extern void enable_interrupts(void);
 extern void disable_interrupts(void);
+extern void enable_interrupts64(void);
+extern void disable_interrupts64(void);
+
+// These mainly to try to avoid warnings in gcc.
+// gcc will let you do an explicit cast of (uint32_t)(uint64_t)(x).
+#define addr_to_u32(x) ((uint32_t)(to_addr_width(x)))
+#define addr_to_u64(x) ((uint64_t)(to_addr_width(x)))
+#define u32_to_addr(x) (to_addr_width((uint32_t)x))
+#define u64_to_addr(x) (to_addr_width((uint64_t)x))
+#ifdef CONFIG32
+#define to_addr_width(x) ((uint32_t)(x))
+#else
+#define to_addr_width(x) ((uint64_t)(x))
+#endif
 
 #endif /* __SYSTEM_H__ */

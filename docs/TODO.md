@@ -15,6 +15,10 @@ S/N|Feature Name     |Description                                 |Status      |
 ### Minors
 <ol>
 <li>
+<b> Add support for and default to 64-bit/long mode (DONE)</b>
+</li>
+
+<li>
 <b>Have object_alloc support allocations > 2k. (PENDING)</b>
 
 Currently, allocs > 2k have to be zone_alloc'd.
@@ -23,7 +27,7 @@ Currently, allocs > 2k have to be zone_alloc'd.
 <b> Implement delete_folder (DONE)</b>
 </li>
 <li>
-<b> Make create_file and create_folder work with paths. </b>
+<b> Make create_file and create_folder work with paths. (DONE) </b>
 </li>
 <li>
 <b> Implement indirect fnode blocks (single & double indirection) </b>

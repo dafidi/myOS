@@ -225,7 +225,7 @@ int push_directory_chain_link(struct directory_chain *chain, struct fnode *fnode
         error = -1;
         goto remove_new_link;
     }
-    memory_copy(dir_info.name, chainp->next->name, strlen(dir_info.name));
+    memory_copy((char *)dir_info.name, chainp->next->name, strlen(dir_info.name));
 
     // There might be garbage left over in the allocated space, mark the
     // string's end.
@@ -471,7 +471,7 @@ next_name_idx_and_len:
     if (curr_dir_name_start_idx_in_path == curr_dir_name_end_idx_in_path)
         goto done;
 
-    memory_copy(&path[curr_dir_name_start_idx_in_path],
+    memory_copy((char *)&path[curr_dir_name_start_idx_in_path],
                 curr_dir_name,
                 curr_dir_name_end_idx_in_path - curr_dir_name_start_idx_in_path);
 
@@ -539,9 +539,9 @@ revert_chain_changes:
  */
 void set_sector_bits(uint32_t start_bit, uint64_t num_bits, uint32_t start_sector) {
     const int BITS_PER_SECTOR = 8 * SECTOR_SIZE;
+    int bits_to_do = num_bits, bit_offset;
     uint8_t sector_buffer[SECTOR_SIZE];
-    int sector_offset, bit_offset;
-    int bits_to_do = num_bits;
+    int sector_offset;
 
     sector_offset = start_bit / BITS_PER_SECTOR;
     bit_offset = start_bit % BITS_PER_SECTOR;
@@ -554,7 +554,7 @@ void set_sector_bits(uint32_t start_bit, uint64_t num_bits, uint32_t start_secto
 
         read_from_storage_disk(start_sector + sector_offset, SECTOR_SIZE, sector_buffer);
         while (batchsize--)
-            set_bit(sector_buffer, bit_offset++);
+            set_bit((uint8_t*)sector_buffer, bit_offset++);
         write_to_storage_disk(start_sector + sector_offset++, SECTOR_SIZE, sector_buffer);
 
         // If we move on to the next sector, we want to start at the first (0th) bit in that sector.
@@ -1236,7 +1236,7 @@ int create_file(struct fs_context *ctx, struct file_creation_info *file_info) {
         goto unsave_new_fnode;
     }
 
-    memory_copy(filename, new_dir_entry.name, strlen(filename));
+    memory_copy((char *)filename, new_dir_entry.name, strlen(filename));
     new_dir_entry.size = sz; // Unnecessary as size field is obsolete but leave for now.
     new_dir_entry.type = FILE;
     new_dir_entry.fnode_location = new_fnode_location;
@@ -1598,7 +1598,7 @@ int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_in
 
     new_dir_info = (struct dir_info*) folder_info->data;
     new_dir_info->num_entries = 0;
-    memory_copy(foldername, (char *) &new_dir_info->name, strlen(foldername));
+    memory_copy((char *)foldername, (char *) &new_dir_info->name, strlen(foldername));
 
     // Save the folder (currently containing only a dir_info).
     if (save_folder(&new_fnode, folder_info)) {
@@ -1614,7 +1614,7 @@ int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_in
     }
 
     // Prepare the dir_entry which will be added to the folder's parent folder.
-    memory_copy(foldername, new_dir_entry.name, strlen(foldername));
+    memory_copy((char *)foldername, new_dir_entry.name, strlen(foldername));
     new_dir_entry.size = sizeof(struct dir_info); // Unnecessary as size field is obsolete but leave for now.
     new_dir_entry.type = FOLDER;
     new_dir_entry.fnode_location = new_fnode_location;
@@ -1716,7 +1716,7 @@ int delete_folder(struct fs_context *ctx, char *path) {
         i++;
 
     clear_buffer((uint8_t *) deletion_target_name, MAX_FILENAME_LENGTH);
-    memory_copy(&path[i], deletion_target_name, j - i + 1);
+    memory_copy((char *)&path[i], deletion_target_name, j - i + 1);
 
     c = path[i];
     path[i] = '\0';

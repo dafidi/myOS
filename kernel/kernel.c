@@ -40,17 +40,17 @@ void init(void) {
     /* Set up memory management. */
     init_mm();
 
-    /* Set up disk. */
-    init_disk();
-
     /* Set up task management. */
     init_task_system();
 
-    /* Set up fs. */
-    init_fs();
-    
+    /* Set up disk. */
+    init_disk();
+
     /* Setup keyboard */
     init_keyboard();
+
+    /* Set up fs. */
+    init_fs();
 
     /* Let the fun begin, enable interrupts. */
     start_interrupts();

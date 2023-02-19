@@ -23,7 +23,7 @@
         "background": {
           "activeOnStart": false,
           "beginsPattern": "make",
-          "endsPattern": "qemu-system-i386",
+          "endsPattern": "qemu-system-x86_64",
         }
       }
     },

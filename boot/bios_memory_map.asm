@@ -1,9 +1,9 @@
 [bits 16]
 struc memory_map_entry
 	.base         resq 1
-	.length      resq 1
-	.type          resq 1
-	.acpi_null resq 1
+	.length       resq 1
+	.type         resq 1
+	.acpi_null    resq 1
 endstruc
 
 ;---------------------------------------------
@@ -22,7 +22,7 @@ BiosGetMemoryMap:
 	jc	.error	
 	cmp	eax, 'PAMS'		; bios returns SMAP in eax
 	jne	.error
-	test	ebx, ebx		; if ebx=0 then list is one entry long; bail out
+	test ebx, ebx		; if ebx=0 then list is one entry long; bail out
 	je	.error
 	jmp	.start
 .next_entry:

@@ -16,6 +16,7 @@
       "internalConsoleOptions": "openOnSessionStart",
       "preLaunchTask": "StartVM",
       "postDebugTask": "StopVM",
+      "stopAtEntry": true
     },
   ]
 }

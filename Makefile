@@ -10,11 +10,6 @@ BINDIR=bin
 C_SOURCES=$(wildcard kernel/*.c kernel/**/*.c drivers/**/*.c fs/*.c)
 HEADERS=$(wildcard kernel/*.h kernel/**/*.h drivers/*.h fs/*.h)
 
-C_FLAGS = -Wall -O0 -m32 -fno-pie -fno-pic -no-pie \
--fno-stack-protector -ffreestanding -fno-hosted -nolibc \
--nostdlib \
--I./
-
 # Generate object file names to build based on *.c filenames.
 OBJ = $(patsubst %.c, %.o, ${C_SOURCES})
 
@@ -24,27 +19,47 @@ boot_sector_deps=boot_sect_1.bin boot_sect_2.bin
 	gcc ${C_FLAGS} -g -c $< -o $@
 
 %.o: %.asm
-	nasm $< -f elf -g -o $@
+	nasm $< ${ASM_FLAGS} -o $@
 
 %.bin: %.asm
 	nasm $< -f bin -o $@
 	ndisasm $@ > $@.dis
 
-# Default build target.
+# Default build target, 64 bit.
 default: myOS.img 
 
 myOS.img: boot_sectors kernel.bin
 	cat boot_sect_1.bin boot_sect_2.bin kernel.bin > myOS.img
 
+myOS32.img: boot_sectors kernel32.bin
+	cat boot_sect_1.bin boot_sect_2.bin kernel32.bin > myOS32.img
+
 boot_sectors: boot/boot_sect_1.bin boot/boot_sect_2.bin
 	cp boot/*.bin ./
 
-kernel.bin: kernel.elf
-	objcopy -O binary kernel.elf kernel.bin
+kernel.bin: C_FLAGS = -Wall -O0 -m64 -fno-pie -fno-pic -no-pie \
+-fno-stack-protector -ffreestanding -fno-hosted -nolibc \
+-nostdlib \
+-I./
+kernel.bin: ASM_FLAGS = -f elf64 -g
+kernel.bin: kernel64.elf
+	objcopy -O binary kernel64.elf kernel.bin
 
-kernel.elf: kernel/kernel_entry.o ${OBJ}
-	ld -o kernel.elf -m elf_i386 $^ --oformat elf32-i386 -T kernel.ld
-	objdump -d kernel.elf > kernel.asm.dis
+kernel32.bin: C_FLAGS = -Wall -O0 -m32 -fno-pie -fno-pic -no-pie \
+-fno-stack-protector -ffreestanding -fno-hosted -nolibc \
+-nostdlib -DCONFIG32 \
+-I./
+kernel32.bin: ASM_FLAGS = -f elf -g -DCONFIG32
+kernel32.bin: kernel32.elf
+	objcopy -O binary kernel32.elf kernel32.bin
+
+kernel64.elf: kernel/asm/kernel_entry.o ${OBJ}
+	ld -o kernel64.elf -m elf_x86_64 $^ --oformat elf64-x86-64 -T kernel.ld
+	objdump -d kernel64.elf > kernel.asm.dis
+
+kernel32.elf: kernel/asm/kernel_entry.o ${OBJ}
+	ld -o kernel32.elf -m elf_i386 $^ --oformat elf32-i386 -T kernel.ld
+	objdump -d kernel32.elf > kernel32.asm.dis
 
 # Not sure why but using kernel_entry.s results in a bad error where 
 # eip inexplicably jumps to 0xfbxxxxxx.

@@ -1,8 +1,9 @@
 #include "system.h"
 
 /* Copy  bytes  from  one  place  to  another. */
-void  memory_copy(const char* source , char* dest , int  no_bytes) {
-    int i;
+void  memory_copy(const char* source , char* dest , int no_bytes) {
+    uint64_t i = 0ULL;
+
     for (i=0; i<no_bytes; i++) {
         *(dest + i) = *( source + i);
     }

@@ -36,6 +36,36 @@ typedef struct task_state_segment {                 /* Setting? */
     unsigned int SSP; 
 }__attribute__((packed)) tss_t;
 
+typedef struct task_state_segment64 {                 /* Setting? */
+        uint32_t reserved0;
+        uint32_t rsp0l;
+        uint32_t rsp0h;
+        uint32_t rsp1l;
+        uint32_t rsp1h;
+        uint32_t rsp2l;
+        uint32_t rsp2h;
+        uint32_t reserved1;
+        uint32_t reserved2;
+        uint32_t ist1l;
+        uint32_t ist1h;
+        uint32_t ist2l;
+        uint32_t ist2h;
+        uint32_t ist3l;
+        uint32_t ist3h;
+        uint32_t ist4l;
+        uint32_t ist4h;
+        uint32_t ist5l;
+        uint32_t ist5h;
+        uint32_t ist6l;
+        uint32_t ist6h;
+        uint32_t ist7l;
+        uint32_t ist7h;
+        uint32_t reserved3;
+        uint32_t reserved4;
+        uint16_t reserved5;
+        uint16_t io_map_base_addr;
+}__attribute__((packed)) tss64_t;
+
 typedef struct task_info {
     /* Virtual address the program expects to start from. */
     va_t start_virt_addr;
