@@ -9,7 +9,7 @@ set -e
 
 cd ${HOME}/dev/myOS
 
-kernel_target=kernel.bin
+kernel_target=kernel64.bin
 image_target=myOS.img
 
 for arg in "$@"
@@ -17,6 +17,9 @@ do
     if [[ $arg == "mode=32" ]]; then
         kernel_target=kernel32.bin
         image_target=myOS32.img
+    elif [[ $arg == "mode=64" ]]; then
+        kernel_target=kernel64.bin
+        image_target=myOS.img
     else
         echo " I don't know what to do about [$arg]."
     fi

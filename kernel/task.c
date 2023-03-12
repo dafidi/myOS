@@ -9,7 +9,6 @@
 // figure out what the correct app start offset is.
 #define APP_TASK_START_OFFSET 0x0
 
-extern uint64_t _bss_end;
 
 extern unsigned int user_page_directory[USER_PAGE_TABLE_SIZE];
 extern unsigned int kernel_page_directory[1024];
@@ -34,6 +33,8 @@ extern void load_kernel_tr(void);
  */
 extern void switch_to_user_task(void);
 
+extern pa_t _interrupt_stacks_begin;
+
 tss_t kernel_tss __attribute__((aligned(0x1000)));
 tss_t user_tss __attribute__((aligned(0x1000)));
 tss64_t kernel_tss64 __attribute__((aligned(0x1000)));
@@ -48,40 +49,21 @@ static void configure_kernel_tss(void) {
 }
 #endif
 
-uint64_t nearest_power_of_2(uint64_t val) {
-    uint64_t power_of_2;
-    int hidx, idx;
-
-    // TODO: check if val is itself a power of two.
-
-    idx = bit_scan_reverse64(val);
-    hidx = idx / 4;
-
-    power_of_2 = val >> (hidx * 4);
-    power_of_2++;
-    power_of_2 <<= (hidx * 4);
-
-    return power_of_2;
-}
-
 #ifndef CONFIG32
 static void configure_kernel_tss64(void) {
     tss64_t *kernel_tss_ = &kernel_tss64;
-
-    // Place the interrupt stacks right after the _bss_end.
-    uint64_t interrupt_stacks_begin = nearest_power_of_2((uint64_t)&_bss_end);
 
     __asm__("movq %%rsp, %0 \n" : "=m" (kernel_tss_->rsp0l) : );
 
     // If there are ever interrupt-related issues, it might be worth checking
     // whether any interrupt handler is using more than 4KiB (0x1000) of memory.
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist1l) : "rax"(interrupt_stacks_begin + 0x1000));
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist2l) : "rax"(interrupt_stacks_begin + 0x2000));
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist3l) : "rax"(interrupt_stacks_begin + 0x3000));
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist4l) : "rax"(interrupt_stacks_begin + 0x4000));
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist5l) : "rax"(interrupt_stacks_begin + 0x5000));
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist6l) : "rax"(interrupt_stacks_begin + 0x6000));
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist7l) : "rax"(interrupt_stacks_begin + 0x7000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist1l) : "rax"(_interrupt_stacks_begin + 0x1000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist2l) : "rax"(_interrupt_stacks_begin + 0x2000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist3l) : "rax"(_interrupt_stacks_begin + 0x3000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist4l) : "rax"(_interrupt_stacks_begin + 0x4000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist5l) : "rax"(_interrupt_stacks_begin + 0x5000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist6l) : "rax"(_interrupt_stacks_begin + 0x6000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist7l) : "rax"(_interrupt_stacks_begin + 0x7000));
 }
 #endif
 

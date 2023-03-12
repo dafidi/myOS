@@ -3,7 +3,6 @@
 
 #include "system.h"
 
-
 #define KERNEL_CODE_SEGMENT_IDX 	SYSTEM_GDT_KERNEL_CODE_IDX
 #define KERNEL_DATA_SEGMENT_IDX 	SYSTEM_GDT_KERNEL_DATA_IDX
 #define USER_CODE_SEGMENT_IDX 		SYSTEM_GDT_USER_CODE_IDX
@@ -19,7 +18,7 @@
 #define USER_PAGE_DIR_SIZE 1024
 
 // Zone level stuff
-#define MAX_ORDER 7
+#define MAX_ORDER 8
 #define DEFAULT_PAGES_PER_ZONE ((SYSTEM_NUM_PAGES) / (MAX_ORDER + 1))
 #define ORDER_SIZE(s) (1 << (PAGE_SIZE_SHIFT + (s)))
 #define OBJECT_ORDER_SIZE(s) (1 << (s))
@@ -32,14 +31,9 @@
 typedef unsigned int pte_t;
 typedef unsigned long long va_t;
 typedef unsigned long long va_range_sz_t;
-#ifdef CONFIG32
-typedef uint32_t pa_t;
-#else
-typedef uint64_t pa_t;
-#endif
 typedef unsigned long pa_range_sz_t;
 
-struct bios_mem_map {
+struct bios_mem_map_entry {
 	unsigned long long base;
 	unsigned long long length;
 	unsigned int type;
@@ -92,13 +86,18 @@ struct mem_block {
 struct order_zone {
 	struct mem_block *free_list;	/* List of mem_blocks.					*/
 	struct mem_block *used_list;	/* List of mem_blocks.					*/
-	pa_t phy_mem_start;
+	uint64_t phy_mem_start;
 	uint8_t order;					/* Power-of-2 indicator or size of the 	*/
 									/* blocks in this region. The blocks 	*/
 									/* have size PAGE_SIZE * 2**order.		*/
 	uint32_t num_blocks;
 	uint32_t free;
 	uint32_t used;
+	uint32_t state;
+};
+
+enum order_zone_state {
+	INITIALIZED = 0x1,
 };
 
 struct memory_object_header {

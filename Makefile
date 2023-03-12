@@ -28,8 +28,8 @@ boot_sector_deps=boot_sect_1.bin boot_sect_2.bin
 # Default build target, 64 bit.
 default: myOS.img 
 
-myOS.img: boot_sectors kernel.bin
-	cat boot_sect_1.bin boot_sect_2.bin kernel.bin > myOS.img
+myOS.img: boot_sectors kernel64.bin
+	cat boot_sect_1.bin boot_sect_2.bin kernel64.bin > myOS.img
 
 myOS32.img: boot_sectors kernel32.bin
 	cat boot_sect_1.bin boot_sect_2.bin kernel32.bin > myOS32.img
@@ -37,13 +37,13 @@ myOS32.img: boot_sectors kernel32.bin
 boot_sectors: boot/boot_sect_1.bin boot/boot_sect_2.bin
 	cp boot/*.bin ./
 
-kernel.bin: C_FLAGS = -Wall -O0 -m64 -fno-pie -fno-pic -no-pie \
+kernel64.bin: C_FLAGS = -Wall -O0 -m64 -fno-pie -fno-pic -no-pie \
 -fno-stack-protector -ffreestanding -fno-hosted -nolibc \
 -nostdlib \
 -I./
-kernel.bin: ASM_FLAGS = -f elf64 -g
-kernel.bin: kernel64.elf
-	objcopy -O binary kernel64.elf kernel.bin
+kernel64.bin: ASM_FLAGS = -f elf64 -g
+kernel64.bin: kernel64.elf
+	objcopy -O binary kernel64.elf kernel64.bin
 
 kernel32.bin: C_FLAGS = -Wall -O0 -m32 -fno-pie -fno-pic -no-pie \
 -fno-stack-protector -ffreestanding -fno-hosted -nolibc \

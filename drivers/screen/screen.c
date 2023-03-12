@@ -119,30 +119,13 @@ void reverse(char buf[], int buf_len) {
     }
 }
 
-uint64_t udiv(uint64_t n, uint64_t d) {
-    uint64_t q = 0;
-    uint64_t r = 0;
-    int i = 0;
-
-    for (i = 63; i >= 0; i--) {
-        r = r << 1;
-        r = r | ((n >> i) & 1);
-        if (r >= d) {
-            r = r - d;
-            q = q | (1 << i);
-        }
-    }
-
-    return q;
-}
-
 void print_uint(unsigned long long int n) {
     char buffer[20];
     int nchars = 0;
     int i = 0;
 
     do {
-        uint64_t next_n = udiv(n, 10);
+        uint64_t next_n = udiv(n, 10ULL);
 
         buffer[i++] = '0' + (n - (next_n * 10));
         nchars++;
@@ -185,7 +168,11 @@ void print_int(unsigned int n) {
 }
 
 void print_int64(uint64_t n) {
-    print_int(n);
+    // Calling this function is faulty for some reason.
+    // The function itself is fine but at all sites that call it
+    // $eax is used instead of $rax,
+    // causing the upper 32 bits to be disregarded.
+    print_uint(n);
 }
 
 void print_int32(int n) {

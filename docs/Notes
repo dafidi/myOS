@@ -48,3 +48,6 @@ fs components.)
 hexdump -C -s $((8193 * 512 + (8404993 / 8))) -n 1024 disk.hdd
 
 It would appear that when gcc is compiling to 64 bits, it will round the entry point address to be aligned to 0x1000.
+
+This article was useful in implementing transition to 64-bit:
+https://0xax.gitbooks.io/linux-insides/content/Booting/linux-bootstrap-4.html

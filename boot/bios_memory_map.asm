@@ -11,7 +11,7 @@ endstruc
 ;	/in es:di->destination buffer for entries
 ;	/ret bp=entry count
 ;---------------------------------------------
- 
+
 BiosGetMemoryMap:
 	xor	ebx, ebx
 	xor	bp, bp			; number of entries stored here
@@ -19,7 +19,7 @@ BiosGetMemoryMap:
 	mov	eax, 0xe820
 	mov	ecx, 24			; memory map entry struct is 24 bytes
 	int	0x15			; get first entry
-	jc	.error	
+	jc	.error
 	cmp	eax, 'PAMS'		; bios returns SMAP in eax
 	jne	.error
 	test ebx, ebx		; if ebx=0 then list is one entry long; bail out
@@ -65,7 +65,17 @@ show_result:
 	mov bx, tag_length
 	call print_string
 
+	;mov edx, [test+4]
+	;call print_hex_32
+	;mov edx, [test]
+	;call print_hex_32
 	call print_endl
+
+	jmp show_result_loop
+
+;test:
+	;dd 0xa0b0c0d0
+	;dd 0xe0f01020
 
 show_result_loop:
 	cmp bp, 0
@@ -74,8 +84,11 @@ show_result_loop:
 	dec bp
 	mov edx, [es:di+4]
 	call print_hex_32
-	
+
 	mov edx, [es:di]
+	call print_hex_32
+
+	mov edx, [es:di + 12]
 	call print_hex_32
 
 	mov edx, [es:di + 8]
@@ -85,19 +98,19 @@ show_result_loop:
 	; mov bx, tag_type
 	; call print_string
 
-  	; mov edx, [es:di + 16]
-  	; call print_hex_32
-  	; call print_endl
+    ; mov edx, [es:di + 16]
+    ; call print_hex_32
+    ; call print_endl
 
-  	; mov bx, tag_acpi_null
-  	; call print_string
+    ; mov bx, tag_acpi_null
+    ; call print_string
 
-  	; mov edx, [es:di + 20]
-  	; call print_hex_32
-  	; call print_endl
+    ; mov edx, [es:di + 20]
+    ; call print_hex_32
+    ; call print_endl
 
-  	add di, 24
-  	jmp show_result_loop
+    add di, 24
+    jmp show_result_loop
 
 show_result_end:
 	ret

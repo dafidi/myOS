@@ -4,6 +4,8 @@
 #include "print.h"
 #include "string.h"
 
+extern int _highest_initialized_zone_order;
+
 extern struct order_zone order_zones[];
 
 extern struct fs_master_record master_record;
@@ -17,7 +19,8 @@ static struct order_zone *get_auxillary_zone(struct order_zone *test_zone) {
     while ((1 << (auxillary_zone_order + PAGE_SIZE_SHIFT)) < auxillary_storage_needed)
         auxillary_zone_order++;
 
-    if (auxillary_zone_order >= MAX_ORDER) {
+    if (auxillary_zone_order >= _highest_initialized_zone_order ||
+        auxillary_zone_order >= test_zone->order) {
         print_string("Skipping test, no zone big enough.");
         return NULL;
     }
@@ -67,13 +70,194 @@ static bool test_read_write(struct mem_block *block) {
         char new = ~old;
         addr[i] = new;
 
-        failed = failed || (addr[i] != new);
+        if (addr[i] != new) {
+            failed = true;
+            print_string("Failed r/w at i,addr,old,new=");
+            print_int32(i);
+            print_string(",");
+            print_ptr(&addr[i]);
+            print_string(",");
+            print_int64(old);
+            print_string(",");
+            print_int64(new);
+            print_string("\n");
+            while(1);
+        }
     }
 
     return failed;
 }
 
-static bool mem_zone_test(void) {
+static int block_in_list(struct mem_block *block, struct mem_block *list) {
+    struct mem_block *block_ptr = list;
+    int count = 0;
+
+    while (block_ptr) {
+        if (block_ptr == block)
+            count++;
+        block_ptr = block_ptr->next;
+    }
+
+    return count;
+}
+
+static bool mem_zone_test_alloc_free(struct order_zone *zone) {
+    int used_presence = 0, free_presence = 0;
+    struct mem_block *alloced_block;
+    int free_before, free_after;
+    int used_before, used_after;
+    bool failed = false;
+
+    free_before = zone->free;
+    used_before = zone->used;
+
+    alloced_block = zone_alloc(ORDER_SIZE(zone->order));
+    SPIN_ON(!alloced_block);
+
+    free_after = zone->free;
+    used_after = zone->used;
+
+    SPIN_ON(free_before != free_after + 1);
+    SPIN_ON(used_before != used_after - 1)
+
+    // The allocated block must not be among the free blocks.
+    free_presence = block_in_list(alloced_block, zone->free_list);
+    SPIN_ON(free_presence);
+
+    // The allocated blocks must occur among the used blocks exactly once.
+    used_presence = block_in_list(alloced_block, zone->used_list);
+    SPIN_ON(used_presence != 1);
+
+    SPIN_ON(test_read_write(alloced_block));
+    free_before = zone->free;
+    used_before = zone->used;
+
+    zone_free(alloced_block);
+
+    free_after = zone->free;
+    used_after = zone->used;
+
+    SPIN_ON(free_before != free_after - 1);
+    SPIN_ON(used_before != used_after + 1)
+
+    return failed;
+}
+
+static bool mem_zone_test_exhaust_highest_order_zone(void) {
+    struct mem_block *auxillary_block, **auxillary_storage_region;
+    struct order_zone *test_zone, *auxillary_zone;
+    int test_zone_order, to_alloc;
+    bool failed = false;
+
+    test_zone_order =  _highest_initialized_zone_order;
+    test_zone = &order_zones[test_zone_order];
+    auxillary_zone = get_auxillary_zone(test_zone);
+    if (!auxillary_zone)
+        goto skip_test;
+
+    auxillary_block = zone_alloc(ORDER_SIZE(auxillary_zone->order));
+    auxillary_storage_region = (struct mem_block **) auxillary_block->addr;
+    to_alloc = test_zone->free;
+
+    // Exhaust the zone - allocate all its blocks.
+    print_string("alloced:");
+    for (int i = 0; i < to_alloc; i++) {
+        struct mem_block *tmp_block = zone_alloc(ORDER_SIZE(test_zone_order));
+        // Let's not print everthing; zone's have thousands of blocks.
+        if (i > to_alloc - 8) {
+            print_int32((pa_t) tmp_block);
+            print_string((i < to_alloc - 1 ? "," : ""));
+        }
+        // Store the block away, we'll need it when we want to free all the memory.
+        auxillary_storage_region[i] = tmp_block;
+    }
+    print_string("\n");
+
+    // We have allocated all the blocks in the highest order zone. It has no zone
+    // it can borrow from, so the allocation should fail.
+    struct mem_block *failed_alloc_block = zone_alloc(ORDER_SIZE(test_zone_order));
+    if (!failed_alloc_block) {
+        print_string("allocation failed [success]\n");
+    } else {
+        print_string("allocation passed [failure]\n");
+        failed = true;
+    }
+
+    // Free all the blocks allocated from test_zone.
+    print_string("freed:");
+    for (int i = 0; i < to_alloc; i++) {
+        struct mem_block *tmp_block = auxillary_storage_region[i];
+        if (i > to_alloc - 8) {
+            print_int32((pa_t) tmp_block);
+            print_string((i < to_alloc - 1 ? "," : ""));
+        }
+        zone_free(tmp_block);
+    }
+    print_string("\n");
+
+    zone_free(auxillary_block);
+
+skip_test:
+    return failed;
+}
+
+static bool mem_zone_test_exhaust_second_highest_order_zone(void) {
+    struct mem_block *auxillary_block, **auxillary_storage_region;
+    struct order_zone *test_zone, *auxillary_zone;
+    int test_zone_order;
+    bool failed = false;
+    int to_alloc;
+
+    test_zone_order = _highest_initialized_zone_order - 1;
+    test_zone = &order_zones[test_zone_order];
+
+    auxillary_zone = get_auxillary_zone(test_zone);
+    if (!auxillary_zone)
+        goto skip_test;
+
+    auxillary_block = zone_alloc(ORDER_SIZE(auxillary_zone->order));
+    auxillary_storage_region = (struct mem_block **) auxillary_block->addr;
+    to_alloc = test_zone->free;
+
+    print_string("alloced: ");
+    for (int i = 0; i < to_alloc; i++) {
+        struct mem_block *tmp_block = zone_alloc(ORDER_SIZE(test_zone_order));
+        // Let's not print everthing; zone's have thousands of blocks.
+        if (i > to_alloc - 8) {
+            print_int32((pa_t) tmp_block);
+            print_string((i < to_alloc - 1 ? "," : ""));
+        }
+        auxillary_storage_region[i] = tmp_block;
+    }
+    print_string("\n");
+
+    struct mem_block *test_block = zone_alloc(ORDER_SIZE(test_zone_order));
+    if (test_block) {
+        print_string("allocation passed [success]\n");
+    } else {
+        print_string("allocation failed [failure]\n");
+        failed = true;
+    }
+    zone_free(test_block);
+
+    print_string("freed: ");
+    for (int i = 0; i < to_alloc; i++) {
+        struct mem_block *tmp_block = auxillary_storage_region[i];
+        // Let's not print everthing; zone's have thousands of blocks.
+        if (i > to_alloc - 8) {
+            print_int32((pa_t) tmp_block);
+            print_string((i < to_alloc - 1 ? "," : ""));
+        }
+        zone_free(tmp_block);
+    }
+    print_string("\n");
+    zone_free(auxillary_block);
+
+skip_test:
+    return failed;
+}
+
+static bool mem_zone_test_suite(void) {
     /**
      * Memory allocation tests!
      * 
@@ -81,151 +265,41 @@ static bool mem_zone_test(void) {
      * the test. Obviously, since we are testing the mm's reliability, this is
      * risky as it relies on the mm, but what choice do we have?
     */
-    struct mem_block *auxillary_block, **auxillary_storage_region;
-    struct order_zone *test_zone, *auxillary_zone;
+    struct order_zone *test_zone;
     int test_zone_order;
     bool failed = false;
-    int to_alloc;
 
     /**
-     * Test 1:
-     * 
      * Simple alloc and free, no auxillary zone necessary.
      * The empty comments are to make it easy to comment out the test.
      */
     /**/
     {
-        test_zone_order = MAX_ORDER;
+        test_zone_order = _highest_initialized_zone_order;
         test_zone = &order_zones[test_zone_order];
+        if (mem_zone_test_alloc_free(test_zone)) {
+            print_string("zone_alloc_free failed\n");
+            failed = true;
+        }
 
-        struct mem_block *block = zone_alloc(ORDER_SIZE(test_zone_order));
-
-        test_read_write(block);
-
-        zone_free(block);
     }
     /**/
 
     /**
-     * Test 2:
-     * 
      * Exhaust the highest order zone, zone 7, and fail on the next alloc from this
      * zone.
      * The empty comments are to make it easy to comment out the test.
      */
     /**/
-    {
-        test_zone_order = MAX_ORDER;
-        test_zone = &order_zones[test_zone_order];
-
-        auxillary_zone = get_auxillary_zone(test_zone);
-        if (auxillary_zone == test_zone)
-            goto skip_test2;
-        auxillary_block = zone_alloc(ORDER_SIZE(auxillary_zone->order));
-        auxillary_storage_region = (struct mem_block **) auxillary_block->addr;
-
-        to_alloc = test_zone->free;
-        // Exhaust the zone - allocate all its blocks.
-        print_string("alloced:");
-        for (int i = 0; i < to_alloc; i++) {
-            struct mem_block *tmp_block = zone_alloc(ORDER_SIZE(test_zone_order));
-
-            // Let's not print everthing; zone's have thousands of blocks.
-            if (i > to_alloc - 8) {
-                print_int32((pa_t) tmp_block);
-                print_string((i < to_alloc - 1 ? "," : ""));
-            }
-
-            // Store the block away, we'll need it when we want to free all the memory.
-            auxillary_storage_region[i] = tmp_block;
-        }
-        print_string("\n");
-
-        // We have allocated all the blocks in the highest order zone. It has no zone
-        // it can borrow from, so the allocation should fail.
-        struct mem_block *failed_alloc_block = zone_alloc(ORDER_SIZE(test_zone_order));
-        if (!failed_alloc_block) {
-            print_string("allocation failed [success]\n");
-        } else {
-            print_string("allocation passed [failure]\n");
-            failed = true;
-        }
-
-        // Free all the blocks allocated from test_zone.
-        print_string("freed:");
-        for (int i = 0; i < to_alloc; i++) {
-            struct mem_block *tmp_block = auxillary_storage_region[i];
-
-            if (i > to_alloc - 8) {
-                print_int32((pa_t) tmp_block);
-                print_string((i < to_alloc - 1 ? "," : ""));
-            }
-
-            zone_free(tmp_block);
-        }
-        print_string("\n");
-        zone_free(auxillary_block);
-    }
-    /**/
-    /* END OF TEST 2. */
-skip_test2:
+    failed = failed || mem_zone_test_exhaust_highest_order_zone();
 
     /**
-     * Test 3:
-     * 
      * Exhaust second-highest-order zone, zone 6, request one more block which
      * should trigger a zone_brrow from zone 7. A free on the split block should
      * trigger a zone_collect.
      */
     /**/
-    {
-        test_zone_order = MAX_ORDER - 1;
-        test_zone = &order_zones[test_zone_order];
-
-        auxillary_zone = get_auxillary_zone(test_zone);
-        auxillary_block = zone_alloc(ORDER_SIZE(auxillary_zone->order));
-        auxillary_storage_region = (struct mem_block **) auxillary_block->addr;
-
-        to_alloc = test_zone->free;
-        print_string("alloced: ");
-        for (int i = 0; i < to_alloc; i++) {
-            struct mem_block *tmp_block = zone_alloc(ORDER_SIZE(test_zone_order));
-
-            // Let's not print everthing; zone's have thousands of blocks.
-            if (i > to_alloc - 8) {
-                print_int32((pa_t) tmp_block);
-                print_string((i < to_alloc - 1 ? "," : ""));
-            }
-
-            auxillary_storage_region[i] = tmp_block;
-        }
-        print_string("\n");
-
-        struct mem_block *test_block = zone_alloc(ORDER_SIZE(test_zone_order));
-        if (test_block) {
-            print_string("allocation passed [success]\n");
-        } else {
-            print_string("allocation failed [failure]\n");
-            failed = true;
-        }
-        zone_free(test_block);
-
-        print_string("freed: ");
-        for (int i = 0; i < to_alloc; i++) {
-            struct mem_block *tmp_block = auxillary_storage_region[i];
-
-            // Let's not print everthing; zone's have thousands of blocks.
-            if (i > to_alloc - 8) {
-                print_int32((pa_t) tmp_block);
-                print_string((i < to_alloc - 1 ? "," : ""));
-            }
-
-            zone_free(tmp_block);
-        }
-        print_string("\n");
-        zone_free(auxillary_block);
-    }
-    /* END OF TEST 3. */
+    failed = failed || mem_zone_test_exhaust_second_highest_order_zone();
 
     return failed;
 }
@@ -233,13 +307,12 @@ skip_test2:
 static void mem_test(void) {
     bool zone_result, object_result;
 
-    zone_result = mem_zone_test();
+    zone_result = mem_zone_test_suite();
     object_result = mem_object_test();
     
     print_string("Zone test: "); print_string(zone_result ? "failed" : "passed"); print_string(".\n");
     print_string("Object test: "); print_string(object_result ? "failed" : "passed"); print_string(".\n");
 }
-
 
 /**
  * @brief This test verifies reads from disks.
@@ -258,7 +331,7 @@ void disk_test(void) {
     print_string("sector_bitmap size="); print_int32(master_record.sector_bitmap_size);
     print_string("\n");
 
-    for (int i = 0; i <= 5; i++) {
+    for (int i = 0; i <= _highest_initialized_zone_order; i++) {
         int first_err_pos = -1, last_err_pos = -1;
         int block_size, err_count = 0;
         struct mem_block *block;

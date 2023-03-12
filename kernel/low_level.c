@@ -186,10 +186,10 @@ int bit_scan_reverse64(uint64_t val) {
     int idx;
 
 #ifdef CONFIG32
-    if (!(0xffffffff00000000ULL & val)) {
-        idx = bit_scan_reverse32((uint32_t)val); 
+    if (0xffffffff00000000ULL & val) {
+        idx = 32 + bit_scan_reverse32(val >> 32);
     } else {
-        idx = 32 + bit_scan_reverse32((uint32_t)(val >> 32));
+        idx = bit_scan_reverse32((uint32_t)(val));
     }
 #else
     asm volatile("bsr %%rax, %%rdx": "=d" (idx) : "a"(val));

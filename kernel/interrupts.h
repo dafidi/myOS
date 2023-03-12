@@ -12,9 +12,15 @@ extern void initialize_idt(void);
 
 #define NUM_REGISTERED_IRQS 48
 
+extern const pa_t _bss_end;
+
 extern struct idt_info idt_info_ptr;
 extern struct idt_entry idt[256];
 extern struct idt64_entry idt64[256];
+
+extern pa_t _interrupt_stacks_begin;
+extern pa_t _interrupt_stacks_end;
+extern pa_t _interrupt_stacks_length;
 
 static void init_interrupts(void) {
 
@@ -30,6 +36,11 @@ static void init_interrupts(void) {
     install_irqs();
 
     initialize_idt();
+
+    // Place the interrupt stacks right after the _bss_end.
+    _interrupt_stacks_begin = round_to_next_quartet((pa_t)&_bss_end);
+    _interrupt_stacks_end = _interrupt_stacks_begin + 0x7000;
+    _interrupt_stacks_length = _interrupt_stacks_end - _interrupt_stacks_begin;
 }
 
 static void start_interrupts(void) {

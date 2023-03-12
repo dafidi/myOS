@@ -1,7 +1,9 @@
 #include "mm.h"
 
+#include "error.h"
 #include "print.h"
 #include "string.h"
+#include "system.h"
 #include "task.h"
 
 // System memory map as told by BIOS.
@@ -10,12 +12,22 @@ extern unsigned int mem_map_buf_entry_count;
 
 // Kernel sections' labels. For example, we can get the address of the start of
 // the .text section by taking &_text_start
-extern uint64_t _bss_start;
-extern uint64_t _bss_end;
-extern uint64_t _text_start;
-extern uint64_t _text_end;
-extern uint64_t _data_start;
-extern uint64_t _data_end;
+extern const pa_t _bss_start;
+extern const pa_t _bss_end;
+extern const pa_t _text_start;
+extern const pa_t _text_end;
+extern const pa_t _data_start;
+extern const pa_t _data_end;
+
+// These are set up in init_interrupts.
+pa_t _interrupt_stacks_begin = -1;
+pa_t _interrupt_stacks_end = -1;
+pa_t _interrupt_stacks_length = -1;
+
+// These we can compute from &_{bss, text, data}_{start, end}.
+uint64_t _bss_length;
+uint64_t _text_length;
+uint64_t _data_length;
 
 // TSS for kernel and user tasks.
 // Perhaps a future item here is to dynamically allocate user TSSes.
@@ -37,7 +49,13 @@ extern void pm_jump(void);
 
 // Memory management structures for the kernel's use.
 static uint32_t page_usage_bitmap[NUM_BITMAP_INTS];
-static struct bios_mem_map *bmm;
+static struct bios_mem_map_entry *bmm;
+
+uint64_t _max_available_phy_addr = 0;
+uint64_t _available_memory = 0;
+uint64_t _zone_designated_memory = 0;
+
+int _highest_initialized_zone_order = 0;
 
 #define NUM_GDT_ENTRIES 8
 // Kernel structures for segmentation.
@@ -444,11 +462,35 @@ void init_page_usage_bitmap(void) {
     int num_pages = last_page_idx + 1;
 
     // Initialize bitmap to zero.
-    fill_long_buffer((unsigned long *)page_usage_bitmap, 0,  NUM_BITMAP_INTS, 0x0);
+    fill_long_buffer((unsigned int *)page_usage_bitmap, 0,  NUM_BITMAP_INTS, 0x0);
 
     // Set every page up to _bss_end as being used.
     for (int i = 0; i < num_pages; i++)
         set_bit((uint8_t *)page_usage_bitmap, i);
+}
+
+static bool zone_state_set(struct order_zone *zone, enum order_zone_state state) {
+	return zone->state & state;
+}
+
+static void set_zone_state(struct order_zone *zone, enum order_zone_state state) {
+    zone->state |= state;
+}
+
+static void unset_zone_state(struct order_zone *zone, enum order_zone_state state) {
+	zone->state &= ~state;
+}
+
+static void mark_zone_initialized(struct order_zone *zone) {
+    set_zone_state(zone, INITIALIZED);
+}
+
+static void mark_zone_uninitialized(struct order_zone *zone) {
+    unset_zone_state(zone, INITIALIZED);
+}
+
+static bool zone_initialized(struct order_zone *zone) {
+	return zone_state_set(zone, INITIALIZED);
 }
 
 /**
@@ -705,7 +747,7 @@ static uint32_t zone_borrow(struct order_zone *zone,
         uint8_t nho = zone->order + 1;
         struct order_zone *nhoz;
         
-        if (nho > MAX_ORDER)
+        if (nho > _highest_initialized_zone_order)
             return -1;
 
         // Get the zone from which we'll request blocks;
@@ -790,7 +832,7 @@ struct mem_block *__zone_alloc(struct order_zone *zone) {
         uint8_t nho;
 
         nho = zone->order + 1;
-        if (nho > MAX_ORDER)
+        if (nho > _highest_initialized_zone_order)
             goto done;
     
         nhoz = &order_zones[nho];
@@ -813,7 +855,7 @@ struct mem_block *zone_alloc(const int amt) {
     while (amt > ORDER_SIZE(order))
         order += 1;
 
-    if (order > MAX_ORDER)
+    if (order > _highest_initialized_zone_order)
         return NULL;
 
     return __zone_alloc(&order_zones[order]);
@@ -879,15 +921,25 @@ void zone_free(struct mem_block *block) {
 }
 
 void static print_order_zone(const struct order_zone *const zone) {
+    void *pmem_start = (void *) u64_to_addr(zone->phy_mem_start);
     const int num_block_pages = 1 << (zone->order);
 
     print_string("Zone: "); 			print_int32(zone->order);
-    print_string(" free_list: ");	print_ptr(zone->free_list);
+    print_string(" free_list: ");	    print_ptr(zone->free_list);
     print_string(" free_list->next: ");	print_ptr(zone->free_list->next);
     print_string(" blocks: ");			print_int32(zone->num_blocks);
     print_string(" pages_per_block: ");	print_int32(num_block_pages);
-    print_string(" total_size: ");		print_int32(num_block_pages * PAGE_SIZE * zone->num_blocks);
-    print_string(" addr: ");			print_int32(zone->phy_mem_start);
+    print_string(" total_size: ");		print_int64((uint64_t)num_block_pages * PAGE_SIZE * zone->num_blocks);
+    print_string(" addr: ");
+    // For some reason, gcc uses:
+    //     mov $eax, $edi
+    //     callq print_int64
+    // in most cases when calling print_int64 and it's not clear why.
+    // This is a problem because we don't get the upper 4 bytes of the param.
+    // print_ptr seems to set up the param properly using $rdi so we're using
+    // that as  a workaround for now.
+    print_ptr(pmem_start);
+    print_string(" state: "); print_int32(zone->state);
     print_string("\n");
 }
 
@@ -903,6 +955,12 @@ void init_order_zone(const uint8_t order, const pa_t phy_mem_start, const pa_ran
     struct order_zone *const zone = &order_zones[order];
     int block_index = 0, mem_block_pool_index = 0;
     const int num_block_pages = 1 << order;
+
+    if (num_blocks == 0) {
+        print_string("zone "); print_int32(order); print_string(" cannot be initialized.\n");
+        mark_zone_uninitialized(zone);
+        return;
+    }
 
     /* Initialize the zone. */
     zone->free_list = &mem_block_pool[order * DEFAULT_PAGES_PER_ZONE];
@@ -922,15 +980,81 @@ void init_order_zone(const uint8_t order, const pa_t phy_mem_start, const pa_ran
     for (; block_index < num_blocks; block_index += 1, mem_block_pool_index += num_block_pages) {
         zone->free_list[mem_block_pool_index].addr = phy_mem_start + (num_block_pages * PAGE_SIZE * block_index);
         zone->free_list[mem_block_pool_index].next = &zone->free_list[mem_block_pool_index + num_block_pages];
-        zone->free_list[mem_block_pool_index].order = order;
         zone->free_list[mem_block_pool_index].trueorder = order;
+        zone->free_list[mem_block_pool_index].order = order;
         zone->free_list[mem_block_pool_index].state = FREE;
         zone->free++;
     }
 
     zone->free_list[mem_block_pool_index - num_block_pages].next = NULL;
+    mark_zone_initialized(zone);
+
     /* It's nice to see the initialized zone's description. */
     print_order_zone(zone);
+}
+
+bool starts_in_region(struct bios_mem_map_entry *region_entry, pa_t raw_addr) {
+    uint64_t start, end;
+
+    start = region_entry->base;
+    end = start + region_entry->length;
+
+    if (start <= raw_addr && raw_addr < end)
+        return true;
+
+    return false;
+}
+
+bool fits_in_region(struct bios_mem_map_entry *region_entry, pa_t raw_addr, pa_range_sz_t size) {
+    uint64_t start, end;
+
+    start = region_entry->base;
+    end = start + region_entry->length;
+
+    if (start <= raw_addr && (raw_addr + size) < end)
+        return true;
+
+    return false;
+}
+
+bool region_is_available(struct bios_mem_map_entry *region_entry) {
+    return region_entry->type == 1;
+}
+
+uint64_t next_region_addr(int i) {
+    uint64_t addr = 0;
+
+    if (i < mem_map_buf_entry_count - 1)
+        addr = bmm[i + 1].base;
+
+    return addr;
+}
+
+pa_t next_available_start(pa_t raw_addr, pa_range_sz_t *size, pa_range_sz_t *next_size) {
+    for (int i = 0; i < mem_map_buf_entry_count; i++) {
+        struct bios_mem_map_entry *region_entry = &bmm[i];
+
+        if (raw_addr < region_entry->base)
+            raw_addr = region_entry->base;
+
+        if (starts_in_region(region_entry, raw_addr)) {
+            if (fits_in_region(region_entry, raw_addr, *size) && region_is_available(region_entry)) {
+                uint64_t gift_limit = region_entry->base + region_entry->length;
+
+                if (gift_limit > _max_available_phy_addr)
+                    gift_limit = _max_available_phy_addr;
+                // If the next allocation won't fit into the region used for the current designation,
+                // gift the current designation the remaining room in the current region.
+                if (raw_addr + *size + *next_size > gift_limit)
+                    *size += gift_limit - (raw_addr + *size);
+                return raw_addr;
+            } else {
+                raw_addr = next_region_addr(i);
+            }
+        }
+    }
+
+    return 0;
 }
 
 /**
@@ -938,10 +1062,8 @@ void init_order_zone(const uint8_t order, const pa_t phy_mem_start, const pa_ran
  */
 static void setup_zone_alloc_free(void) {
     unsigned long long dynamic_memory_start =
-        PAGE_ALIGN_UP((unsigned long)&_bss_end);
+        PAGE_ALIGN_UP((pa_t)_interrupt_stacks_end);
     /* TODO: Use dynamically-gotten RAM size instead of hard-coded 4GiB. */
-    unsigned long long dynamic_memory_size =
-        SYSTEM_RAM_BYTES - dynamic_memory_start;
 
     /* We need to somehow split the memory region [_bss_end, 4GiB)		   */
     /* among the orders. Meaning: how much memory do we split up into size */
@@ -957,17 +1079,51 @@ static void setup_zone_alloc_free(void) {
     /* fewer entries (mem_blocks) in chains with larger mem_blocks.		   */
     /* Let's call the regions of memory divided into a given order an	   */
     /* "order zone."													   */
-    const pa_range_sz_t order_zone_size = dynamic_memory_size / (MAX_ORDER + 1);
+    /*                                                                     */
+    /* Also, we don't seem to be able to write to the last 1GB of physical */
+    /* memory so let's avoid that regions until it is better understood.   */
+    const uint64_t designatable_memory = _available_memory;
+#ifndef CONFIG32
+    const pa_range_sz_t order_zone_size = designatable_memory / (MAX_ORDER + 1);
+#else
+    const pa_range_sz_t order_zone_size = udiv(designatable_memory, (uint64_t) (MAX_ORDER + 1));
+#endif
+    pa_range_sz_t next_size = order_zone_size;
     pa_t start_addr = dynamic_memory_start;
-    pa_range_sz_t size = order_zone_size;
+    pa_range_sz_t size;
 
-    for (int i = 0; i <= MAX_ORDER; i++, start_addr += size)
+    for (int i = 0; i <= MAX_ORDER; i++, start_addr += size) {
+        pa_t available_start;
+
+        size = order_zone_size;
+
+        // For the last zone, make the next_size so big that the zone will be gifted
+        // whatever memory is left in the region it is assigned.
+        if (i == MAX_ORDER)
+            next_size = 0xffffffff;
+
+        available_start = next_available_start(start_addr, &size, &next_size);
+        if (available_start == 0ULL) {
+            print_string("[Error] no more available memory at order="); print_int32(i); print_string("\n");
+            print_string("request:");
+            print_string("addr="); print_int64(start_addr); print_string(",");
+            print_string("size="); print_int64(size); print_string("\n");
+            return;
+        }
+
         init_order_zone(/*order=*/i,
-                        /*phy_mem_start=*/start_addr,
+                        /*phy_mem_start=*/available_start,
                         /*zone_size=*/size);
 
-    print_string("Dynamic memory size="); print_int32(dynamic_memory_size); print_string("\n");
+        struct order_zone *const zone = &order_zones[i];
 
+        if (zone_initialized(zone)) {
+            _zone_designated_memory += (1 << i) * PAGE_SIZE * zone->num_blocks;
+            _highest_initialized_zone_order = i;
+        }
+
+        start_addr = available_start;
+    }
 }
 
 /**
@@ -1155,7 +1311,7 @@ void memory_object_cache_init(struct memory_object_cache *cache, int order) {
     struct mem_block *object_block;
     int object_block_size;
 
-    object_block = __zone_alloc(&order_zones[MAX_ORDER - 2]);
+    object_block = __zone_alloc(&order_zones[_highest_initialized_zone_order]);
     if (!object_block) {
         print_string("Cache init failed on __zone_alloc for ");
         print_int32(order);
@@ -1205,6 +1361,69 @@ static void setup_memory_object_caches(void) {
     }
 }
 
+bool is_writeable(uint64_t addr) {
+    char *ptr = (char *) to_addr_width(addr);
+    char old = *ptr;
+    char new = ~old;
+
+    *ptr = new;
+
+    return *ptr == new;
+}
+
+uint64_t find_max_writeable_address(struct bios_mem_map_entry *bmm_entry) {
+    uint64_t addr_l = bmm_entry->base, addr_r = bmm_entry->base + bmm_entry->length - 1ull;
+    uint64_t addr_m = (addr_l + addr_r) / 2;
+
+    // Weird things happen when we try to find the max address we can read/write.
+    // So, let's manually set it based on experience.
+    // For example, when RAM is 4GiB, the largest bios memory map region is
+    // [0x100000000, 0x140000000) but writes only seem to be successful up to
+    // 0x10000b000. So we return 0x10000b000 - 1 here.
+    if (bmm_entry->length == 0x40000000ull)
+        return 0x10000b000ull - 1;
+
+    // We've seen that for RAM sizes greater than 4GiB, i.e. >= 5GiB
+    // the last (largest) region in the memory map extends to the RAM size + 1GiB
+    // but the cpu is not happy to read/write that extra 1GiB.
+    if (bmm_entry->length > 0x40000000)
+        addr_r -= 0x40000000;
+
+    if (is_writeable(addr_l) && is_writeable(addr_r)) {
+        // We think addr_r is the max _writeable_addr but let's make sure.
+        for (uint64_t a = addr_l; a <= addr_r; a++)
+            SPIN_ON (!is_writeable(a));
+        
+        return addr_r;
+    }
+
+    do {
+        if (!(is_writeable(addr_l) && !is_writeable(addr_r))) {
+            print_string("Invalid range.\n");
+            break;
+        }
+
+        addr_m = (addr_l + addr_r) / 2;
+        if (is_writeable(addr_m))
+            addr_l = addr_m;
+        else
+            addr_r = addr_m;
+
+    } while (addr_r - addr_l >= 2);
+
+    if (is_writeable(addr_l) && !is_writeable(addr_r)) {
+        print_string("success!\n");
+        print_ptr((void *) to_addr_width(addr_l)); print_string(" is writeable.\n");
+        print_ptr((void *) to_addr_width(addr_r)); print_string(" is not writeable.\n");
+        return addr_l;
+    } else {
+        print_string("failure:");
+        print_ptr((void *) to_addr_width(addr_l)); print_string("<-l\n");
+        print_ptr((void *) to_addr_width(addr_r)); print_string("<-r\n");
+        return bmm_entry->base + 0xb000;
+    }
+}
+
 /**
  * @brief Configure segmentation and paging related business and
  * print a bunch of stuff that might be useful to see (although we can probably
@@ -1219,11 +1438,17 @@ void init_mm(void) {
     print_string("mem_map_buf_addr=");		    print_int32(mem_map_buf_addr);
     print_string("\n");
 
-    bmm = (struct bios_mem_map *)(pa_t)mem_map_buf_addr;
+    bmm = (struct bios_mem_map_entry *)(pa_t)mem_map_buf_addr;
     for (int i = 0; i < mem_map_buf_entry_count; i++) {
         print_string("entry "); 		print_int32(i); 			print_string(" has base "); print_uint(bmm[i].base);
         print_string(" and length "); 	print_uint(bmm[i].length);
         print_string(" (avail="); 		print_int32(bmm[i].type); 	print_string(")\n");
+
+        if (bmm[i].type == 1)
+            _available_memory += bmm[i].length;
+
+        if (i == mem_map_buf_entry_count - 1)
+           _max_available_phy_addr = find_max_writeable_address(&bmm[i]);
     }
 
     init_page_usage_bitmap();
@@ -1235,14 +1460,32 @@ void init_mm(void) {
     print_string("_data_start="); 	print_int32(addr_to_u32(&_data_start));	print_string(",");
     print_string("_data_end=");		print_int32(addr_to_u32(&_data_end));		print_string("\n");
 
+    _bss_length = addr_to_u64(&_bss_end) - addr_to_u64(&_bss_start);
+    _text_length = addr_to_u64(&_text_end) - addr_to_u64(&_text_start);
+    _data_length = addr_to_u64(&_data_end) - addr_to_u64(&_data_start);
+
 #ifdef CONFIG32
-    // In 64 bit mode paging and gdt setup are dont in kernel64.asm.
     setup_and_load_pm_gdt();
     setup_and_enable_paging();
 #endif
 
     /* Set up structures for dynamic memory allocation and de-allocation. */
     setup_zone_alloc_free();
+
+    uint64_t kernel_static_memory = _bss_length + _text_length + _data_length + _interrupt_stacks_length + (_interrupt_stacks_begin - addr_to_u64(&_bss_end));
+                                                                                                  /* Nothing fits into this region. Plus, this is pretty */
+                                                                                                  /* low memory and we would not allocate from here.     */
+    uint64_t wasted_memory = _available_memory - _zone_designated_memory - kernel_static_memory - bmm[0].length;
+
+    print_string(" Available memory="); 
+    print_int64(_available_memory);
+    print_string("\n");
+    print_string("Designated memory=");
+    print_int64(_zone_designated_memory);
+    print_string("\n");
+    print_string("    Wasted memory=");
+    print_int64(wasted_memory);
+    print_string("\n");
 
     /* Set up structures for dynamic allocation of small memory sizes. */
     setup_memory_object_caches();

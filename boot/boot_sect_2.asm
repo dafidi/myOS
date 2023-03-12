@@ -14,7 +14,7 @@ mov [BOOT_DRIVE], dl
 ; specified in kernel.ld to be 4KiB-aligned so we might
 ; as well use such an alignment directly.
 KERNEL_OFFSET equ 0x9000
-KERNEL_SIZE_SECTORS equ 200
+KERNEL_SIZE_SECTORS equ 208
 
 mov bx, BOOTLOADER2_START_MSG
 call print_string

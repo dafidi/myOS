@@ -30,6 +30,12 @@ typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
 typedef long long unsigned int uint64_t;
 
+#ifdef CONFIG32
+typedef uint32_t pa_t;
+#else
+typedef uint64_t pa_t;
+#endif
+
 struct registers {
     unsigned int gs, fs, es, ds;      /* pushed the segs last */
     unsigned int edi, esi, ebp, esp, ebx, edx, ecx, eax;  /* pushed by 'pusha' */
@@ -47,7 +53,7 @@ void  memory_copy(const char* source , char* dest , int  no_bytes);
 void clear_buffer(uint8_t* buffer, int n);
 void fill_byte_buffer(unsigned char *buffer, const int start_index, int num_entries, const unsigned char val);
 void fill_word_buffer(unsigned short *buffer, const int start_index, int num_entries, const unsigned short val);
-void fill_long_buffer(unsigned long *buffer, const int start_index, int num_entries, const unsigned long val);
+void fill_long_buffer(unsigned int *buffer, const int start_index, int num_entries, const unsigned long val);
 
 extern void enable_interrupts(void);
 extern void disable_interrupts(void);
@@ -65,5 +71,9 @@ extern void disable_interrupts64(void);
 #else
 #define to_addr_width(x) ((uint64_t)(x))
 #endif
+
+uint64_t udiv(uint64_t n, uint64_t d);
+
+uint64_t round_to_next_quartet(uint64_t val);
 
 #endif /* __SYSTEM_H__ */
