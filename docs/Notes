@@ -2,9 +2,22 @@
 To close qemu from the terminal, you can use `ctrl+a c` ;).
 To open qemu console in vscode `esc+2`.
 
+Qemu montor docs here: https://qemu.readthedocs.io/en/latest/system/monitor.html
+To save ram as file: `memsave addr size file`
+
 # Assembly
 Intel syntax: mov dest, src
 ATT   syntax: mov src, dest
+
+The sequence:
+
+    cmp al, 128
+	jg int_0x13
+
+translates to
+
+    if 128 > al:
+        jump to int_0x13
 
 # Intel ia32 manual.
 #NP is segment-not-present exception, #GP is general-protection exception, #TS is invalid-TSS exception, and #SS is stack-fault exception.
@@ -34,3 +47,7 @@ by the fs components and we want to view the bits used by the files & folders, n
 fs components.)
 hexdump -C -s $((8193 * 512 + (8404993 / 8))) -n 1024 disk.hdd
 
+It would appear that when gcc is compiling to 64 bits, it will round the entry point address to be aligned to 0x1000.
+
+This article was useful in implementing transition to 64-bit:
+https://0xax.gitbooks.io/linux-insides/content/Booting/linux-bootstrap-4.html

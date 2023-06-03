@@ -23,6 +23,31 @@
         "background": {
           "activeOnStart": false,
           "beginsPattern": "make",
+          "endsPattern": "qemu-system-x86_64",
+        }
+      }
+    },
+    {
+      "label": "StartVM32",
+      "type": "shell",
+      "command": "./scripts/run.sh",
+      "args": ["--build32"],
+      "group": "build",
+      "isBackground": true,
+      "presentation": {
+        // Reveal the output only if unrecognized errors occur.
+        "reveal": "silent",
+        "clear": true,
+        "revealProblems": "always"
+      },
+      "problemMatcher": {
+        "owner": "qemu",
+        "pattern": {
+          "regexp": "" // TODO: Figure what this is and how to take advantage of it.
+        },
+        "background": {
+          "activeOnStart": false,
+          "beginsPattern": "make",
           "endsPattern": "qemu-system-i386",
         }
       }

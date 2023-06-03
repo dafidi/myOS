@@ -1,3 +1,5 @@
+#include "system.h"
+
 /**
  * port_byte_in - read a byte from an I/O port.
  * 
@@ -168,6 +170,30 @@ int bit_scan_forward(unsigned int val) {
     int idx;
 
     asm volatile("bsf %1, %%edx": "=d" (idx) : "m" (val));
+
+    return idx;
+}
+
+int bit_scan_reverse32(uint32_t val) {
+    int idx;
+
+    asm volatile("bsr %%eax, %%edx": "=d" (idx) : "a"(val));
+
+    return idx;
+}
+
+int bit_scan_reverse64(uint64_t val) {
+    int idx;
+
+#ifdef CONFIG32
+    if (0xffffffff00000000ULL & val) {
+        idx = 32 + bit_scan_reverse32(val >> 32);
+    } else {
+        idx = bit_scan_reverse32((uint32_t)(val));
+    }
+#else
+    asm volatile("bsr %%rax, %%rdx": "=d" (idx) : "a"(val));
+#endif
 
     return idx;
 }

@@ -4,7 +4,7 @@
 [bits 16]
 
 BOOTLOADER_2_OFFSET equ 0x7e00
-BOOTLOADER_2_SIZE_SECTORS equ 0x3
+BOOTLOADER_2_SIZE_SECTORS equ 0x4
 
 xor ax, ax
 mov ds, ax

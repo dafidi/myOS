@@ -1,3 +1,4 @@
+#include "system.h"
 
 /* 1 word = 2 bytes (2**1 bytes). */
 #define WORD_TO_BYTE_SHIFT 1
@@ -25,3 +26,4 @@ void outsw(unsigned short port, void *buf, int nr);
 void outsl(unsigned short port, void *buf, int nr);
 
 int bit_scan_forward(unsigned char *ptr);
+int bit_scan_reverse64(uint64_t ptr);

@@ -2,7 +2,7 @@
 #include "system.h"
 
 #include "interrupts.h"
-#include "mm.h"
+#include "mm/mm.h"
 #include "print.h"
 #include "string.h"
 #include "task.h"
@@ -31,32 +31,39 @@ extern void system_test(void);
  */
 void init(void) {
     /* Set up fault handlers and interrupt handlers */
-    /* but do not enable interrupts. */
+    /* but do not enable interrupts.                */
     init_interrupts();
 
-    /* Set up system's timer. */
+    /* Set up system's timer.                       */
     init_timer();
 
-    /* Set up memory management. */
+    /* Set up memory management.                    */
     init_mm();
+
+    /* Set up task management.                      */
+    /* This is done before here because this sets   */
+    /* up the TSS which is necessary for interrupt  */
+    /* handling in 64-bit mode.                     */
+    init_task_system();
+
+    /* Setup keyboard */
+    init_keyboard();
+
+    /* Let the fun begin, enable interrupts. This   */
+    /* is done before fs because fs will need to    */
+    /* read from disk, which will involve disk      */
+    /* interrupts.                                  */
+    start_interrupts();
 
     /* Set up disk. */
     init_disk();
 
-    /* Set up task management. */
-    init_task_system();
-
     /* Set up fs. */
     init_fs();
-    
-    /* Setup keyboard */
-    init_keyboard();
 
-    /* Let the fun begin, enable interrupts. */
-    start_interrupts();
+    /* General system test. */
+    system_test();
 }
-
-extern struct order_zone order_zones[];
 
 /**
  * main - main kernel execution starting point.
@@ -78,7 +85,6 @@ int main(void) {
 
     execute_binary_file(&file);
     */
-    system_test();
     exec_main_shell();
 
     // We should never reach here.

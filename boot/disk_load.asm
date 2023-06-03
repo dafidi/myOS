@@ -27,32 +27,67 @@
 ;=======================================================================
 
 [bits 16]
+
+MAX_READ_SECTORS equ 128
+
 disk_load:
 	mov bp, sp
 	mov bx, DISK_MSG
 	call print_string
 	call print_endl
 
-																; 							  															byte 1  | byte 2
-	mov dx, [bp + 2]	; 																 desired drive  | side of platter
-	mov cx,  [bp + 4]   ;																		sector offset | cyclinder/track
-	mov bx, [bp + 6]   ;													memory location  | memory location
-	mov ax, [bp + 8] 	 ;				  								number of sectors | unused
+						;              byte 1  | byte 2
+	mov dx, [bp + 2]    ;    desired drive     | side of platter
+	mov cx, [bp + 4]    ;    sector offset     | cyclinder/track
+	mov bx, [bp + 6]    ;    memory location   | memory location
+	mov ax, [bp + 8]    ;    number of sectors | unused
 
-	push ax ; let's remeber the number of sectors we wanted to read 
-							  ;  (stored in al).
+read_max_sectors:
+	mov ah, al
+	cmp al, 128
+	jg int_0x13
+	mov al, 128
+
+int_0x13:
+	sub ah, al
+	push dx ;  Let's save the desired drive info as we want to use dx for other stuff later.
+	push ax ; let's remember the number of sectors we wanted to read 
+			; (stored in al).
 
 	mov ah, 0x02
 	int 0x13
 	jc call_disk_error
 
 	pop dx 	; let's remember the number of sectors we wanted to read.
-								; (read into dl).
+			; (read into dl).
 
 	cmp dl, al
 	jne call_disk_error_mismatch
 
+	test dh, 0xff
+	jz finish_disk_load
+
+	; Update the sector offset.
+	add cl, dl
+
+	; Update the memory location.
+	; First save the number of sectors we still have to read.
+	mov al, dh
+	; Then, multiply the number of sectors just read by the sector size
+	; and add the product to the destination location (in bx)
+	push ax
+	mov dh, 0
+	mov ax, dx
+	mov dx, 512
+	mul dx ; mul must use ax, so we have to save ax, do the  mul and then retrieve it.
+	add bx, ax
+	pop ax
+
+	pop dx ; Recover the desired drive info.
+	jmp read_max_sectors
+
 finish_disk_load:
+	pop dx
 	mov sp, bp
 	ret
 

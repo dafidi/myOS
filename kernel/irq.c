@@ -63,29 +63,50 @@ void irq_remap(void) {
     port_byte_out(PIC_SLAVE_DATA_PORT, 0x0);
 }
 
-void install_irqs(void) {
+void __install_irqs(void) {
     irq_remap();
 
-    set_idt_entry(32, (unsigned) irq0, 0x08, 0x8E);   /* (idx=0,  desc=timer)    */
-    set_idt_entry(33, (unsigned) irq1, 0x08, 0x8E);   /* (idx=1,  desc=keyboard) */
-    set_idt_entry(34, (unsigned) irq2, 0x08, 0x8E);   /* (idx=2,  desc=unknown)  */
-    set_idt_entry(35, (unsigned) irq3, 0x08, 0x8E);   /* (idx=3,  desc=unknown)  */
-    set_idt_entry(36, (unsigned) irq4, 0x08, 0x8E);   /* (idx=4,  desc=serial port 1/3)  */
-    set_idt_entry(37, (unsigned) irq5, 0x08, 0x8E);   /* (idx=5,  desc=unknown)  */
-    set_idt_entry(38, (unsigned) irq6, 0x08, 0x8E);   /* (idx=6,  desc=unknown)  */
-    set_idt_entry(39, (unsigned) irq7, 0x08, 0x8E);   /* (idx=7,  desc=unknown)  */
-    set_idt_entry(40, (unsigned) irq8, 0x08, 0x8E);   /* (idx=8,  desc=unknown)  */
-    set_idt_entry(41, (unsigned) irq9, 0x08, 0x8E);   /* (idx=9,  desc=unknown)  */
-    set_idt_entry(42, (unsigned) irq10, 0x08, 0x8E);  /* (idx=10, desc=unknown)  */  
-    set_idt_entry(43, (unsigned) irq11, 0x08, 0x8E);  /* (idx=11, desc=unknown)  */  
-    set_idt_entry(44, (unsigned) irq12, 0x08, 0x8E);  /* (idx=12, desc=unknown)  */  
-    set_idt_entry(45, (unsigned) irq13, 0x08, 0x8E);  /* (idx=13, desc=unknown)  */  
-    set_idt_entry(46, (unsigned) irq14, 0x08, 0x8E);  /* (idx=14, desc=disk)     */  
-    set_idt_entry(47, (unsigned) irq15, 0x08, 0x8E);  /* (idx=15, desc=unknown)  */  
+    set_idt_entry(32, addr_to_u32(&irq0), 0x08, 0x8E);   /* (idx=0,  desc=timer)    */
+    set_idt_entry(33, addr_to_u32(&irq1), 0x08, 0x8E);   /* (idx=1,  desc=keyboard) */
+    set_idt_entry(34, addr_to_u32(&irq2), 0x08, 0x8E);   /* (idx=2,  desc=unknown)  */
+    set_idt_entry(35, addr_to_u32(&irq3), 0x08, 0x8E);   /* (idx=3,  desc=unknown)  */
+    set_idt_entry(36, addr_to_u32(&irq4), 0x08, 0x8E);   /* (idx=4,  desc=serial port 1/3)  */
+    set_idt_entry(37, addr_to_u32(&irq5), 0x08, 0x8E);   /* (idx=5,  desc=unknown)  */
+    set_idt_entry(38, addr_to_u32(&irq6), 0x08, 0x8E);   /* (idx=6,  desc=unknown)  */
+    set_idt_entry(39, addr_to_u32(&irq7), 0x08, 0x8E);   /* (idx=7,  desc=unknown)  */
+    set_idt_entry(40, addr_to_u32(&irq8), 0x08, 0x8E);   /* (idx=8,  desc=unknown)  */
+    set_idt_entry(41, addr_to_u32(&irq9), 0x08, 0x8E);   /* (idx=9,  desc=unknown)  */
+    set_idt_entry(42, addr_to_u32(&irq10), 0x08, 0x8E);  /* (idx=10, desc=unknown)  */  
+    set_idt_entry(43, addr_to_u32(&irq11), 0x08, 0x8E);  /* (idx=11, desc=unknown)  */  
+    set_idt_entry(44, addr_to_u32(&irq12), 0x08, 0x8E);  /* (idx=12, desc=unknown)  */  
+    set_idt_entry(45, addr_to_u32(&irq13), 0x08, 0x8E);  /* (idx=13, desc=unknown)  */  
+    set_idt_entry(46, addr_to_u32(&irq14), 0x08, 0x8E);  /* (idx=14, desc=disk)     */  
+    set_idt_entry(47, addr_to_u32(&irq15), 0x08, 0x8E);  /* (idx=15, desc=unknown)  */  
+}
+
+void __install_irqs64(void) {
+    irq_remap();
+    /*              isr_index,     base,        seg. sel.,   ist,  type_flags                          */
+    set_idt64_entry(32,   addr_to_u64(&irq64_0),    0x08,        0x02,  0x8E);   /* (idx=0,  desc=timer)    */
+    set_idt64_entry(33,   addr_to_u64(&irq64_1),    0x08,        0x03,  0x8E);   /* (idx=1,  desc=keyboard) */
+    set_idt64_entry(34,   addr_to_u64(&irq64_2),    0x08,        0x0,  0x8E);   /* (idx=2,  desc=unknown)  */
+    set_idt64_entry(35,   addr_to_u64(&irq64_3),    0x08,        0x0,  0x8E);   /* (idx=3,  desc=unknown)  */
+    set_idt64_entry(36,   addr_to_u64(&irq64_4),    0x08,        0x04,  0x8E);   /* (idx=4,  desc=serial port 1/3)  */
+    set_idt64_entry(37,   addr_to_u64(&irq64_5),    0x08,        0x0,  0x8E);   /* (idx=5,  desc=unknown)  */
+    set_idt64_entry(38,   addr_to_u64(&irq64_6),    0x08,        0x0,  0x8E);   /* (idx=6,  desc=unknown)  */
+    set_idt64_entry(39,   addr_to_u64(&irq64_7),    0x08,        0x0,  0x8E);   /* (idx=7,  desc=unknown)  */
+    set_idt64_entry(40,   addr_to_u64(&irq64_8),    0x08,        0x0,  0x8E);   /* (idx=8,  desc=unknown)  */
+    set_idt64_entry(41,   addr_to_u64(&irq64_9),    0x08,        0x0,  0x8E);   /* (idx=9,  desc=unknown)  */
+    set_idt64_entry(42,   addr_to_u64(&irq64_10),   0x08,        0x0,  0x8E);  /* (idx=10, desc=unknown)  */  
+    set_idt64_entry(43,   addr_to_u64(&irq64_11),   0x08,        0x0,  0x8E);  /* (idx=11, desc=unknown)  */  
+    set_idt64_entry(44,   addr_to_u64(&irq64_12),   0x08,        0x0,  0x8E);  /* (idx=12, desc=unknown)  */  
+    set_idt64_entry(45,   addr_to_u64(&irq64_13),   0x08,        0x0,  0x8E);  /* (idx=13, desc=unknown)  */  
+    set_idt64_entry(46,   addr_to_u64(&irq64_14),   0x08,        0x05,  0x8E);  /* (idx=14, desc=disk)     */  
+    set_idt64_entry(47,   addr_to_u64(&irq64_15),   0x08,        0x0,  0x8E);  /* (idx=15, desc=unknown)  */  
 }
 
 void irq_handler(struct registers* r) {
- void (*handler) (struct registers* r);
+    void (*handler) (struct registers* r);
 
     handler = irq_routines[r->int_no - 32];
 
@@ -98,4 +119,28 @@ void irq_handler(struct registers* r) {
     }
 
     port_byte_out(PIC_MASTER_CMD_PORT, 0x20);
+}
+
+void irq_handler64(struct registers64* r) {
+    void (*handler) (struct registers64* r);
+
+    handler = irq_routines[r->int_no - 32];
+
+    if (handler)
+        handler(r);
+
+    // If it's a slave interrupt, must send "complete" signal to slave too.
+    if (r->int_no >= 40) {
+        port_byte_out(PIC_SLAVE_CMD_PORT, 0x20);
+    }
+
+    port_byte_out(PIC_MASTER_CMD_PORT, 0x20);
+}
+
+void install_irqs(void) {
+#ifdef CONFIG32
+__install_irqs();
+#else
+__install_irqs64();
+#endif
 }

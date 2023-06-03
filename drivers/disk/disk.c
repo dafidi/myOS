@@ -270,7 +270,7 @@ int read_from_storage_disk(lba_t block_address, int n_bytes, void *buffer) {
 
         error = __read_from_disk(PRIMARY, SLAVE, block_address + full_sectors, 1, (uint8_t *)flush_buffer);
 
-        memory_copy(flush_buffer, buffer + full_sectors * SECTOR_SIZE, rem);
+        memory_copy((char *)flush_buffer, buffer + full_sectors * SECTOR_SIZE, rem);
     }
 
     return error;

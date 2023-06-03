@@ -1,5 +1,6 @@
 #include "task.h"
 
+#include "low_level.h"
 #include "print.h"
 
 #include <drivers/disk/disk.h>
@@ -8,10 +9,12 @@
 // figure out what the correct app start offset is.
 #define APP_TASK_START_OFFSET 0x0
 
+
 extern unsigned int user_page_directory[USER_PAGE_TABLE_SIZE];
 extern unsigned int kernel_page_directory[1024];
 
 extern struct gdt_entry pm_gdt[];
+extern struct gdt_entry gdt64[];
 
 extern va_t APP_START_VIRT_ADDR;
 extern pa_t APP_START_PHY_ADDR;
@@ -30,16 +33,39 @@ extern void load_kernel_tr(void);
  */
 extern void switch_to_user_task(void);
 
+extern pa_t _interrupt_stacks_begin;
+
 tss_t kernel_tss __attribute__((aligned(0x1000)));
 tss_t user_tss __attribute__((aligned(0x1000)));
+tss64_t kernel_tss64 __attribute__((aligned(0x1000)));
 
 struct task_info dummy_task;
 
+#ifdef CONFIG32
 static void configure_kernel_tss(void) {
     tss_t *kernel_tss_ = &kernel_tss;
 
-    kernel_tss_->CR3 = (unsigned int)kernel_page_directory;
+    kernel_tss_->CR3 = (unsigned int)(pa_t)kernel_page_directory;
 }
+#endif
+
+#ifndef CONFIG32
+static void configure_kernel_tss64(void) {
+    tss64_t *kernel_tss_ = &kernel_tss64;
+
+    __asm__("movq %%rsp, %0 \n" : "=m" (kernel_tss_->rsp0l) : );
+
+    // If there are ever interrupt-related issues, it might be worth checking
+    // whether any interrupt handler is using more than 4KiB (0x1000) of memory.
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist1l) : "rax"(_interrupt_stacks_begin + 0x1000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist2l) : "rax"(_interrupt_stacks_begin + 0x2000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist3l) : "rax"(_interrupt_stacks_begin + 0x3000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist4l) : "rax"(_interrupt_stacks_begin + 0x4000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist5l) : "rax"(_interrupt_stacks_begin + 0x5000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist6l) : "rax"(_interrupt_stacks_begin + 0x6000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist7l) : "rax"(_interrupt_stacks_begin + 0x7000));
+}
+#endif
 
 /**
  * configure_user_tss - Configure hardware task structure from task_info.
@@ -62,7 +88,7 @@ void configure_user_tss(task_info* task) {
     tss->GS_l16b = (data_seg * 8) | 0x3;
 
     // Set paging structure for program.
-    tss->CR3 = (unsigned int)user_page_directory;
+    tss->CR3 = (unsigned int)(pa_t)user_page_directory;
 
     // Set EIP, ESP and EBP registers for the program.
     tss->EIP = (unsigned int)task->start_virt_addr;
@@ -71,10 +97,11 @@ void configure_user_tss(task_info* task) {
     
     // Presumably, only the kernel (ring 0) will run this code so it'll
     // probably(?) be okay to set the ring 0 stack pointer and segment
-    // to the current ES and SS registers.
+    // to the current ESP and SS registers.
     __asm__("   movl %%esp, %0 \n" : "=m" (tss->ESP0) : );
     __asm__("   mov %%ss, %0 \n" : "=m" (tss->SS0_l16b) : );
 }
+
 
 /**
  * load_task_into_ram - Read a task's program from disk into main memory.
@@ -167,10 +194,15 @@ void exec_task(struct task_info *task) {
 
 void init_task_system(void) {
     // Set kernel and user TSS descriptors in GDT.
+#ifdef CONFIG32
     make_gdt_entry(&pm_gdt[KERNEL_TSS_DESCRIPTOR_IDX], sizeof(kernel_tss), (unsigned int) &kernel_tss, 0x9, 0x18);
     make_gdt_entry(&pm_gdt[USER_TSS_DESCRIPTOR_IDX], sizeof(user_tss), (unsigned int) &user_tss, 0x9, 0x1e);
-
     configure_kernel_tss();
+#else
+    make_gdt64_tss_entry((struct gdt64_tss_entry *)&gdt64[KERNEL_TSS_DESCRIPTOR_IDX], sizeof(kernel_tss64), (uint64_t) &kernel_tss64, 0x9, 0x98);
+
+    configure_kernel_tss64();
+#endif
 
     load_kernel_tr();
 }
