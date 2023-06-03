@@ -5,10 +5,6 @@
 
 #define BITS_PER_BYTE 8
 
-#define KiB (1024)
-#define MiB (1024 * KiB)
-#define GiB (1024 * MiB)
-
 #define INT_SIZE_SHIFT 2
 
 #define MAX_FILENAME_LENGTH 127

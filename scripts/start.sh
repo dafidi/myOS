@@ -8,7 +8,7 @@ qemu_cmd=qemu-system-x86_64
 # qemu_cmd=/home/david/Downloads/qemu-7.2.0/build/qemu-system-x86_64
 
 image=myOS.img
-ram=8G
+ram=4G
 
 for arg in "$@"
 do

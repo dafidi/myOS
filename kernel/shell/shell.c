@@ -3,7 +3,7 @@
 #include <drivers/keyboard/keyboard_map.h>
 #include <drivers/disk/disk.h>
 #include <fs/filesystem.h>
-#include <kernel/mm.h>
+#include <kernel/mm/mm.h>
 #include <kernel/print.h>
 #include <kernel/string.h>
 #include <kernel/system.h>

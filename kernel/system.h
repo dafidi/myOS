@@ -6,7 +6,28 @@
 #define SYSTEM_RAM_BYTES (0x1ULL << 32)
 #define SYSTEM_NUM_PAGES (SYSTEM_RAM_BYTES >> PAGE_SIZE_SHIFT)
 
+#define PAGE_ADDR_MASK (~(PAGE_SIZE - 1))
+#define PAGE_ALIGN(x) ((x) & PAGE_ADDR_MASK)
+#define PAGE_ALIGN_UP(x) (PAGE_ALIGN(x) == (x) ? (x) : PAGE_ALIGN(x) + PAGE_SIZE)
+
 #define DEFAULT_TIMER_FREQUENCY_HZ 100
+
+#ifdef OLD_SIZE_MACRO
+#define KiB (1024)
+#define MiB (1024 * KiB)
+#define GiB (1024 * MiB)
+#else
+#define KiB(x) ((x##ull) * (1ull << 10))
+#define MiB(x) ((x##ull) * (1ull << 20))
+#define GiB(x) ((x##ull) * (1ull << 30))
+#endif
+
+struct bios_mem_map_entry {
+	unsigned long long base;
+	unsigned long long length;
+	unsigned int type;
+	unsigned int acpi_null;
+}__attribute__((packed));
 
 // TODO: figure out a way to share these across C and .asm files.
 enum GDT_ENTRY_IDX {
@@ -17,6 +38,8 @@ enum GDT_ENTRY_IDX {
     SYSTEM_KERNEL_TSS_DESCRIPTOR_IDX,
     SYSTEM_USER_TSS_DESCRIPTOR_IDX
 };
+
+#define NULL ((void*) 0)
 
 #define bool unsigned char
 #define true 1
@@ -29,6 +52,11 @@ typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned int uint32_t;
 typedef long long unsigned int uint64_t;
+
+typedef unsigned int pte_t;
+typedef unsigned long long va_t;
+typedef unsigned long long va_range_sz_t;
+typedef unsigned long pa_range_sz_t;
 
 #ifdef CONFIG32
 typedef uint32_t pa_t;

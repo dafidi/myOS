@@ -1,4 +1,4 @@
-#include "mm.h"
+#include "mm/mm.h"
 #include <drivers/disk/disk.h>
 #include <fs/filesystem.h>
 #include "print.h"
@@ -21,7 +21,7 @@ static struct order_zone *get_auxillary_zone(struct order_zone *test_zone) {
 
     if (auxillary_zone_order >= _highest_initialized_zone_order ||
         auxillary_zone_order >= test_zone->order) {
-        print_string("Skipping test, no zone big enough.");
+        print_string("Skipping test, no zone big enough.\n");
         return NULL;
     }
 

@@ -6,7 +6,9 @@
     "print.h": "c",
     "string.h": "c",
     "system.h": "c",
-    "low_level.h": "c"
+    "low_level.h": "c",
+    "task.h": "c",
+    "filesystem.h": "c"
   },
   "C_Cpp.default.includePath": [
     "${workspaceFolder}"

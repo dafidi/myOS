@@ -5,7 +5,7 @@
 #include <kernel/string.h>
 #include <kernel/system.h>
 #include <kernel/timer.h>
-#include <kernel/mm.h>
+#include <kernel/mm/mm.h>
 
 #include "filesystem.h"
 
