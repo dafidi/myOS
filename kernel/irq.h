@@ -1,5 +1,5 @@
 #ifndef __IRQ_H__
-#define __IRQ__H__
+#define __IRQ_H__
 
 extern uint32_t irq0;
 extern uint32_t irq1;

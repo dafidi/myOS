@@ -123,4 +123,7 @@ int overwrite_dir_content(struct fnode *, uint8_t *, int);
 void show_dir_content(const struct fnode *);
 void init_fs(void);
 
+struct mem_block *get_fnode(struct dir_entry *entry);
+void show_dir_content(const struct fnode *dir_fnode);
+
 #endif

@@ -7,7 +7,7 @@
 # Stop on any error.
 set -e
 
-cd ${HOME}/dev/myOS
+platform=$1
 
 kernel_target=kernel64.bin
 image_target=myOS.img
@@ -25,7 +25,17 @@ do
     fi
 done
 
-# Utility functions.
+PROJECT_PATH=""
+if [[ $platform == "Mac" ]];
+then
+	PROJECT_PATH=${HOME}/Develop/myOS
+else
+	PROJECT_PATH=${HOME}/dev/myOS
+fi
+
+pushd $PROJECT_PATH
+
+# Utility functions
 
 # Get the size of the kernel in blocks, rounded up.
 get_kernel_size_in_blocks() {
@@ -73,6 +83,8 @@ echo "***********************Done generating Image*************************"
 # Generate a disk containing a filesystem. The disk is called "disk.hdd".
 echo "***********************Generating disk.hdd***************************"
 
-source ${HOME}/dev/myOS/scripts/generate_fs.sh
+source ${PROJECT_PATH}/scripts/generate_fs.sh
 
 echo "***********************Done generating disk.hdd**********************"
+
+popd
