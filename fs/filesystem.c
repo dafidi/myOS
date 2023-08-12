@@ -976,7 +976,10 @@ int add_dir_entry(struct fnode_location_t *dir_fnode_location, struct fnode *dir
     // we have a failure along the way.
     memory_copy((char *) sector_buffer, (char *) sector_buffer_backup, SECTOR_SIZE);
 
-    *((struct dir_entry *)&sector_buffer[used_in_last_sector]) = *new_entry;
+    // On mac, this causes gcc to insert memcpy (despite -nolibc, -nostdlib!).
+    // So, use memory_copy instead.
+    // *((struct dir_entry *)&sector_buffer[used_in_last_sector]) = *new_entry;
+    memory_copy((char *) new_entry, (char *) &sector_buffer[used_in_last_sector], sizeof(*new_entry));
 
     if (need_new_sector && query_free_sectors(1, &maybe_new_sector_index)) {
         print_string("Error getting new sector, can't add new dir_entry.\n");
@@ -1116,7 +1119,9 @@ int remove_dir_entry(struct fnode *dir_fnode, char *name) {
 
     num_entries_to_shift = dir_info->num_entries - (i + 1);
     while (num_entries_to_shift--) {
-        *dir_entry = *(dir_entry + 1);
+        // Same issue with extra memory_copy instance above in add_dir_entry.
+        // *dir_entry = *(dir_entry + 1);
+        memory_copy((char *) (dir_entry + 1), (char *) dir_entry, sizeof(*dir_entry));
         dir_entry++;
     }
 

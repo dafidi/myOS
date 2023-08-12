@@ -51,3 +51,27 @@ It would appear that when gcc is compiling to 64 bits, it will round the entry p
 
 This article was useful in implementing transition to 64-bit:
 https://0xax.gitbooks.io/linux-insides/content/Booting/linux-bootstrap-4.html
+
+Had to build gnu gcc because the man page for the built-in ld says it:
+"always creates a "thin" (single-architecture), standard Mach-O output file"
+But we need to be able to  create output files that are not mac-specific.
+ld complains about the format of the object files from nasm not being in the
+macho format.
+...
+Compiling gcc for mac has been a little annoying because there seemed to be many
+issues with header files and system libraries not being found.
+Best attempt so far is by adding --with-sysroot=/Library/... and 
+CC="clang --sysroot=/Library/..." CXX="clang++ --sysroot=/Library/..." to
+configure.
+Hopefully, this custom-built gcc will be able to work with the format of output
+nasm's output and will produce a baremetal binary that QEMU can run.
+
+The commands which appear to have completed a successful build are:
+../gcc-13.1.0/configure --prefix=/Users/davidawogbemila/Downloads/Software_Installation/gcc-13.1.0 --enable-languages=c --with-sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk CC="clang --sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk" CXX="clang++ --sysroot=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk"
+
+and
+
+make -j8 bootstrap
+
+And I learnt abou the options from here:
+https://gcc.gnu.org/bugzilla/show_bug.cgi?id=90834

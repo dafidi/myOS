@@ -1,8 +1,11 @@
-    .globl main
-    .intel_syntax noprefix
+.code32
 
+.globl main
 main:
-    #jmp $
-    jmp 0x1b: exit
+    lea exit(,1), %eax
+    jmp $0x1b, $exit
 exit:
     iret
+
+.data
+.fill 10, 1, 0x0

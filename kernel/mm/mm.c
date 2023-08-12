@@ -9,8 +9,10 @@
 #include "zone.h"
 
 // System memory map as told by BIOS.
-extern pa_t mem_map_buf_addr;
-extern unsigned int mem_map_buf_entry_count;
+extern const pa_t mem_map_buf_addr;
+extern const pa_t max_kernel_static_mem;
+extern const unsigned int mem_map_buf_entry_count;
+
 
 // Kernel sections' labels. For example, we can get the address of the start of
 // the .text section by taking &_text_start
@@ -72,7 +74,9 @@ struct gdt_info pm_gdt_info = {
 // Kernel structures for paging.
 // We have 1024 page directory entries -> 1024 page tables and each page table has 1024 ptes.
 unsigned int kernel_page_directory[1024]__attribute__((aligned(0x1000)));
+#ifdef CONFIG32
 static unsigned int kernel_page_tables[1024][1024]__attribute__((aligned(0x1000)));
+#endif
 
 // User structures for paging.
 unsigned int user_page_directory[USER_PAGE_DIR_SIZE]__attribute__((aligned(0x1000)));
@@ -182,7 +186,7 @@ int reserve_and_map_user_memory(va_t va, pa_t pa, unsigned int amount) {
     int i;
 
     // Verify requested physical address is not in [0, _bss_end)
-    if (pa < (pa_t)&_bss_end)
+    if (pa < (pa_t)_bss_end)
         return -1;
     page_idx = pa >> 12;
 
@@ -219,6 +223,7 @@ int unreserve_and_unmap_user_memory(va_t va, pa_t pa, unsigned int amount) {
     return 0;
 }
 
+#ifdef CONFIG32
 /**
  * @brief Set up kernel & user page directory/tables.
  * 
@@ -288,18 +293,20 @@ static void setup_page_directory_and_page_tables(void) {
          * We map the part of the kernel in the second portion of usable physical memory here.
          * We know that the kernel uses only [0x100000, _bss_end) because that is what is specified in kernel.ld :).
          * Should that change, this should probably change too.
-         * We must use "PAGE_ALIGN_UP(&_bss_end)" here and not just "&_bss_end" as the latter would neglect
+         * We must use "PAGE_ALIGN_UP(_bss_end)" here and not just "_bss_end" as the latter would neglect
          * memory between.
-         * [PAGE_ROUND_DOWN(&_bss_end), PAGE_ROUND_DOWN(&_bss_end) + PAGE_SIZE).
+         * [PAGE_ROUND_DOWN(_bss_end), PAGE_ROUND_DOWN(_bss_end) + PAGE_SIZE).
          */
-        region_length = PAGE_ALIGN_UP((pa_t)&_bss_end) - 0x100000;
+        region_length = PAGE_ALIGN_UP((pa_t)_bss_end) - 0x100000;
         region_start = 0x100000;
         page_frame = 0x100000;
         map_va_range_to_pa_range(user_page_tables, /*va=*/(va_t)region_start, /*size=*/region_length, /*pa=*/page_frame,
                                  /*access_flags=*/0x1);
     }
 }
+#endif
 
+#ifdef CONFIG32
 /**
  * @brief Configure, setup and enable paging. 
  */
@@ -307,6 +314,7 @@ void setup_and_enable_paging(void) {
     setup_page_directory_and_page_tables();
     enable_paging();
 }
+#endif
 
 /**
  * @brief Load global variable pm_gdt_info into the processor's GDTR.
@@ -452,7 +460,7 @@ void setup_and_load_pm_gdt(void) {
  * @brief Initialize page usage bitmap.
  */
 void init_page_usage_bitmap(void) {
-    unsigned long last_page_idx = ((unsigned long) &_bss_end) >> 12;
+    unsigned long last_page_idx = ((unsigned long) _bss_end) >> 12;
     int num_pages = last_page_idx + 1;
 
     // Initialize bitmap to zero.
@@ -796,23 +804,27 @@ void init_mm(void) {
         }
 
         if (i == mem_map_buf_entry_count - 1) {
+            while (bmm[i].type != 1)
+                i--;
             _max_available_phy_addr = find_max_writeable_address(&bmm[i]);
             _max_phy_addr = bmm[i].base + bmm[i].length - 1;
+            // So we can exit the loop.
+            i = mem_map_buf_entry_count;
         }
     }
 
     init_page_usage_bitmap();
 
-    print_string("_bss_start=");	print_int32(addr_to_u32(&_bss_start));	print_string(",");
-    print_string("_bss_end="); 		print_int32(addr_to_u32(&_bss_end));		print_string(",");
-    print_string("_text_start="); 	print_int32(addr_to_u32(&_text_start));	print_string(",");
-    print_string("_text_end="); 	print_int32(addr_to_u32(&_text_end));		print_string(",");
-    print_string("_data_start="); 	print_int32(addr_to_u32(&_data_start));	print_string(",");
-    print_string("_data_end=");		print_int32(addr_to_u32(&_data_end));		print_string("\n");
+    print_string("_bss_start=");	print_int32(addr_to_u32(_bss_start));	print_string(",");
+    print_string("_bss_end="); 		print_int32(addr_to_u32(_bss_end));		print_string(",");
+    print_string("_text_start="); 	print_int32(addr_to_u32(_text_start));	print_string(",");
+    print_string("_text_end="); 	print_int32(addr_to_u32(_text_end));		print_string(",");
+    print_string("_data_start="); 	print_int32(addr_to_u32(_data_start));	print_string(",");
+    print_string("_data_end=");		print_int32(addr_to_u32(_data_end));		print_string("\n");
 
-    _bss_length = addr_to_u64(&_bss_end) - addr_to_u64(&_bss_start);
-    _text_length = addr_to_u64(&_text_end) - addr_to_u64(&_text_start);
-    _data_length = addr_to_u64(&_data_end) - addr_to_u64(&_data_start);
+    _bss_length = addr_to_u64(_bss_end) - addr_to_u64(_bss_start);
+    _text_length = addr_to_u64(_text_end) - addr_to_u64(_text_start);
+    _data_length = addr_to_u64(_data_end) - addr_to_u64(_data_start);
 
 #ifdef CONFIG32
     setup_and_load_pm_gdt();
@@ -822,7 +834,7 @@ void init_mm(void) {
     /* Set up structures for dynamic memory allocation and de-allocation. */
     setup_zone_alloc_free();
 
-    uint64_t kernel_static_memory = _bss_length + _text_length + _data_length + _interrupt_stacks_length + (_interrupt_stacks_begin - addr_to_u64(&_bss_end));
+    uint64_t kernel_static_memory = _bss_length + _text_length + _data_length + _interrupt_stacks_length + (_interrupt_stacks_begin - addr_to_u64(_bss_end));
                                                                                                   /* Nothing fits into this region. Plus, this is pretty */
                                                                                                   /* low memory and we would not allocate from here.     */
     uint64_t wasted_memory = _available_memory - _zone_designated_memory - kernel_static_memory - bmm[0].length;

@@ -74,6 +74,12 @@ static void zone_append_used(struct order_zone *zone, struct mem_block *block) {
     zone->used++;
 }
 
+void hlt() {
+    while(1);
+}
+
+extern bp();
+
 /**
  * @brief Add block to the end of zone's free_list.
  * 
@@ -83,9 +89,16 @@ static void zone_append_used(struct order_zone *zone, struct mem_block *block) {
 static void zone_append_free(struct order_zone *zone, struct mem_block *block) {
     struct mem_block *free_tail = zone->free_list;
 
+    int i = 0;
     if (free_tail) {
-        while (free_tail->next)
+        while (free_tail->next) {
+            if (free_tail->next > 0x100000000ull) {
+                print_int32(i); print_string("[ERROR!]\n");
+                bp();
+            }
             free_tail = free_tail->next;
+            i += 1;
+        }
         free_tail->next = block;
     } else {
         zone->free_list = block;
@@ -577,6 +590,12 @@ void init_order_zone(const uint8_t order, const pa_t phy_mem_start, const pa_ran
         zone->free_list[mem_block_pool_index].trueorder = order;
         zone->free_list[mem_block_pool_index].order = order;
         zone->free_list[mem_block_pool_index].state = FREE;
+        // print_int32(block_index);
+        // print_string("\n");
+        // if (block_index == 12641) {
+        //     print_string("breaking\n");
+        //     while(1);
+        // }
         zone->free++;
     }
 

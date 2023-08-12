@@ -3,20 +3,19 @@ SECTIONS
 {
     . = 0x9000;
     .text : {
-        _text_start = ( ADDR(.text) );
+        PROVIDE(begin_text = ( ADDR(.text) ));
         *(.text);
-        _text_end = ( ADDR(.text) + SIZEOF(.text) );
+        PROVIDE(end_text = ( ADDR(.text) + SIZEOF(.text) ));
     }
     .data : { 
-        _data_start = ( ADDR(.data) );
+        PROVIDE(begin_data = ( ADDR(.data) ));
         *(.data) }
-        _data_end = ( ADDR(.data) + SIZEOF(.data) );
+        PROVIDE(end_data = ( ADDR(.data) + SIZEOF(.data) ));
     .bss 0x100000 : {
-        _bss_start = ( ADDR(.bss) ) ;
+        PROVIDE(begin_bss = ( ADDR(.bss) ));
         *(.bss)
         *(.COMMON)
-     _bss_end = ( ADDR(.bss ) + SIZEOF(.bss) ) ;
+        PROVIDE(end_bss = ( ADDR(.bss ) + SIZEOF(.bss) ));
     }
 }
-
 ENTRY(kernel_entry)

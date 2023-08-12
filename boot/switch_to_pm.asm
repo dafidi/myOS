@@ -20,7 +20,9 @@ init_pm:
 	mov fs, ax
 	mov gs, ax
 
-	mov ebp, 0x90000
+	; Stack location chosen using anecdotal size of the kernel.
+	; TODO: choose dynamically at build time.
+	mov ebp, MAX_KERNEL_STATIC_MEM + 0x100000
 	mov esp, ebp
 
 	; BEGIN_PM is a label defined in the second stage bootloader.

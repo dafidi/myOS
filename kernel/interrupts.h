@@ -38,7 +38,7 @@ static void init_interrupts(void) {
     initialize_idt();
 
     // Place the interrupt stacks right after the _bss_end.
-    _interrupt_stacks_begin = round_to_next_quartet((pa_t)&_bss_end);
+    _interrupt_stacks_begin = round_to_next_quartet((pa_t)_bss_end);
     _interrupt_stacks_end = _interrupt_stacks_begin + 0x7000;
     _interrupt_stacks_length = _interrupt_stacks_end - _interrupt_stacks_begin;
 }

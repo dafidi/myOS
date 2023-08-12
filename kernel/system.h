@@ -83,8 +83,16 @@ void fill_byte_buffer(unsigned char *buffer, const int start_index, int num_entr
 void fill_word_buffer(unsigned short *buffer, const int start_index, int num_entries, const unsigned short val);
 void fill_long_buffer(unsigned int *buffer, const int start_index, int num_entries, const unsigned long val);
 
+#ifdef CONFIG32
+#define enable_interrupts() enable_interrupts()
+#define disable_interrupts() disable_interrupts()
 extern void enable_interrupts(void);
 extern void disable_interrupts(void);
+#else
+#define enable_interrupts(p) enable_interrupts64()
+#define disable_interrupts(p) disable_interrupts64()
+#endif
+
 extern void enable_interrupts64(void);
 extern void disable_interrupts64(void);
 

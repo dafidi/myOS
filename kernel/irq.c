@@ -63,6 +63,7 @@ void irq_remap(void) {
     port_byte_out(PIC_SLAVE_DATA_PORT, 0x0);
 }
 
+#ifdef CONFIG32
 void __install_irqs(void) {
     irq_remap();
 
@@ -83,6 +84,7 @@ void __install_irqs(void) {
     set_idt_entry(46, addr_to_u32(&irq14), 0x08, 0x8E);  /* (idx=14, desc=disk)     */  
     set_idt_entry(47, addr_to_u32(&irq15), 0x08, 0x8E);  /* (idx=15, desc=unknown)  */  
 }
+#endif
 
 void __install_irqs64(void) {
     irq_remap();

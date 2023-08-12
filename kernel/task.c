@@ -182,6 +182,7 @@ int clean_up_after_task(task_info *task) {
 void exec_waiting_tasks(void) { }
 
 void exec_task(struct task_info *task) {
+#ifdef CONFIG32
     if (prepare_for_task_switch(task))
         return;
 
@@ -190,6 +191,9 @@ void exec_task(struct task_info *task) {
     print_string("task switch successful.\n");
 
     clean_up_after_task(task);
+#else
+    print_string("64 bit not ready for task-switching.\n");
+#endif
 }
 
 void init_task_system(void) {
@@ -199,7 +203,11 @@ void init_task_system(void) {
     make_gdt_entry(&pm_gdt[USER_TSS_DESCRIPTOR_IDX], sizeof(user_tss), (unsigned int) &user_tss, 0x9, 0x1e);
     configure_kernel_tss();
 #else
-    make_gdt64_tss_entry((struct gdt64_tss_entry *)&gdt64[KERNEL_TSS_DESCRIPTOR_IDX], sizeof(kernel_tss64), (uint64_t) &kernel_tss64, 0x9, 0x98);
+    make_gdt64_tss_entry((struct gdt64_tss_entry *)&gdt64[KERNEL_TSS_DESCRIPTOR_IDX],
+                          sizeof(kernel_tss64),
+                          (uint64_t) &kernel_tss64,
+                          0x9,
+                          0x98);
 
     configure_kernel_tss64();
 #endif

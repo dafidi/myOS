@@ -20,7 +20,7 @@ fi
 
 # Get the size of the one file that will be in the filesystem. The 
 # filesystem needs this information.
-APP_SIZE=$(stat apps/app.bin | grep Size | cut -d' ' -f4)
+APP_SIZE=$(stat -f "%z" apps/app.bin )
 
 declare -A FILESYSTEM_SETTINGS
 
@@ -45,7 +45,7 @@ calculate_filesystem_configuration() {
         FILESYSTEM_SETTINGS[$param]=$value
     done
 
-    # Calculate derived params based on user settings. No validation, users should please set sensible params.
+    # Calculate derived params bsed on user settings. No validation, users should please set sensible params.
     FILESYSTEM_SETTINGS[NUM_SECTORS]=$((FILESYSTEM_SETTINGS[TOTAL_DISK_SIZE] / FILESYSTEM_SETTINGS[SECTOR_SIZE]))
     FILESYSTEM_SETTINGS[SECTOR_BITMAP_SIZE]=$((FILESYSTEM_SETTINGS[NUM_SECTORS] / FILESYSTEM_SETTINGS[BITS_PER_BYTE]))
     FILESYSTEM_SETTINGS[SECTOR_BITMAP_SIZE_IN_SECTORS]=$((FILESYSTEM_SETTINGS[SECTOR_BITMAP_SIZE] / FILESYSTEM_SETTINGS[SECTOR_SIZE]))
@@ -84,7 +84,7 @@ build_metadata_component() {
     then
         time nasm -f bin -o ${component_bin} ${metadata_file}
     else
-        metadata_bin_size=`stat ${component_bin} | awk '/Size/{ print $2 }'`
+        metadata_bin_size=`stat -f "%z" ${component_bin}`
         if [[ ${metadata_component} != "fnode_table" && ${metadata_bin_size} != ${component_size} ]]
         then
             print "Have mismatch on component ${metadata_component}: actual(${metadata_file_size}) != expected(${component_size})."
@@ -93,7 +93,7 @@ build_metadata_component() {
         fi
     fi
 
-    metadata_bin_size=`stat ${component_bin} | awk '/Size/{ print $2 }'`
+    metadata_bin_size=`stat -f "%z" ${component_bin}`
 
     case ${metadata_component} in
 
@@ -140,7 +140,7 @@ build_fs_metadata() {
         cp ${TEMPLATE_LOCATION}/${metadata_file} ${BUILD_LOCATION}/
 
         # Transform the template as necessary.
-        sed -i "s/APP_BIN_SIZE/${APP_SIZE}/g" ${BUILD_LOCATION}/${metadata_file}
+        sed -i.tmp "s/APP_BIN_SIZE/${APP_SIZE}/g" ${BUILD_LOCATION}/${metadata_file}
 
         # Build the raw file from the transformed assembly file.
         result=$(build_metadata_component ${metadata_component})
@@ -162,7 +162,7 @@ build_fs_data() {
 
     cp ${TEMPLATE_LOCATION}/${data_template} ${BUILD_LOCATION}/
     data_file=${BUILD_LOCATION}/${data_template}
-    sed -i "s/APP_BIN_SIZE/${APP_SIZE}/g" ${data_file}
+    sed -i.tmp "s/APP_BIN_SIZE/${APP_SIZE}/g" ${data_file}
     nasm -f bin -o ${data_bin} ${data_file}
 
     dd if=${data_bin} of=disk.hdd obs=512 seek=${METADATA_SIZE_SECTORS} conv=notrunc
@@ -175,7 +175,13 @@ build_fs_data() {
 calculate_filesystem_configuration
 
 # Allocate 16 GiB on disk.
-fallocate -l 16G disk.hdd
+uname=`uname -a`
+if [[ $uname == *"Darwin"* ]];
+then
+    mkfile -n 1g disk.hdd
+else
+    fallocate -l 16G disk.hdd
+fi
 
 build_fs_metadata
 

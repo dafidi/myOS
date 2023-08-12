@@ -7,7 +7,7 @@ mode=$1
 platform=$2
 
 case $platform in
-	"Mac")
+	"platform=Mac")
 		echo "Launching Mac start script."
 		./scripts/mac-start.sh $mode
 	;;

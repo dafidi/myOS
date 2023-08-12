@@ -15,9 +15,6 @@ then
 elif [[ $uname == *"Microsoft"* ]];
 then
 	platform="Windows"
-else
-	echo Platform Unknown, quitting.
-	exit 0
 fi
 platform_arg=platform=${platform}
 

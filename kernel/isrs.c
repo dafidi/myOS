@@ -48,6 +48,7 @@ const char exception_message_part_1[] = "Fault: msg=[";
 const char exception_message_part_2[] = "],code=[";
 const char exception_message_part_3[] = "]\n";
 
+#ifdef CONFIG32
 void __install_isrs(void) {
     set_idt_entry(0,  addr_to_u32(&isr0),  0x08, 0x8E);
     set_idt_entry(1,  addr_to_u32(&isr1),  0x08, 0x8E);
@@ -82,6 +83,7 @@ void __install_isrs(void) {
     set_idt_entry(30, addr_to_u32(&isr30), 0x08, 0x8E);
     set_idt_entry(31, addr_to_u32(&isr31), 0x08, 0x8E);
 }
+#endif
 
 void __install_isrs64(void) {
     set_idt64_entry(0,  addr_to_u64(&isr64_0), 0x08,  0x0, 0x8E);
@@ -137,6 +139,7 @@ void fault_handler(struct registers* regs) {
 }
 
 void fault_handler64(struct registers64* regs) {
+    // while(1);
     print_string(exception_message_part_1);
     print_string(exception_messages[regs->int_no]);
     print_string(exception_message_part_2);
