@@ -1,68 +1,68 @@
 .code64
 
-.globl enable_interrupts64
-enable_interrupts64:
+.globl _asm_enable_interrupts64
+_asm_enable_interrupts64:
     sti
     ret
 
-.globl disable_interrupts64
-disable_interrupts64:
+.globl _asm_disable_interrupts64
+_asm_disable_interrupts64:
     cli
     ret
 
-.extern fault_handler64
-.extern irq_handler64
+.extern _fault_handler64
+.extern _irq_handler64
 
 .globl isr64_common
-.globl isr64_0
-.globl isr64_1
-.globl isr64_2
-.globl isr64_3
-.globl isr64_4
-.globl isr64_5
-.globl isr64_6
-.globl isr64_7
-.globl isr64_8
-.globl isr64_9
-.globl isr64_10
-.globl isr64_11
-.globl isr64_12
-.globl isr64_13
-.globl isr64_14
-.globl isr64_15
-.globl isr64_16
-.globl isr64_17
-.globl isr64_18
-.globl isr64_19
-.globl isr64_20
-.globl isr64_21
-.globl isr64_22
-.globl isr64_23
-.globl isr64_24
-.globl isr64_25
-.globl isr64_26
-.globl isr64_27
-.globl isr64_28
-.globl isr64_29
-.globl isr64_30
-.globl isr64_31
+.globl _asm_isr64_0
+.globl _asm_isr64_1
+.globl _asm_isr64_2
+.globl _asm_isr64_3
+.globl _asm_isr64_4
+.globl _asm_isr64_5
+.globl _asm_isr64_6
+.globl _asm_isr64_7
+.globl _asm_isr64_8
+.globl _asm_isr64_9
+.globl _asm_isr64_10
+.globl _asm_isr64_11
+.globl _asm_isr64_12
+.globl _asm_isr64_13
+.globl _asm_isr64_14
+.globl _asm_isr64_15
+.globl _asm_isr64_16
+.globl _asm_isr64_17
+.globl _asm_isr64_18
+.globl _asm_isr64_19
+.globl _asm_isr64_20
+.globl _asm_isr64_21
+.globl _asm_isr64_22
+.globl _asm_isr64_23
+.globl _asm_isr64_24
+.globl _asm_isr64_25
+.globl _asm_isr64_26
+.globl _asm_isr64_27
+.globl _asm_isr64_28
+.globl _asm_isr64_29
+.globl _asm_isr64_30
+.globl _asm_isr64_31
 
-.globl irq64_0
-.globl irq64_1
-.globl irq64_2
-.globl irq64_3
-.globl irq64_4
-.globl irq64_5
-.globl irq64_6
-.globl irq64_7
-.globl irq64_8
-.globl irq64_9
-.globl irq64_10
-.globl irq64_11
-.globl irq64_12
-.globl irq64_13
-.globl irq64_14
-.globl irq64_15
+.globl _asm_irq64_0
+.globl _asm_irq64_1
+.globl _asm_irq64_2
+.globl _asm_irq64_3
+.globl _asm_irq64_4
+.globl _asm_irq64_5
+.globl _asm_irq64_6
+.globl _asm_irq64_7
+.globl _asm_irq64_8
+.globl _asm_irq64_9
+.globl _asm_irq64_10
+.globl _asm_irq64_11
+.globl _asm_irq64_12
+.globl _asm_irq64_13
+.globl _asm_irq64_14
+.globl _asm_irq64_15
 
 .globl isrs64_begin
 .globl isrs64_end
@@ -77,162 +77,162 @@ disable_interrupts64:
 # Figure 6-9 for more information.
 
 isrs64_begin:
-isr64_0:
+_asm_isr64_0:
     cli
     push $0
     jmp isr64_common
 
-isr64_1:
+_asm_isr64_1:
     cli
     push $1
     jmp isr64_common
 
-isr64_2:
+_asm_isr64_2:
     cli
     push $2
     jmp isr64_common
 
-isr64_3:
+_asm_isr64_3:
     cli
     push $3
     jmp isr64_common
 
-isr64_4:
+_asm_isr64_4:
     cli
     push $4
     jmp isr64_common
 
-isr64_5:
+_asm_isr64_5:
     cli
     push $5
     jmp isr64_common
 
-isr64_6:
+_asm_isr64_6:
     cli
     push $6
     jmp isr64_common
 
-isr64_7:
+_asm_isr64_7:
     cli
     push $7
     jmp isr64_common
 
-isr64_8:
+_asm_isr64_8:
     cli
     push $8
     jmp isr64_common
 
-isr64_9:
+_asm_isr64_9:
     cli
     push $9
     jmp isr64_common
 
-isr64_10:
+_asm_isr64_10:
     cli
     push $10
     jmp isr64_common
 
-isr64_11:
+_asm_isr64_11:
     cli
     push $11
     jmp isr64_common
 
-isr64_12:
+_asm_isr64_12:
     cli
     push $12
     jmp isr64_common
 
-isr64_13:
+_asm_isr64_13:
     cli
     push $13
     jmp isr64_common
 
-isr64_14:
+_asm_isr64_14:
     cli
     push $14
     jmp isr64_common
 
-isr64_15:
+_asm_isr64_15:
     cli
     push $15
     jmp isr64_common
 
-isr64_16:
+_asm_isr64_16:
     cli
     push $16
     jmp isr64_common
 
-isr64_17:
+_asm_isr64_17:
     cli
     push $17
     jmp isr64_common
 
-isr64_18:
+_asm_isr64_18:
     cli
     push $18
     jmp isr64_common
 
-isr64_19:
+_asm_isr64_19:
     cli
     push $19
     jmp isr64_common
 
-isr64_20:
+_asm_isr64_20:
     cli
     push $20
     jmp isr64_common
 
-isr64_21:
+_asm_isr64_21:
     cli
     push $21
     jmp isr64_common
 
-isr64_22:
+_asm_isr64_22:
     cli
     push $22
     jmp isr64_common
 
-isr64_23:
+_asm_isr64_23:
     cli
     push $23
     jmp isr64_common
 
-isr64_24:
+_asm_isr64_24:
     cli
     push $24
     jmp isr64_common
 
-isr64_25:
+_asm_isr64_25:
     cli
     push $25
     jmp isr64_common
 
-isr64_26:
+_asm_isr64_26:
     cli
     push $26
     jmp isr64_common
 
-isr64_27:
+_asm_isr64_27:
     cli
     push $27
     jmp isr64_common
 
-isr64_28:
+_asm_isr64_28:
     cli
     push $28
     jmp isr64_common
 
-isr64_29:
+_asm_isr64_29:
     cli
     push $29
     jmp isr64_common
 
-isr64_30:
+_asm_isr64_30:
     cli
     push $30
     jmp isr64_common
 
-isr64_31:
+_asm_isr64_31:
     cli
     push $31
     jmp isr64_common
@@ -248,7 +248,7 @@ isr64_common:
     push %rdi
     mov %rsp, %rax
     mov %rax, %rdi
-    callq fault_handler64
+    callq _fault_handler64
     pop %rdi
     pop %rsi
     pop %rbp
@@ -264,97 +264,97 @@ isrs64_end:
 # Error codes are not pushed for additional interrupt service handlers. Let's "push 0"
 # just for consistency.
 irqs64_begin:
-irq64_0:
+_asm_irq64_0:
     cli
     push $0
     push $32
     jmp irq64_common
 
-irq64_1:
+_asm_irq64_1:
     cli
     push $0
     push $33
     jmp irq64_common
 
-irq64_2:
+_asm_irq64_2:
     cli
     push $0
     push $34
     jmp irq64_common
 
-irq64_3:
+_asm_irq64_3:
     cli
     push $0
     push $35
     jmp irq64_common
 
-irq64_4:
+_asm_irq64_4:
     cli
     push $0
     push $36
     jmp irq64_common
 
-irq64_5:
+_asm_irq64_5:
     cli
     push $0
     push $37
     jmp irq64_common
 
-irq64_6:
+_asm_irq64_6:
     cli
     push $0
     push $38
     jmp irq64_common
 
-irq64_7:
+_asm_irq64_7:
     cli
     push $0
     push $39
     jmp irq64_common
 
-irq64_8:
+_asm_irq64_8:
     cli
     push $0
     push $40
     jmp irq64_common
 
-irq64_9:
+_asm_irq64_9:
     cli
     push $0
     push $41
     jmp irq64_common
 
-irq64_10:
+_asm_irq64_10:
     cli
     push $0
     push $42
     jmp irq64_common
 
-irq64_11:
+_asm_irq64_11:
     cli
     push $0
     push $43
     jmp irq64_common
 
-irq64_12:
+_asm_irq64_12:
     cli
     push $0
     push $44
     jmp irq64_common
 
-irq64_13:
+_asm_irq64_13:
     cli
     push $0
     push $45
     jmp irq64_common
 
-irq64_14:
+_asm_irq64_14:
     cli
     push $0
     push $46
     jmp irq64_common
 
-irq64_15:
+_asm_irq64_15:
     cli
     push $0
     push $47
@@ -371,7 +371,7 @@ irq64_common:
     push %rdi
     mov %rsp, %rax
     mov %rax, %rdi
-    callq irq_handler64
+    callq _irq_handler64
     pop %rdi
     pop %rsi
     pop %rbp
@@ -382,4 +382,4 @@ irq64_common:
     pop %rax
     add $0x10, %rsp
     iretq
-irqs64_end:
+_asm_irqs64_end:

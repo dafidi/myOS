@@ -238,7 +238,7 @@ int write_to_storage_disk(lba_t block_address, int n_bytes, void *buffer) {
 
         read_from_storage_disk(final_write_block_idx, SECTOR_SIZE, flush_buffer);
 
-        memory_copy((char *)buffer + full_sectors * SECTOR_SIZE, flush_buffer, rem);
+        memcpy(flush_buffer, (char *)buffer + full_sectors * SECTOR_SIZE, rem);
 
         error = __write_to_disk(PRIMARY, SLAVE, final_write_block_idx, 1, flush_buffer) | error;
     }
@@ -270,7 +270,7 @@ int read_from_storage_disk(lba_t block_address, int n_bytes, void *buffer) {
 
         error = __read_from_disk(PRIMARY, SLAVE, block_address + full_sectors, 1, (uint8_t *)flush_buffer);
 
-        memory_copy((char *)flush_buffer, buffer + full_sectors * SECTOR_SIZE, rem);
+        memcpy(buffer + full_sectors * SECTOR_SIZE, (char *)flush_buffer, rem);
     }
 
     return error;

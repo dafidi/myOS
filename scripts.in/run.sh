@@ -2,7 +2,6 @@
 #
 #  File: run.sh
 #
-# This ought to be run in a linux shell.
 
 # Stop on any error.
 set -e

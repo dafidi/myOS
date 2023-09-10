@@ -22,7 +22,7 @@ KERNEL_SIZE_BYTES equ KERNEL_SIZE_SECTORS * 512
 
 ; We use the size of the kernel to determine where
 ; dynamic memory should start
-MAX_KERNEL_STATIC_MEM equ 39124992
+MAX_KERNEL_STATIC_MEM equ 40140800
 
 mov bx, BOOTLOADER2_START_MSG
 call print_string

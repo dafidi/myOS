@@ -3,12 +3,20 @@
 #include "low_level.h"
 
 /* Copy  bytes  from  one  place  to  another. */
-void  memory_copy(const char* source , char* dest , int no_bytes) {
+void memcpy(char* dest, const char* source, int no_bytes) {
     uint64_t i = 0ULL;
 
     for (i=0; i<no_bytes; i++) {
         *(dest + i) = *( source + i);
     }
+}
+
+void *memset(void* src, int c, unsigned long n) {
+    char* ssrc = src;
+    for (int i = 0; i < n; i++) {
+        ssrc[i] = c;
+    }
+    return src;
 }
 
 void clear_buffer(uint8_t* buffer, int n) {

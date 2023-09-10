@@ -69,13 +69,13 @@ gdt_64_limit:
 #    # here. If changing the size of gdt64, must change this.
     .short 0x0038
 gdt_64_location:
-    .quad gdt64
+    .quad _gdt64
 
-.align 3
+.balign 8
 ## See IA-32 manual vol. 3 section 3.4.5 for
 ## desriptions of segment descriptor fields.
-.globl gdt64
-gdt64:
+.globl _gdt64
+_gdt64:
     .word 0x0 # NULL descriptor.
     .word 0x0
     .word 0x0
@@ -145,7 +145,7 @@ init_64bit_mode:
     call load_gdt64
 
     push $8
-    leal main(,1), %eax
+    leal _main(,1), %eax
     push %eax
     # Found out from https://stackoverflow.com/a/68379295/5741726 to use lret
     # instead of retf.
@@ -155,16 +155,18 @@ init_64bit_mode:
 .include "kernel/asm/interrupts64.s"
 
 .code64
-.globl __initialize_idt64
-.extern idt_info_ptr
+.globl _asm_initialize_idt64
+.extern _idt_info_ptr
 
-__initialize_idt64:
-    lidt idt_info_ptr(%rip)
+_asm_initialize_idt64:
+    lidt _idt_info_ptr(%rip)
     ret
 
-# Per https://stackoverflow.com/a/52368791/5741726, this means, align to 2^12.
+# Per https://stackoverflow.com/a/52368791/5741726, .align 12 this means align
+# to 2^12, but it seems in some cases it is intepreted as .align 12. So just use
+# the explicit .balign 0x1000.
 #.data
-.align 12
+.balign 0x1000
 # We need to make sure these are 4KiB-aligned.
 PM4L:
     .fill NUM_PM4L * PM4L_SIZE, 1, 0x0

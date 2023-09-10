@@ -7,36 +7,27 @@
 set -e
 set -x
 
-# This should be "mode=32" or "mode=64"
-mode=$1
+mode="mode=64"
 
-if [[ $mode != "mode=64" && $mode != "mode=32" ]];
+ELF_FILE=""
+BIN_FILE=""
+
+if [[ $1 == "mode=32" ]];
 then
-    echo "mode arg must be mode=64 or mode=32"
-    exit 0;
-fi
-
-elf_file=""
-bin_file=""
-
-if [[ $mode == "mode=64" ]];
-then
-    elf_file="kernel64.elf"
-    bin_file="kernel64.bin"
+    ELF_FILE="kernel32.elf"
+    BIN_FILE="kernel32.bin"
 else
-    elf_file="kernel32.elf"
-    bin_file="kernel32.bin"
+    ELF_FILE="kernel64.elf"
+    BIN_FILE="kernel64.bin"
 fi
 
 uname=`uname -a`
 
-READELF="/usr/local/opt/llvm/bin/llvm-readelf"
-
 extract_linux() {
-    objcopy -O binary $elf_file $bin_file
+    objcopy -O binary $ELF_FILE $BIN_FILE
 }
 
-# These are the sections that typicallye exist:
+# These are the sections that typically exist:
 # __TEXT,__text WANT
 # __TEXT,__eh_frame DON'T WANT
 # __TEXT,__const WANT
@@ -46,7 +37,10 @@ extract_linux() {
 # __DATA,__common DON'T WANT
 # __DATA,__data WANT
 # __BSS,__bss DON'T WANT (empty anyways)
-
+ 
+# TODO: Find a tool which can read ELF files and can be easily installed on
+# MacOS.
+READELF="/usr/local/opt/llvm/bin/llvm-readelf"
 max_kernel_occupied_address=0
 
 # NOTE: mac only.
@@ -78,23 +72,22 @@ add_section() {
 
     iseek_blocks=$((offset))
     # iseek_blocks=$((iseek_bloxks / 512))
-    # oseek_blocks=$((address - 0x9000))
     oseek_blocks=$((address - 0x100000))
     # oseek_blocks=$((oseek_blocks / 512))
     echo iseek=${iseek_blocks} oseek=${oseek_blocks}
-    dd iseek=${iseek_blocks} oseek=${oseek_blocks} if=${elf_file} of=${bin_file} bs=1 count=$((size)) conv=notrunc
+    dd iseek=${iseek_blocks} oseek=${oseek_blocks} if=${ELF_FILE} of=${BIN_FILE} bs=1 count=$((size)) conv=notrunc
 }
 
-# Based on Manual/Anectdotal inspection of the mahco elf these are the sections 
+# Based on Manual/Anectdotal inspection of the macho elf these are the sections 
 # we want to copy. Skip everything else.
 extract_mac() {
-    section_names=`${READELF} --section-headers ${elf_file} | grep -E "( Name)" | awk -F'[:(]' '{ print $2 }'`
-    section_segments=`${READELF} --section-headers ${elf_file} | grep -E "( Segment)" | awk -F'[:(]' '{ print $2 }'`
-    section_addresses=`${READELF} --section-headers ${elf_file} | grep -E "( Address)" | cut -d":" -f2 | sed -e 's/^[[:space:]]*//'`
-    section_offsets=`${READELF} --section-headers ${elf_file} | grep -E "( Offset)" | cut -d":" -f2 | sed -e 's/^[[:space:]]*//'`
-    section_sizes=`${READELF} --section-headers ${elf_file} | grep -E "( Size)" | cut -d":" -f2 | sed -e 's/^[[:space:]]*//'`
+    section_names=`${READELF} --section-headers ${ELF_FILE} | grep -E "( Name)" | awk -F'[:(]' '{ print $2 }'`
+    section_segments=`${READELF} --section-headers ${ELF_FILE} | grep -E "( Segment)" | awk -F'[:(]' '{ print $2 }'`
+    section_addresses=`${READELF} --section-headers ${ELF_FILE} | grep -E "( Address)" | cut -d":" -f2 | sed -e 's/^[[:space:]]*//'`
+    section_offsets=`${READELF} --section-headers ${ELF_FILE} | grep -E "( Offset)" | cut -d":" -f2 | sed -e 's/^[[:space:]]*//'`
+    section_sizes=`${READELF} --section-headers ${ELF_FILE} | grep -E "( Size)" | cut -d":" -f2 | sed -e 's/^[[:space:]]*//'`
 
-    #convert to arrays.
+    # Convert to arrays.
     section_names=($section_names)
     section_segments=($section_segments)
     section_addresses=($section_addresses)
@@ -122,4 +115,13 @@ extract_mac() {
 #     #TODO: may never do.
 # }
 
-extract_mac
+PLATFORM=`uname -a | cut -d" " -f1`
+if [[ $PLATFORM == "Linux" ]]
+then
+    extract_linux;
+elif [[ $PLATFORM = "Darwin" ]]
+then
+    extract_mac
+else
+    echo "Unknown platform. Doing nothing."
+fi

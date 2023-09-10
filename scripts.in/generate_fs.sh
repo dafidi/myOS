@@ -18,9 +18,19 @@ then
     exit
 fi
 
+PLATFORM=`uname -a | cut -d" " -f1`
 # Get the size of the one file that will be in the filesystem. The 
 # filesystem needs this information.
-APP_SIZE=$(stat -f "%z" apps/app.bin )
+if [[ $PLATFORM == "Linux" ]]
+then
+    APP_SIZE=$(stat -c "%s" apps/app.bin )
+elif [[ $PLATFORM == "Darwin" ]]
+then
+    APP_SIZE=$(stat -f "%z" apps/app.bin )
+else
+    echo "Unknown platform. Quitting."
+    exit
+fi
 
 declare -A FILESYSTEM_SETTINGS
 
@@ -84,7 +94,13 @@ build_metadata_component() {
     then
         time nasm -f bin -o ${component_bin} ${metadata_file}
     else
-        metadata_bin_size=`stat -f "%z" ${component_bin}`
+        if [[ $PLATFORM == "Linux" ]]
+        then
+            metadata_bin_size=`stat -c "%s" ${component_bin}`
+        elif [[ $PLATFORM == "Darwin" ]]
+        then
+            metadata_bin_size=`stat -f "%z" ${component_bin}`
+        fi
         if [[ ${metadata_component} != "fnode_table" && ${metadata_bin_size} != ${component_size} ]]
         then
             print "Have mismatch on component ${metadata_component}: actual(${metadata_file_size}) != expected(${component_size})."
@@ -93,7 +109,13 @@ build_metadata_component() {
         fi
     fi
 
-    metadata_bin_size=`stat -f "%z" ${component_bin}`
+    if [[ $PLATFORM == "Linux" ]]
+    then
+        metadata_bin_size=`stat -c "%s" ${component_bin}`
+    elif [[ $PLATFORM == "Darwin" ]]
+    then
+        metadata_bin_size=`stat -f "%z" ${component_bin}`
+    fi
 
     case ${metadata_component} in
 
@@ -178,7 +200,7 @@ calculate_filesystem_configuration
 uname=`uname -a`
 if [[ $uname == *"Darwin"* ]];
 then
-    mkfile -n 1g disk.hdd
+    mkfile -n 16g disk.hdd
 else
     fallocate -l 16G disk.hdd
 fi

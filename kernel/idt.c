@@ -3,9 +3,9 @@
 #include "system.h"
 
 #ifdef CONFIG32
-extern void __initialize_idt(void);
+extern void asm_initialize_idt(void);
 #else
-extern void __initialize_idt64(void);
+extern void asm_initialize_idt64(void);
 #endif
 
 struct idt_info idt_info_ptr;
@@ -31,8 +31,8 @@ void set_idt64_entry(unsigned int isr_index, uint64_t base, unsigned short sel, 
 
 void initialize_idt(void) {
 #ifdef CONFIG32
-    __initialize_idt();
+    asm_initialize_idt();
 #else
-    __initialize_idt64();
+    asm_initialize_idt64();
 #endif
 }

@@ -48,7 +48,7 @@ int get_dir_name(struct fnode *fnode, char* name_buffer) {
     }
 
     name_len = strlen((char *) dir_info.name);
-    memory_copy((char *) dir_info.name, name_buffer, name_len);
+    memcpy(name_buffer, (char *) dir_info.name, name_len);
     return name_len;
 }
 
@@ -225,7 +225,7 @@ int push_directory_chain_link(struct directory_chain *chain, struct fnode *fnode
         error = -1;
         goto remove_new_link;
     }
-    memory_copy((char *)dir_info.name, chainp->next->name, strlen(dir_info.name));
+    memcpy(chainp->next->name, (char *)dir_info.name, strlen(dir_info.name));
 
     // There might be garbage left over in the allocated space, mark the
     // string's end.
@@ -471,9 +471,9 @@ next_name_idx_and_len:
     if (curr_dir_name_start_idx_in_path == curr_dir_name_end_idx_in_path)
         goto done;
 
-    memory_copy((char *)&path[curr_dir_name_start_idx_in_path],
-                curr_dir_name,
-                curr_dir_name_end_idx_in_path - curr_dir_name_start_idx_in_path);
+    memcpy(curr_dir_name,
+           (char *)&path[curr_dir_name_start_idx_in_path],
+           curr_dir_name_end_idx_in_path - curr_dir_name_start_idx_in_path);
 
     if (strlen(curr_dir_name) == 2 && strmatchn(curr_dir_name, "..", strlen(curr_dir_name))) {
         if (chain->size == 1) {
@@ -974,12 +974,10 @@ int add_dir_entry(struct fnode_location_t *dir_fnode_location, struct fnode *dir
     }
     // Backup the original dir content (i.e. dir_info and dir_entry) in case
     // we have a failure along the way.
-    memory_copy((char *) sector_buffer, (char *) sector_buffer_backup, SECTOR_SIZE);
+    memcpy((char *) sector_buffer_backup, (char *) sector_buffer, SECTOR_SIZE);
 
-    // On mac, this causes gcc to insert memcpy (despite -nolibc, -nostdlib!).
-    // So, use memory_copy instead.
     // *((struct dir_entry *)&sector_buffer[used_in_last_sector]) = *new_entry;
-    memory_copy((char *) new_entry, (char *) &sector_buffer[used_in_last_sector], sizeof(*new_entry));
+    memcpy((char *) &sector_buffer[used_in_last_sector], (char *) new_entry, sizeof(*new_entry));
 
     if (need_new_sector && query_free_sectors(1, &maybe_new_sector_index)) {
         print_string("Error getting new sector, can't add new dir_entry.\n");
@@ -1021,7 +1019,7 @@ int add_dir_entry(struct fnode_location_t *dir_fnode_location, struct fnode *dir
 
     // Keep a backup of the dir_info sector in case we have to abandon the change(s).
     dir_info_buffer_backup = object_alloc(SECTOR_SIZE);
-    memory_copy((char *) sector_buffer, (char *) dir_info_buffer_backup, SECTOR_SIZE);
+    memcpy((char *) dir_info_buffer_backup, (char *) sector_buffer, SECTOR_SIZE);
 
     dir_info->num_entries++;
     if (write_to_storage_disk(dir_fnode->sector_indexes[0], SECTOR_SIZE, sector_buffer)) {
@@ -1119,9 +1117,8 @@ int remove_dir_entry(struct fnode *dir_fnode, char *name) {
 
     num_entries_to_shift = dir_info->num_entries - (i + 1);
     while (num_entries_to_shift--) {
-        // Same issue with extra memory_copy instance above in add_dir_entry.
         // *dir_entry = *(dir_entry + 1);
-        memory_copy((char *) (dir_entry + 1), (char *) dir_entry, sizeof(*dir_entry));
+        memcpy((char *) dir_entry, (char *) (dir_entry + 1), sizeof(*dir_entry));
         dir_entry++;
     }
 
@@ -1241,7 +1238,7 @@ int create_file(struct fs_context *ctx, struct file_creation_info *file_info) {
         goto unsave_new_fnode;
     }
 
-    memory_copy((char *)filename, new_dir_entry.name, strlen(filename));
+    memcpy(new_dir_entry.name, (char *)filename, strlen(filename));
     new_dir_entry.size = sz; // Unnecessary as size field is obsolete but leave for now.
     new_dir_entry.type = FILE;
     new_dir_entry.fnode_location = new_fnode_location;
@@ -1366,7 +1363,7 @@ int delete_file(struct fs_context *ctx, char *path) {
 
     clear_buffer((uint8_t *) deletion_target_name, MAX_FILENAME_LENGTH);
 
-    memory_copy(&path[i], deletion_target_name, j - i + 1);
+    memcpy(deletion_target_name, &path[i], j - i + 1);
 
     // Mark end of enclosing path so it can be used to create a chain.
     c = path[i];
@@ -1603,7 +1600,7 @@ int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_in
 
     new_dir_info = (struct dir_info*) folder_info->data;
     new_dir_info->num_entries = 0;
-    memory_copy((char *)foldername, (char *) &new_dir_info->name, strlen(foldername));
+    memcpy((char *) &new_dir_info->name, (char *)foldername, strlen(foldername));
 
     // Save the folder (currently containing only a dir_info).
     if (save_folder(&new_fnode, folder_info)) {
@@ -1619,7 +1616,7 @@ int create_folder(struct fs_context *ctx, struct folder_creation_info *folder_in
     }
 
     // Prepare the dir_entry which will be added to the folder's parent folder.
-    memory_copy((char *)foldername, new_dir_entry.name, strlen(foldername));
+    memcpy(new_dir_entry.name, (char *)foldername, strlen(foldername));
     new_dir_entry.size = sizeof(struct dir_info); // Unnecessary as size field is obsolete but leave for now.
     new_dir_entry.type = FOLDER;
     new_dir_entry.fnode_location = new_fnode_location;
@@ -1721,7 +1718,7 @@ int delete_folder(struct fs_context *ctx, char *path) {
         i++;
 
     clear_buffer((uint8_t *) deletion_target_name, MAX_FILENAME_LENGTH);
-    memory_copy((char *)&path[i], deletion_target_name, j - i + 1);
+    memcpy(deletion_target_name, (char *)&path[i], j - i + 1);
 
     c = path[i];
     path[i] = '\0';
@@ -1891,8 +1888,8 @@ int get_fnode(struct dir_entry *entry, struct fnode* fnode_ptr) {
     // Read fnode in from disk.
     if (read_from_storage_disk(entry->fnode_location.fnode_sector_index, SECTOR_SIZE, buffer))
         return -1;
-
-    *fnode_ptr = (struct fnode)(*(struct fnode*)(buffer + entry->fnode_location.offset_within_sector));
+    // *fnode_ptr = (struct fnode)(*(struct fnode*)(buffer + entry->fnode_location.offset_within_sector));
+    memcpy(fnode_ptr, (char *)(buffer + entry->fnode_location.offset_within_sector), sizeof(struct fnode));
 
     object_free(buffer);
 

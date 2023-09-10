@@ -637,8 +637,10 @@ pa_t next_available_start(pa_t raw_addr, pa_range_sz_t *size, pa_range_sz_t *nex
  * @brief Setup page allocator.
  */
 void setup_zone_alloc_free(void) {
+    // Add PAGE_SIZE to create some room between dynamic memory pool
+    // and interrupt stacks.
     unsigned long long dynamic_memory_start =
-        PAGE_ALIGN_UP((pa_t)_interrupt_stacks_end);
+        PAGE_ALIGN_UP((pa_t)_interrupt_stacks_end + 0x1000);
 
     /* We need to somehow split the memory region [_bss_end, 4GiB)		   */
     /* among the orders. Meaning: how much memory do we split up into size */

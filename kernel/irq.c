@@ -89,22 +89,22 @@ void __install_irqs(void) {
 void __install_irqs64(void) {
     irq_remap();
     /*              isr_index,     base,        seg. sel.,   ist,  type_flags                          */
-    set_idt64_entry(32,   addr_to_u64(&irq64_0),    0x08,        0x02,  0x8E);   /* (idx=0,  desc=timer)    */
-    set_idt64_entry(33,   addr_to_u64(&irq64_1),    0x08,        0x03,  0x8E);   /* (idx=1,  desc=keyboard) */
-    set_idt64_entry(34,   addr_to_u64(&irq64_2),    0x08,        0x0,  0x8E);   /* (idx=2,  desc=unknown)  */
-    set_idt64_entry(35,   addr_to_u64(&irq64_3),    0x08,        0x0,  0x8E);   /* (idx=3,  desc=unknown)  */
-    set_idt64_entry(36,   addr_to_u64(&irq64_4),    0x08,        0x04,  0x8E);   /* (idx=4,  desc=serial port 1/3)  */
-    set_idt64_entry(37,   addr_to_u64(&irq64_5),    0x08,        0x0,  0x8E);   /* (idx=5,  desc=unknown)  */
-    set_idt64_entry(38,   addr_to_u64(&irq64_6),    0x08,        0x0,  0x8E);   /* (idx=6,  desc=unknown)  */
-    set_idt64_entry(39,   addr_to_u64(&irq64_7),    0x08,        0x0,  0x8E);   /* (idx=7,  desc=unknown)  */
-    set_idt64_entry(40,   addr_to_u64(&irq64_8),    0x08,        0x0,  0x8E);   /* (idx=8,  desc=unknown)  */
-    set_idt64_entry(41,   addr_to_u64(&irq64_9),    0x08,        0x0,  0x8E);   /* (idx=9,  desc=unknown)  */
-    set_idt64_entry(42,   addr_to_u64(&irq64_10),   0x08,        0x0,  0x8E);  /* (idx=10, desc=unknown)  */  
-    set_idt64_entry(43,   addr_to_u64(&irq64_11),   0x08,        0x0,  0x8E);  /* (idx=11, desc=unknown)  */  
-    set_idt64_entry(44,   addr_to_u64(&irq64_12),   0x08,        0x0,  0x8E);  /* (idx=12, desc=unknown)  */  
-    set_idt64_entry(45,   addr_to_u64(&irq64_13),   0x08,        0x0,  0x8E);  /* (idx=13, desc=unknown)  */  
-    set_idt64_entry(46,   addr_to_u64(&irq64_14),   0x08,        0x05,  0x8E);  /* (idx=14, desc=disk)     */  
-    set_idt64_entry(47,   addr_to_u64(&irq64_15),   0x08,        0x0,  0x8E);  /* (idx=15, desc=unknown)  */  
+    set_idt64_entry(32,   addr_to_u64(&asm_irq64_0),    0x08,        0x02,  0x8E);   /* (idx=0,  desc=timer)    */
+    set_idt64_entry(33,   addr_to_u64(&asm_irq64_1),    0x08,        0x03,  0x8E);   /* (idx=1,  desc=keyboard) */
+    set_idt64_entry(34,   addr_to_u64(&asm_irq64_2),    0x08,        0x0,  0x8E);   /* (idx=2,  desc=unknown)  */
+    set_idt64_entry(35,   addr_to_u64(&asm_irq64_3),    0x08,        0x0,  0x8E);   /* (idx=3,  desc=unknown)  */
+    set_idt64_entry(36,   addr_to_u64(&asm_irq64_4),    0x08,        0x04,  0x8E);   /* (idx=4,  desc=serial port 1/3)  */
+    set_idt64_entry(37,   addr_to_u64(&asm_irq64_5),    0x08,        0x0,  0x8E);   /* (idx=5,  desc=unknown)  */
+    set_idt64_entry(38,   addr_to_u64(&asm_irq64_6),    0x08,        0x0,  0x8E);   /* (idx=6,  desc=unknown)  */
+    set_idt64_entry(39,   addr_to_u64(&asm_irq64_7),    0x08,        0x0,  0x8E);   /* (idx=7,  desc=unknown)  */
+    set_idt64_entry(40,   addr_to_u64(&asm_irq64_8),    0x08,        0x0,  0x8E);   /* (idx=8,  desc=unknown)  */
+    set_idt64_entry(41,   addr_to_u64(&asm_irq64_9),    0x08,        0x0,  0x8E);   /* (idx=9,  desc=unknown)  */
+    set_idt64_entry(42,   addr_to_u64(&asm_irq64_10),   0x08,        0x0,  0x8E);  /* (idx=10, desc=unknown)  */  
+    set_idt64_entry(43,   addr_to_u64(&asm_irq64_11),   0x08,        0x0,  0x8E);  /* (idx=11, desc=unknown)  */  
+    set_idt64_entry(44,   addr_to_u64(&asm_irq64_12),   0x08,        0x0,  0x8E);  /* (idx=12, desc=unknown)  */  
+    set_idt64_entry(45,   addr_to_u64(&asm_irq64_13),   0x08,        0x0,  0x8E);  /* (idx=13, desc=unknown)  */  
+    set_idt64_entry(46,   addr_to_u64(&asm_irq64_14),   0x08,        0x05,  0x8E);  /* (idx=14, desc=disk)     */  
+    set_idt64_entry(47,   addr_to_u64(&asm_irq64_15),   0x08,        0x0,  0x8E);  /* (idx=15, desc=unknown)  */  
 }
 
 void irq_handler(struct registers* r) {
