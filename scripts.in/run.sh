@@ -2,15 +2,22 @@
 #
 #  File: run.sh
 #
-# This ought to be run in a linux shell.
 
 # Stop on any error.
 set -e
 
-cd ${HOME}/dev/myOS
+platform="Linux"
+uname=`uname -a`
+if [[ $uname == *"Darwin"* ]];
+then
+	platform="Mac"
+elif [[ $uname == *"Microsoft"* ]];
+then
+	platform="Windows"
+fi
+platform_arg=platform=${platform}
 
 noclean=0
-nobuild=0
 norun=0
 build32=0
 
@@ -34,21 +41,14 @@ do
 done
 
 echo "*************************Building image******************************"
-bash scripts/build.sh ${mode_arg}
+bash scripts/build.sh ${mode_arg} ${platform_arg}
 echo "*************************Done building Image*************************"
 
 echo "**************************Running VM*********************************"
-if [[ $norun == 0 ]]; then
-    version=$(cat /proc/version)
-    if [[ $version == *"Microsoft"* ]]; then
-        echo "Launching Windows shell from which VM (qemu) will be launched..."
-        bash -x scripts/wsl-start.sh ${mode_arg}
-    else
-        echo "Launching Linux start script (start.sh)."
-        bash -x scripts/start.sh ${mode_arg}
-    fi
-else 
-    echo "Flag \"--no-run\" passed - not running VM."
+if [[ $norun == 1 ]]; then
+	echo "Flag \"--no-run\" passed - not running VM."
+else
+	./scripts/start.sh ${mode_arg} ${platform_arg}
 fi
 echo "****************************Done Running VM**************************"
 

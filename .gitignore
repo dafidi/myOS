@@ -8,6 +8,12 @@ experimental/
 # What happens in sandbox stays in sandbox.
 sandbox/
 
+# The template, Makefile.in, is what should be changed.
+Makefile
+
+# The templates in scripts.in/ are what should be changed.
+scripts/*
+
 # Build by-product.
 pad.asm
 

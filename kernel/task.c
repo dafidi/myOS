@@ -26,7 +26,7 @@ extern va_range_sz_t APP_SIZE;
  * load_kernel_tr - This will load the CPU's task register using the descriptor
  * indexed by KERNEL_TASK_SEG_IDX.
  */
-extern void load_kernel_tr(void);
+extern void asm_load_kernel_tr(void);
 /**
  * switch_to_user_task - This will trigger a task switch to the task described
  * by the USER_TASK descriptor in the GDT.
@@ -57,13 +57,13 @@ static void configure_kernel_tss64(void) {
 
     // If there are ever interrupt-related issues, it might be worth checking
     // whether any interrupt handler is using more than 4KiB (0x1000) of memory.
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist1l) : "rax"(_interrupt_stacks_begin + 0x1000));
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist2l) : "rax"(_interrupt_stacks_begin + 0x2000));
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist3l) : "rax"(_interrupt_stacks_begin + 0x3000));
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist4l) : "rax"(_interrupt_stacks_begin + 0x4000));
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist5l) : "rax"(_interrupt_stacks_begin + 0x5000));
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist6l) : "rax"(_interrupt_stacks_begin + 0x6000));
-    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist7l) : "rax"(_interrupt_stacks_begin + 0x7000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist1l) : "a"(_interrupt_stacks_begin + 0x1000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist2l) : "a"(_interrupt_stacks_begin + 0x2000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist3l) : "a"(_interrupt_stacks_begin + 0x3000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist4l) : "a"(_interrupt_stacks_begin + 0x4000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist5l) : "a"(_interrupt_stacks_begin + 0x5000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist6l) : "a"(_interrupt_stacks_begin + 0x6000));
+    __asm__("movq %%rax, %0 \n" : "=m" (kernel_tss_->ist7l) : "a"(_interrupt_stacks_begin + 0x7000));
 }
 #endif
 
@@ -182,6 +182,7 @@ int clean_up_after_task(task_info *task) {
 void exec_waiting_tasks(void) { }
 
 void exec_task(struct task_info *task) {
+#ifdef CONFIG32
     if (prepare_for_task_switch(task))
         return;
 
@@ -190,6 +191,9 @@ void exec_task(struct task_info *task) {
     print_string("task switch successful.\n");
 
     clean_up_after_task(task);
+#else
+    print_string("64 bit not ready for task-switching.\n");
+#endif
 }
 
 void init_task_system(void) {
@@ -199,10 +203,14 @@ void init_task_system(void) {
     make_gdt_entry(&pm_gdt[USER_TSS_DESCRIPTOR_IDX], sizeof(user_tss), (unsigned int) &user_tss, 0x9, 0x1e);
     configure_kernel_tss();
 #else
-    make_gdt64_tss_entry((struct gdt64_tss_entry *)&gdt64[KERNEL_TSS_DESCRIPTOR_IDX], sizeof(kernel_tss64), (uint64_t) &kernel_tss64, 0x9, 0x98);
+    make_gdt64_tss_entry((struct gdt64_tss_entry *)&gdt64[KERNEL_TSS_DESCRIPTOR_IDX],
+                          sizeof(kernel_tss64),
+                          (uint64_t) &kernel_tss64,
+                          0x9,
+                          0x98);
 
     configure_kernel_tss64();
 #endif
 
-    load_kernel_tr();
+    asm_load_kernel_tr();
 }

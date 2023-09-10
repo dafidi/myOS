@@ -43,8 +43,10 @@ PD_SIZE   equ 4096
 setup_4l_paging:
 
 setup_PM4L:
-    mov eax, PM4L
-    mov ebx, PDPT
+    lea esi, [rel PM4L]
+    mov eax, esi
+    lea esi, [rel PDPT]
+    mov ebx, esi
     mov ecx, NUM_PDPT
 make_PM4LE:
     or ebx, 0x3
@@ -56,8 +58,10 @@ make_PM4LE:
     jne make_PM4LE
 
 setup_PDPT:
-    mov eax, PDPT
-    mov ebx, PD
+    lea esi, [rel PDPT]
+    mov eax, esi
+    lea esi, [rel PD]
+    mov ebx, esi
     mov ecx, NUM_PD
 make_PDPTE:
     or ebx, 0x3
@@ -71,7 +75,8 @@ make_PDPTE:
 ; This is incomplete - we need to setup
 ; NUM_PD page directories.
     mov edx, NUM_PD
-    mov eax, PD
+    lea esi, [rel PD]
+    mov eax, esi
     mov ebx, 0x0
 setup_PD:
     mov ecx, 512
@@ -93,7 +98,8 @@ ret
 
 load_gdt64:
     cli
-    lgdt [gdt64_info]
+    lea esi, [rel gdt64_info]
+    lgdt [esi]
     ret 
 ; end of load_gdt64
 

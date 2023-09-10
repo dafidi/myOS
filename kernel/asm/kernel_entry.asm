@@ -1,11 +1,10 @@
-[bits 32]
-
 global mem_map_buf_addr
 global mem_map_buf_entry_count
 global kernel_entry
 
 extern main
 
+[bits 32]
 ; kernel_entry expects the following information about the
 ; BIOS's memory map to be put on the stack:
 ;   the address of the buffer holding the memory map (top of stack)
@@ -31,7 +30,7 @@ kernel_task_selector: dw KERNEL_TASK_SEG
 ; Function to load kernel task register.
 global load_kernel_tr
 load_kernel_tr:
-    ltr [kernel_task_selector]
+    ltr [rel kernel_task_selector]
     ret
 
     jmp $

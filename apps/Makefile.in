@@ -1,7 +1,7 @@
 
 #!/bin/bash
 
-PROJECT_PATH=/Users/davidawogbemila/Develop/myOS
+PROJECT_PATH=UNCONFIGURED_PROJECT_PATH
 
 C_FLAGS = -Wall -O0 -m32 -nostdlib -fno-pic -fno-pie -fno-stack-protector -fno-hosted -ffreestanding
 COMPILE_FLAGS = -Wall -O0 -m32 -nostdlib -fno-pic -fno-pie -fno-stack-protector -ffreestanding

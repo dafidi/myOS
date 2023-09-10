@@ -11,6 +11,7 @@
 #define PAGE_ALIGN_UP(x) (PAGE_ALIGN(x) == (x) ? (x) : PAGE_ALIGN(x) + PAGE_SIZE)
 
 #define DEFAULT_TIMER_FREQUENCY_HZ 100
+#define KERNEL_STACK_SIZE 0x100000
 
 #ifdef OLD_SIZE_MACRO
 #define KiB (1024)
@@ -77,16 +78,23 @@ struct registers64 {
     uint64_t err_code, rip, cs, rflags, userrsp, ss;   /* pushed by the processor automatically */ 
 }__attribute__((packed));
 
-void  memory_copy(const char* source , char* dest , int  no_bytes);
+void  memcpy(char* dest, const char* source, int  no_bytes);
 void clear_buffer(uint8_t* buffer, int n);
 void fill_byte_buffer(unsigned char *buffer, const int start_index, int num_entries, const unsigned char val);
 void fill_word_buffer(unsigned short *buffer, const int start_index, int num_entries, const unsigned short val);
 void fill_long_buffer(unsigned int *buffer, const int start_index, int num_entries, const unsigned long val);
 
+#ifdef CONFIG32
 extern void enable_interrupts(void);
 extern void disable_interrupts(void);
-extern void enable_interrupts64(void);
-extern void disable_interrupts64(void);
+#define disable_interrupts() disable_interrupts()
+#define enable_interrupts() enable_interrupts()
+#else
+extern void asm_enable_interrupts64(void);
+extern void asm_disable_interrupts64(void);
+#define enable_interrupts(p) asm_enable_interrupts64()
+#define disable_interrupts(p) asm_disable_interrupts64()
+#endif
 
 // These mainly to try to avoid warnings in gcc.
 // gcc will let you do an explicit cast of (uint32_t)(uint64_t)(x).

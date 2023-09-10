@@ -54,7 +54,7 @@ void update_prompt(void) {
     while (chainp) {
         len = strlen(chainp->name);
 
-        memory_copy((char *)chainp->name, promptp, len);
+        memcpy(promptp, (char *)chainp->name, len);
 
         promptp += len;
 
@@ -63,7 +63,7 @@ void update_prompt(void) {
         chainp = chainp->next;
     }
 
-    memory_copy((char *) stub, promptp, 3);
+    memcpy(promptp, (char *) stub, 3);
 
     promptp += strlen(stub);
 
@@ -131,7 +131,7 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
         };
 
         clear_buffer((uint8_t *)info.path, MAX_FILENAME_LENGTH);
-        memory_copy((char *)argsp, info.path, strlen(argsp));
+        memcpy(info.path, (char *)argsp, strlen(argsp));
 
         print_string("One new file coming right up!\n");
         if (create_file(&current_fs_ctx, &info))
@@ -146,7 +146,7 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
 
         struct folder_creation_info info;
         clear_buffer((uint8_t *)info.path, MAX_FILENAME_LENGTH);
-        memory_copy((char*)argsp, info.path, strlen(argsp));
+        memcpy(info.path, (char*)argsp, strlen(argsp));
 
         print_string("One new folder coming up!\n");
         if (create_folder(&current_fs_ctx, &info))
@@ -177,7 +177,7 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
         char filename[MAX_FILENAME_LENGTH];
 
         clear_buffer((uint8_t *) filename, MAX_FILENAME_LENGTH);
-        memory_copy((char*)argsp, filename, strlen(argsp));
+        memcpy(filename, (char*)argsp, strlen(argsp));
         if (delete_file(&current_fs_ctx, filename)) {
             print_string("Error: deleting ["); print_string(filename);
             print_string("] failed.\n");
@@ -188,7 +188,7 @@ static void exec_known_cmd(const int cmd, char *cmdp, char *argsp) {
         char foldername[MAX_FILENAME_LENGTH];
 
         clear_buffer((uint8_t *) foldername, MAX_FILENAME_LENGTH);
-        memory_copy((char*)argsp, foldername, strlen(argsp));
+        memcpy(foldername, (char*)argsp, strlen(argsp));
         if (delete_folder(&current_fs_ctx, foldername)) {
             print_string("Error: deleting ["); print_string(foldername);
             print_string("] failed.\n");
@@ -276,10 +276,10 @@ static bool process_new_scancodes(const int offset, const int num_new_characters
             p = ascii_buffer_head_ % SHELL_CMD_INPUT_LIMIT;
 
             if (e < p) {
-                memory_copy((char*)&shell_ascii_buffer[e], execution_bounce_buffer, p - e);
+                memcpy(execution_bounce_buffer, (char*)&shell_ascii_buffer[e], p - e);
             } else {
-                memory_copy((char*)&shell_ascii_buffer[e], execution_bounce_buffer, SHELL_CMD_INPUT_LIMIT - e);
-                memory_copy((char*)&shell_ascii_buffer[0], &execution_bounce_buffer[e], p);
+                memcpy(execution_bounce_buffer, (char*)&shell_ascii_buffer[e], SHELL_CMD_INPUT_LIMIT - e);
+                memcpy(&execution_bounce_buffer[e], (char*)&shell_ascii_buffer[0], p);
             }
 
             exec(execution_bounce_buffer);
@@ -305,8 +305,8 @@ void main_shell_init(void) {
     current_fs_ctx.curr_dir_fnode = &root_fnode;
     current_fs_ctx.working_directory_chain = init_directory_chain();
 
-    memory_copy((char *)&root_dir_entry.name, prompt, strlen(root_dir_entry.name));
-    memory_copy((char*)stub, prompt + strlen(root_dir_entry.name), 2);
+    memcpy(prompt, (char *)&root_dir_entry.name, strlen(root_dir_entry.name));
+    memcpy(prompt + strlen(root_dir_entry.name), (char*)stub, 2);
 }
 
 void main_shell_run(void) {

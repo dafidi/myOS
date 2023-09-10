@@ -1,22 +1,20 @@
 
 SECTIONS
 {
-    . = 0x9000;
-    .text : {
-        _text_start = ( ADDR(.text) );
+    .text 0x100000 : {
+        PROVIDE(_begin_text = ( ADDR(.text) ));
         *(.text);
-        _text_end = ( ADDR(.text) + SIZEOF(.text) );
+        PROVIDE(_end_text = ( ADDR(.text) + SIZEOF(.text) ));
     }
     .data : { 
-        _data_start = ( ADDR(.data) );
+        PROVIDE(_begin_data = ( ADDR(.data) ));
         *(.data) }
-        _data_end = ( ADDR(.data) + SIZEOF(.data) );
-    .bss 0x100000 : {
-        _bss_start = ( ADDR(.bss) ) ;
+        PROVIDE(_end_data = ( ADDR(.data) + SIZEOF(.data) ));
+    .bss : {
+        PROVIDE(_begin_bss = ( ADDR(.bss) ));
         *(.bss)
         *(.COMMON)
-     _bss_end = ( ADDR(.bss ) + SIZEOF(.bss) ) ;
+        PROVIDE(_end_bss = ( ADDR(.bss ) + SIZEOF(.bss) ));
     }
 }
-
 ENTRY(kernel_entry)

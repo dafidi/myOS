@@ -22,6 +22,44 @@ va_range_sz_t APP_HEAP_SIZE = 16384;
 static char *kernel_init_message = "Kernel initialized successfully.\n";
 static char *kernel_load_message = "Kernel loaded and running.\n";
 
+// Learnt this sorcery from this S/O question:
+// https://stackoverflow.com/questions/59079951/getting-the-size-of-the-text-section-at-link-time-on-macos
+// which pointed to https://github.com/apple-opensource-mirror/ld64/blob/9a22e880dba9ffe644cf5479d410d82a70c36b06/unit-tests/test-cases/segment-labels/main.c#L29
+// where, apparently, there is a unit test for this exact thing.
+
+#ifdef BUILDING_ON_MAC
+extern int begin_text __asm("section$start$__TEXT$__text");
+extern int end_text __asm("section$end$__TEXT$__text");
+extern int begin_data __asm("section$start$__DATA$__data");
+extern int end_data __asm("section$end$__DATA$__data");
+extern int begin_bss __asm("section$start$__BSS$__bss");
+extern int end_bss __asm("section$end$__BSS$__bss");
+
+const uint64_t _text_start = (uint64_t)&begin_text;
+const uint64_t _text_end = (uint64_t)&end_text;
+const uint64_t _data_start = (uint64_t)&begin_data;
+const uint64_t _data_end = (uint64_t)&end_data;
+const uint64_t _bss_start = (uint64_t)&begin_bss;
+const uint64_t _bss_end = (uint64_t)&end_bss;
+
+#else
+
+extern int begin_text;
+extern int end_text;
+extern int begin_data;
+extern int end_data;
+extern int begin_bss;
+extern int end_bss;
+
+const uint64_t _text_start = (uint64_t)&begin_text;
+const uint64_t _text_end = (uint64_t)&end_text;
+const uint64_t _data_start = (uint64_t)&begin_data;
+const uint64_t _data_end = (uint64_t)&end_data;
+const uint64_t _bss_start = (uint64_t)&begin_bss;
+const uint64_t _bss_end = (uint64_t)&end_bss;
+
+#endif // BUILDING_ON_MAC
+
 extern struct folder root_folder;
 
 extern void system_test(void);
@@ -65,10 +103,14 @@ void init(void) {
     system_test();
 }
 
+void bp() {
+
+}
 /**
  * main - main kernel execution starting point.
  */
 int main(void) {
+    // while(1);
     print_string(kernel_load_message);
     init();
     print_string(kernel_init_message);

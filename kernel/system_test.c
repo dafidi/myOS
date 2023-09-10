@@ -326,6 +326,8 @@ static void mem_test(void) {
  * this test.
  * 
  */
+
+extern bp();
 void disk_test(void) {
 
     print_string("sector_bitmap size="); print_int32(master_record.sector_bitmap_size);
@@ -359,6 +361,7 @@ void disk_test(void) {
         print_string(" errors="); print_int32(err_count);
         print_string("\n");
 
+        bp();
         zone_free(block);
     }
 }
@@ -367,4 +370,6 @@ void system_test(void) {
     mem_test();
 
     disk_test();
+
+    bp();
 }

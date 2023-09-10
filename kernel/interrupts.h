@@ -7,7 +7,7 @@
 #include "system.h"
 
 extern void enable_interrupts(void);
-extern void enable_interrupts64(void);
+extern void asm_enable_interrupts64(void);
 extern void initialize_idt(void);
 
 #define NUM_REGISTERED_IRQS 48
@@ -37,14 +37,16 @@ static void init_interrupts(void) {
 
     initialize_idt();
 
-    // Place the interrupt stacks right after the _bss_end.
-    _interrupt_stacks_begin = round_to_next_quartet((pa_t)&_bss_end);
+    // Place the interrupt stacks right after the kernel stack.
+    // Add PAGE_SIZE to create some room between dynamic memory pool
+    // and interrupt stacks.
+    _interrupt_stacks_begin = PAGE_ALIGN_UP(_bss_end + KERNEL_STACK_SIZE + PAGE_SIZE);
     _interrupt_stacks_end = _interrupt_stacks_begin + 0x7000;
     _interrupt_stacks_length = _interrupt_stacks_end - _interrupt_stacks_begin;
 }
 
 static void start_interrupts(void) {
-    enable_interrupts64();
+    asm_enable_interrupts64();
 }
 
 #endif // __INTERRUPTS_H__

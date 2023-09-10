@@ -44,9 +44,9 @@ static int handle_scrolling(int  cursor_offset) {
     /*  Shuffle  the  rows  back  one. */
     int i;
     for (i=1; i<MAX_ROWS; i++) {
-        memory_copy((char*)u32_to_addr(get_screen_offset(i,0) + VIDEO_ADDRESS),
-                    (char*)u32_to_addr(get_screen_offset (i-1,0) + VIDEO_ADDRESS),
-                    MAX_COLS *2);
+        memcpy((char*)u32_to_addr(get_screen_offset (i-1,0) + VIDEO_ADDRESS),
+                (char*)u32_to_addr(get_screen_offset(i,0) + VIDEO_ADDRESS),
+                MAX_COLS *2);
     }
     
     /*  Blank  the  last  line by  setting  all  bytes  to 0 */

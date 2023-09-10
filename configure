@@ -1,0 +1,63 @@
+#!/bin/bash
+
+set -ex
+
+PLATFORM=`uname -a | cut -d" " -f1`
+PROJECT_PATH=`pwd`
+
+echo "Thank you for downloading this project!"
+
+macify() {
+    # Makefile changes.
+    rm -rf Makefile
+    cp Makefile.in Makefile
+    sed -i.swp -E "s/(KERNEL_BIN_TARGET=).*/\1kernel64.bin-Mac/" Makefile
+    sed -i.swp -E "s/(default: ).*/\1myOS.img/" Makefile
+
+
+    # Script changes.
+    rm -rf scripts
+    cp -r scripts.in scripts
+    # build.sh changes.
+    sed -i.swp -E "s/(KERNEL_BIN_TARGET=).*/\1kernel64.bin-Mac/" scripts/build.sh
+    sed -i.swp -E "s/(IMAGE_TARGET=).*/\1myOS.img/" scripts/build.sh
+    sed -i.swp -E "s#^(PROJECT_PATH=).*#\1${PROJECT_PATH}#" scripts/build.sh
+
+    # apps/Makefile changes
+    rm -rf apps/Makefile
+    cp apps/Makefile.in apps/Makefile
+    sed -i.swp -E "s#^(PROJECT_PATH=).*#\1${PROJECT_PATH}#" apps/Makefile
+}
+
+linuxify() {
+    # Makefile changes.
+    rm -rf Makefile
+    cp Makefile.in Makefile
+    sed -i -E "s/(KERNEL_BIN_TARGET=).*/\1kernel64.bin-Linux/" Makefile
+    sed -i -E "s/(default: ).*/\1myOS.img/" Makefile
+
+    # Script changes.
+    rm -rf scripts
+    cp -r scripts.in scripts
+    # build.sh changes.
+    sed -i -E "s/(KERNEL_BIN_TARGET=).*/\1kernel64.bin-Linux/" scripts/build.sh
+    sed -i -E "s/(IMAGE_TARGET=).*/\1myOS.img/" scripts/build.sh
+    sed -i -E "s#^(PROJECT_PATH=).*#\1${PROJECT_PATH}#" scripts/build.sh
+
+    # apps/Makefile changes.
+    rm -rf apps/Makefile
+    cp apps/Makefile.in apps/Makefile
+    sed -i -E "s#^(PROJECT_PATH=).*#\1${PROJECT_PATH}#" apps/Makefile
+}
+
+echo using PROJECT_PATH as \'$PROJECT_PATH\'
+
+if [[ $PLATFORM = "Darwin" ]];
+then
+    macify
+elif [[ $PLATFORM = "Linux" ]];
+then
+    linuxify
+else
+    echo "Unknown Platform. Quitting."
+fi

@@ -4,6 +4,7 @@
 # 
 # This ought to be run in a Linux shell.
 
+# Convenience script to start the VM.
 qemu_cmd=qemu-system-x86_64
 # qemu_cmd=/home/david/Downloads/qemu-7.2.0/build/qemu-system-x86_64
 

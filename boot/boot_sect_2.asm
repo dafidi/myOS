@@ -13,8 +13,16 @@ mov [BOOT_DRIVE], dl
 ; linking loader (ld) seems to round up whatever is
 ; specified in kernel.ld to be 4KiB-aligned so we might
 ; as well use such an alignment directly.
-KERNEL_OFFSET equ 0x9000
-KERNEL_SIZE_SECTORS equ 209
+KERNEL_OFFSET equ 0x100000
+KERNEL_BOUNCE_OFFSET equ 0x9000
+KERNEL_BOUNCE_BUFFER_SIZE equ 0xa0000 - KERNEL_BOUNCE_OFFSET
+KERNEL_BOUNCE_BUFFER_SIZE_SECTORS equ 1208
+KERNEL_SIZE_SECTORS equ 226
+KERNEL_SIZE_BYTES equ KERNEL_SIZE_SECTORS * 512
+
+; We use the size of the kernel to determine where
+; dynamic memory should start
+MAX_KERNEL_STATIC_MEM equ 40140800
 
 mov bx, BOOTLOADER2_START_MSG
 call print_string
@@ -44,14 +52,6 @@ mem_map_buf_entry_count: dd 0x0
 ; No return from here.
 ;=======================================================================
 
-%include "boot/disk_load.asm"
-%include "boot/gdt.asm"
-%include "boot/print_string.asm"
-%include "boot/print_hex_32.asm"
-%include "boot/print_string_pm.asm"
-%include "boot/switch_to_pm.asm"
-%include "boot/bios_memory_map.asm"
-
 [bits 32]
 poll_status_register:
 	pusha
@@ -66,6 +66,72 @@ poll_status_register:
 	ret
 
 load_kernel_pm:
+	; eax tracks amount left to read.
+	mov eax, KERNEL_SIZE_SECTORS
+	; ecx tracks current location where kernel
+	; should be bounced to.
+	mov ecx, KERNEL_OFFSET
+load_loop:
+	; ebx amount we read on each load_portion
+	mov ebx, eax
+	; if the amount left is greater than the buffer size,
+	; clamp it down to the buffer size.
+	cmp eax, KERNEL_BOUNCE_BUFFER_SIZE_SECTORS
+	jle load_portion
+	mov ebx, KERNEL_BOUNCE_BUFFER_SIZE_SECTORS
+
+load_portion:
+	; push ecx to save the current location to write to
+	; (the bounce-out location).
+	push ecx
+	push eax
+	push ebx
+	; offset into the kernel sectors to start loading from.
+	mov ebx, KERNEL_SIZE_SECTORS
+	sub ebx, eax
+	push ebx
+	call load_kernel_portion_pm
+	pop ebx
+	pop ebx
+	pop eax
+	; push ecx to save the current location to write to
+	; (the bounce-out location).
+	pop ecx
+
+	; Copy kernel from bounce buffer to ecx.
+	push ebx
+	;push edx
+	;push ecx
+	push eax
+
+	; get the number of BYTES just written
+	; (ebx is in sectors so multilpy by 512)
+	shl ebx, 9
+	mov edx, KERNEL_BOUNCE_OFFSET
+	mov edi, ecx
+bounce_out:
+	mov eax, [edx]
+	stosd
+	add edx, 4
+	add ecx, 4
+	sub ebx, 4
+	cmp ebx, 0
+	jne bounce_out
+
+	pop eax
+	;pop ecx
+	;pop edx
+	pop ebx
+
+	sub eax, ebx
+	cmp eax, 0
+	jne load_loop
+
+	ret
+
+load_kernel_portion_pm:
+	push ebp
+	mov ebp, esp
 	cli ; disable interrupts
 
 	mov edx, 0x1f6
@@ -88,11 +154,12 @@ status_trust_loop:
 	out dx, al ; set error register/port.
 
 	mov edx, 0x1f2
-	mov eax, KERNEL_SIZE_SECTORS
+	mov eax, [ebp + 12]
 	out dx, al ; set count port.
 
 	mov edx, 0x1f3
-	mov eax, 0x5  ; kernel should start from sector 5(0-index)/6(1-index)
+	mov eax, [ebp + 8]
+	add eax, 5; kernel should start from sector 5(0-index)/6(1-index)
 	out dx, al ; lba low port
 	shr eax, 8
 	mov edx, 0x1f4
@@ -107,10 +174,10 @@ status_trust_loop:
 	mov eax, 0xc4
 	out dx, al ; set command port
 
-	mov eax, KERNEL_SIZE_SECTORS
-	shl eax, 9
+	mov eax, [ebp + 12]
+	shl eax, 9 ; multiply by 512
 	mov edx, 0x1f0 ; set data port
-	mov ebx, KERNEL_OFFSET
+	mov ebx, KERNEL_BOUNCE_OFFSET
 
 DRQ equ 8192
 insw_loop:
@@ -158,7 +225,9 @@ status_wait:
 	; sti ; ideally we should enable interrupts
 	; here but we haven't set up the disk properly,
 	; so let's not wreak havoc on the universe.
+	pop ebp
 	ret
+; end of load_kernel_portion_pm
 
 [bits 16]
 get_memory_map:
@@ -180,9 +249,18 @@ start_kernel:
 	; the stack when it starts executing, so push them to the stack.
 	push eax
 	push mem_map_buff
+	push MAX_KERNEL_STATIC_MEM
 	; 'jmp' may be better here than 'call' because we don't have use for
 	; the side effect(s) of 'call'.
 	jmp KERNEL_OFFSET
+
+%include "boot/disk_load.asm"
+%include "boot/gdt.asm"
+%include "boot/print_string.asm"
+%include "boot/print_hex_32.asm"
+%include "boot/print_string_pm.asm"
+%include "boot/switch_to_pm.asm"
+%include "boot/bios_memory_map.asm"
 
 [bits 16]
 BOOT_DRIVE: db 0
